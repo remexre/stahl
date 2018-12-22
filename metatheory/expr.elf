@@ -1,0 +1,93 @@
+%% Syntax
+
+expr : type.
+app : expr -> expr -> expr.
+lam : name -> expr -> expr.
+pi  : name -> expr -> expr -> expr.
+ty  : expr.
+var : name -> expr.
+%freeze expr.
+
+%% Pre-declare useful predicates
+
+ty-ctx : type.
+ty-ctx/nil  : ty-ctx.
+ty-ctx/cons : name -> expr -> ty-ctx -> ty-ctx.
+%freeze ty-ctx.
+
+beta : name -> expr -> expr -> expr -> type. % Beta-reduction; (beta X ER E E')
+% represents E[X -> ER] = E'.
+norm : expr -> expr -> type. % The normalization relation; (norm E E')
+% represents "E normalizes to E'."
+of-kind : ty-ctx -> expr -> type. % Checks that the term's inferable type is the
+% type of types, or that the term itself is the type of types. Since the type
+% of types has no types in this system, we need this check to be explicit.
+ty-chk : ty-ctx -> expr -> expr -> type. % Checkable typing
+ty-inf : ty-ctx -> expr -> expr -> type. % Inferable typing
+
+%% Static Semantics
+
+ty-ctx-get : ty-ctx -> name -> expr -> type.
+ty-ctx-get/hd : ty-ctx-get (ty-ctx/cons X E _) X E.
+ty-ctx-get/tl : ty-ctx-get (ty-ctx/cons X _ T) Y E
+  <- name-diff X Y
+  <- ty-ctx-get T Y E.
+%freeze ty-ctx-get.
+
+of-kind/ty   : of-kind G E <- ty-inf G E ty.
+of-kind/kind : of-kind G ty.
+
+ty-chk/lam : ty-chk G (lam X E) (pi X T T')
+  <- ty-chk (ty-ctx/cons X T G) E T'.
+ty-chk/pi : ty-chk G (pi X R R') ty
+  <- ty-inf G R ty
+  <- norm R T
+  <- ty-inf (ty-ctx/cons X T G) R' ty.
+ty-chk/ty-inf : ty-chk G E T
+  <- ty-inf G E I.
+
+ty-inf/app : ty-inf G (app E E') T'''
+  <- ty-inf G E (pi X T T')
+  <- ty-chk G E' T
+  <- beta X E' T' T''
+  <- norm T'' T'''.
+ty-inf/var : ty-inf G (var X) T
+  <- ty-ctx-get G X T.
+
+%% Dynamic Semantics
+
+beta/app      : beta X ER (app E1 E2)  (app E1' E2')
+  <- beta X ER E1 E1'
+  <- beta X ER E2 E2'.
+beta/lam-diff : beta X ER (lam Y E)    (lam Y E')
+  <- name-diff X Y
+  <- beta X ER E E'.
+beta/lam-same : beta X ER (lam X E)    (lam X E).
+beta/pi-diff  : beta X ER (pi Y E1 E2) (pi Y E1' E2')
+  <- name-diff X Y
+  <- beta X ER E1 E1'
+  <- beta X ER E2 E2'.
+beta/pi-same  : beta X ER (pi X E1 E2) (pi X E1' E2)
+  <- beta X ER E1 E1'.
+beta/ty       : beta _ _  ty           ty.
+beta/var-diff : beta X ER (var Y)      (var Y)
+  <- name-diff X Y.
+beta/var-same : beta X ER (var X)      ER.
+%freeze beta.
+
+norm/app-1 : norm (app E E') V'
+  <- norm E (lam X V)
+  <- beta X E' V V'.
+norm/app-2 : norm (app E E') (app N V')
+  <- norm E N
+  <- norm E' V'.
+norm/lam   : norm (lam X E) (lam X V)
+  <- norm E V.
+norm/pi    : norm (pi X R R') (pi X T T')
+  <- norm R T
+  <- norm R' T'.
+
+%freeze norm.
+%freeze of-kind.
+%freeze ty-chk.
+%freeze ty-inf.

@@ -1,0 +1,14 @@
+nat : type.
+z : nat.
+s : nat -> nat.
+%freeze nat.
+
+%abbrev name = nat.
+
+name-diff : name -> name -> type.
+name-diff/ss : name-diff (s A) (s B)
+  <- name-diff A B.
+name-diff/sz : name-diff (s _) z.
+name-diff/zs : name-diff z (s _).
+%mode name-diff +D1 +D2.
+%worlds () (name-diff _ _).

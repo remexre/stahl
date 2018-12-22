@@ -1,0 +1,57 @@
+% This could be made considerably more general based on a freevar predicate.
+weaken-let : ty-chk G (app (lam X (lam X E)) _) T
+          -> ty-chk G (lam X E) T -> type.
+%mode weaken-let +Dty -Dty'.
+
+weaken-let/app : weaken-let
+  (ty-chk/ty-inf (ty-inf/app L _ _ _))
+  InnerTy.
+
+%worlds () (weaken-let _ _).
+%total (D) (weaken-let D _).
+
+beta-prsrv : beta X ER E E' -> ty-chk G (app (lam X E) ER) T
+          -> ty-chk G E' T -> type.
+%mode beta-prsrv +Dstep +Dty -Dty'.
+
+% beta/app      : beta X ER (app E1 E2)  (app E1' E2')
+  % <- beta X ER E1 E1'
+  % <- beta X ER E2 E2'.
+% beta-prsrv/app : beta-prsrv
+  % (beta/app B1 B2)
+  % (ty-chk/ty-inf (ty-inf/app E1T E2T B3 Norm))
+  % N.
+% beta X ER (app E1 E2)  (app E1' E2')
+  % <- beta X ER E1 E1'
+  % <- beta X ER E2 E2'.
+% beta/lam-diff : beta X ER (lam Y E)    (lam Y E')
+  % <- name-diff X Y
+  % <- beta X ER E E'.
+% beta/lam-same : beta X ER (lam X E)    (lam X E).
+% beta-prsrv/lam-same : beta-prsrv
+  % beta/lam-same
+  % T T.
+% beta/pi-diff  : beta X ER (pi Y E1 E2) (pi Y E1' E2')
+  % <- name-diff X Y
+  % <- beta X ER E1 E1'
+  % <- beta X ER E2 E2'.
+% beta/pi-same  : beta X ER (pi X E1 E2) (pi X E1' E2)
+  % <- beta X ER E1 E1'.
+% beta/ty       : beta _ _  ty           ty.
+% beta/var-diff : beta X ER (var Y)      (var Y)
+  % <- name-diff X Y.
+% beta/var-same : beta X ER (var X)      ER.
+
+% %worlds () (beta-prsrv _ _ _).
+% %total (D) (beta-prsrv D _ _).
+
+prsrv : norm E E' -> ty-chk G E T -> ty-chk G E' T -> type.
+%mode prsrv +Dstep +Dty -Dty'.
+
+prsrv/app-1 : prsrv
+  (norm/app-1 NormEToLam BetaReduce)
+  Typing
+  Typing.
+
+% %worlds () (prsrv _ _ _).
+% %total (D) (prsrv D _ _).

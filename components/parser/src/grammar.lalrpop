@@ -1,0 +1,32 @@
+use crate::{lexer::{Token, LexerError}, Value};
+
+grammar;
+
+extern {
+	type Location = usize;
+	type Error = LexerError;
+
+	enum Token {
+    	"(" => Token::ParenOpen,
+    	")" => Token::ParenClose,
+    	"|" => Token::Pipe,
+    	Int => Token::Int(<isize>),
+    	String => Token::String(<String>),
+    	Symbol => Token::Symbol(<String>),
+	}
+}
+
+pub Values = <Value*>;
+
+pub Value = {
+	"(" <ListBody>,
+	Int => Value::Int(<>),
+	String => Value::String(<>),
+	Symbol => Value::Symbol(<>),
+};
+
+ListBody: Value = {
+	<h: Value> <t: ListBody> => Value::Cons(Box::new(h), Box::new(t)),
+	"|" <v: Value> ")" => v,
+	")" => Value::Nil,
+};

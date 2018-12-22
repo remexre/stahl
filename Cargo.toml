@@ -1,0 +1,23 @@
+[workspace]
+members = [
+	".",
+	"components/errors",
+	"components/modules",
+	"components/parser"
+]
+
+[package]
+authors = ["Nathan Ringo <remexre@gmail.com>"]
+description = "A dependently typed Lisp with algebraic effects."
+edition = "2018"
+name = "stahl"
+version = "0.1.0"
+
+[dependencies]
+log = "0.4.6"
+rustyline = "2.1.0"
+stahl_errors = { path = "components/errors" }
+stahl_modules = { path = "components/modules" }
+stahl_parser = { path = "components/parser" }
+stderrlog = "0.4.1"
+structopt = "0.2.13"

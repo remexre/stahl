@@ -1,0 +1,8 @@
+[package]
+authors = ["Nathan Ringo <remexre@gmail.com>"]
+edition = "2018"
+name = "stahl_errors"
+version = "0.1.0"
+
+[dependencies]
+failure = "0.1.3"
