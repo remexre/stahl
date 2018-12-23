@@ -1,6 +1,8 @@
 use crate::{lexer::{Token, LexerError}, Value};
+use stahl_errors::Location;
+use stahl_util::SharedPath;
 
-grammar;
+grammar(path: &Option<SharedPath>);
 
 extern {
 	type Location = usize;
@@ -18,15 +20,19 @@ extern {
 
 pub Values = <Value*>;
 
-pub Value = {
+pub Value: Value = {
 	"(" <ListBody>,
-	Int => Value::Int(<>),
-	String => Value::String(<>),
-	Symbol => Value::Symbol(<>),
+	<l:@L> <n:Int> <r:@R> => Value::Int(Location::new_span(path.clone(), l, r), n),
+	<l:@L> <s:String> <r:@R> => Value::String(Location::new_span(path.clone(), l, r), s),
+	<l:@L> <s:Symbol> <r:@R> => Value::Symbol(Location::new_span(path.clone(), l, r), s),
 };
 
 ListBody: Value = {
-	<h: Value> <t: ListBody> => Value::Cons(Box::new(h), Box::new(t)),
+	<l:@L> <h: Value> <t: ListBody> <r:@R> => Value::Cons(
+		Location::new_span(path.clone(), l, r),
+		Box::new(h),
+		Box::new(t),
+	),
 	"|" <v: Value> ")" => v,
-	")" => Value::Nil,
+	<l:@L> ")" <r:@R> => Value::Nil(Location::new_span(path.clone(), l, r)),
 };

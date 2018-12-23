@@ -1,9 +1,11 @@
 [workspace]
 members = [
 	".",
+	"components/ast",
 	"components/errors",
 	"components/modules",
-	"components/parser"
+	"components/parser",
+	"components/util"
 ]
 
 [package]
@@ -14,10 +16,13 @@ name = "stahl"
 version = "0.1.0"
 
 [dependencies]
+dirs = "1.0.4"
 log = "0.4.6"
-rustyline = "2.1.0"
+rustyline = "3.0.0"
+stahl_ast = { path = "components/ast" }
 stahl_errors = { path = "components/errors" }
 stahl_modules = { path = "components/modules" }
 stahl_parser = { path = "components/parser" }
+stahl_util = { path = "components/util" }
 stderrlog = "0.4.1"
-structopt = "0.2.13"
+structopt = "0.2.14"

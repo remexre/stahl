@@ -33,11 +33,11 @@ pub fn fmt_char(c: char, fmt: &mut Formatter) -> FmtResult {
 impl Value {
     fn fmt_tail(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
-            Value::Cons(h, t) => {
+            Value::Cons(_, h, t) => {
                 write!(fmt, " {}", h)?;
                 t.fmt_tail(fmt)
             }
-            Value::Nil => write!(fmt, ")"),
+            Value::Nil(_) => write!(fmt, ")"),
             v => write!(fmt, " | {})", v),
         }
     }
@@ -46,14 +46,14 @@ impl Value {
 impl Debug for Value {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
-            Value::Cons(h, t) => {
+            Value::Cons(_, h, t) => {
                 write!(fmt, "({}", h)?;
                 t.fmt_tail(fmt)
             }
-            Value::Int(n) => write!(fmt, "{}", n),
-            Value::String(s) => fmt_string(s, fmt),
-            Value::Symbol(s) => write!(fmt, "{}", s),
-            Value::Nil => write!(fmt, "()"),
+            Value::Int(_, n) => write!(fmt, "{}", n),
+            Value::String(_, s) => fmt_string(s, fmt),
+            Value::Symbol(_, s) => write!(fmt, "{}", s),
+            Value::Nil(_) => write!(fmt, "()"),
         }
     }
 }

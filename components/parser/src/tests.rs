@@ -1,5 +1,6 @@
 use crate::{parse_str, Value};
 use proptest::prelude::*;
+use stahl_errors::Location;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ValueArbitraryParams {
@@ -24,18 +25,21 @@ impl Arbitrary for Value {
 
     fn arbitrary_with(params: ValueArbitraryParams) -> Self::Strategy {
         let leaf = prop_oneof![
-            Just(Value::Nil),
-            any::<isize>().prop_map(Value::Int),
-            ".*".prop_map(Value::String),
+            Just(Value::Nil(Location::default())),
+            any::<isize>().prop_map(|n| Value::Int(Location::default(), n)),
+            ".*".prop_map(|s| Value::String(Location::default(), s)),
             // TODO: Cover all symbols.
-            "[A-Za-z*/:][0-9A-Za-z*+/:-]*".prop_map(Value::Symbol),
-            "[+-][0-9]*[A-Za-z*+/:-]+[0-9]*".prop_map(Value::Symbol),
+            "[A-Za-z*/:][0-9A-Za-z*+/:-]*".prop_map(|s| Value::Symbol(Location::default(), s)),
+            "[+-][0-9]*[A-Za-z*+/:-]+[0-9]*".prop_map(|s| Value::Symbol(Location::default(), s)),
         ];
         leaf.prop_recursive(
             params.depth,
             params.max_size,
             params.max_collection_size,
-            |inner| (inner.clone(), inner).prop_map(|(h, t)| Value::Cons(Box::new(h), Box::new(t))),
+            |inner| {
+                (inner.clone(), inner)
+                    .prop_map(|(h, t)| Value::Cons(Location::default(), Box::new(h), Box::new(t)))
+            },
         )
         .boxed()
     }
@@ -54,12 +58,14 @@ foo-again)"#,
     assert_eq!(
         v,
         vec![
-            Value::Symbol("foo".to_string()),
+            Value::Symbol(Location::default(), "foo".to_string()),
             Value::Cons(
-                Box::new(Value::Symbol("quux".to_string())),
+                Location::default(),
+                Box::new(Value::Symbol(Location::default(), "quux".to_string())),
                 Box::new(Value::Cons(
-                    Box::new(Value::Symbol("foo-again".to_string())),
-                    Box::new(Value::Nil),
+                    Location::default(),
+                    Box::new(Value::Symbol(Location::default(), "foo-again".to_string())),
+                    Box::new(Value::Nil(Location::default())),
                 ))
             )
         ]

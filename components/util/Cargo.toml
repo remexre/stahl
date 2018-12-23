@@ -1,9 +1,8 @@
 [package]
 authors = ["Nathan Ringo <remexre@gmail.com>"]
 edition = "2018"
-name = "stahl_errors"
+name = "stahl_util"
 version = "0.1.0"
 
 [dependencies]
-failure = "0.1.3"
-stahl_util = { path = "../util" }
+owning_ref = "0.4.0"
