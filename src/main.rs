@@ -28,6 +28,7 @@ fn main() {
 }
 
 fn run(command: Command) -> Result<()> {
+    #[allow(unreachable_patterns)]
     match command {
         Command::Repl => repl::run(),
         Command::Script { main } => script::run(main),

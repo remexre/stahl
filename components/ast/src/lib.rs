@@ -29,10 +29,17 @@ pub enum Decl {
 }
 
 impl Decl {
-    /// Returns the location at which the expression is.
+    /// Returns the location at which the declaration is.
     pub fn loc(&self) -> Location {
         match self {
             Decl::Def(loc, _, _) | Decl::DefEff(loc, _) => loc.clone(),
+        }
+    }
+
+    /// Returns the name of the declaration.
+    pub fn name(&self) -> SharedString {
+        match self {
+            Decl::Def(_, name, _) | Decl::DefEff(_, Effect(name, _, _)) => name.clone(),
         }
     }
 }

@@ -1,2 +1,7 @@
+(module main)
+
+(import std
+  (prelude foo bar))
+
 (def main (fn ()
   (println "Hello, world!")))

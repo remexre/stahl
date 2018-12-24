@@ -2,6 +2,7 @@
 members = [
 	".",
 	"components/ast",
+	"components/context",
 	"components/errors",
 	"components/modules",
 	"components/parser",
@@ -20,6 +21,7 @@ dirs = "1.0.4"
 log = "0.4.6"
 rustyline = "3.0.0"
 stahl_ast = { path = "components/ast" }
+stahl_context = { path = "components/context" }
 stahl_errors = { path = "components/errors" }
 stahl_modules = { path = "components/modules" }
 stahl_parser = { path = "components/parser" }

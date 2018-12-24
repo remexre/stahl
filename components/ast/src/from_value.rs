@@ -83,17 +83,6 @@ impl Effects {
     }
 }
 
-fn as_list(val: Value) -> (Vec<Value>, Value) {
-    match val {
-        Value::Cons(_, h, t) => {
-            let (mut l, t) = as_list(*t);
-            l.insert(0, *h);
-            (l, t)
-        }
-        _ => (Vec::new(), val),
-    }
-}
-
 fn as_pi_arg(val: &Value) -> Result<(SharedString, Arc<Expr>)> {
     match val {
         Value::Cons(_, h, t) => match (&**h, &**t) {
@@ -123,32 +112,16 @@ fn as_pi_arg_list(val: &Value) -> Result<Vec<(SharedString, Arc<Expr>)>> {
     }
 }
 
-fn as_sym_list(val: &Value) -> Option<Vec<SharedString>> {
-    match val {
-        Value::Cons(_, h, t) => {
-            let mut t = as_sym_list(t)?;
-            if let Value::Symbol(_, ref s) = **h {
-                t.insert(0, s.clone());
-                Some(t)
-            } else {
-                None
-            }
-        }
-        Value::Nil(_) => Some(Vec::new()),
-        _ => None,
-    }
-}
-
 impl Expr {
     /// Parses the expression from a value, allowing a `def`.
     pub fn from_value(val: &Value) -> Result<(Option<SharedString>, Arc<Expr>)> {
         match val {
             Value::Cons(loc, _, _) => {
-                let (l, t) = as_list(val.clone());
+                let (l, t) = val.clone().as_list();
                 if let Value::Nil(_) = t {
                     Expr::from_values(l, loc.clone())
                 } else {
-                    raise!(@val.loc(), "Improper list {} is not an expression", val);
+                    raise!(@val.loc(), "Improper list {} is not an expression", val)
                 }
             }
             Value::Int(_, _) | Value::String(_, _) => {
@@ -206,7 +179,7 @@ impl Expr {
                 "fn" => {
                     if vals.len() > 1 {
                         let args = vals.remove(0);
-                        let args = as_sym_list(&args).ok_or_else(
+                        let args = args.as_sym_list().ok_or_else(
                             || err!(@args.loc(), "An argument list must be composed of symbols"),
                         )?;
                         let body = vals

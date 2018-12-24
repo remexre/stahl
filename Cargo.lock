@@ -744,6 +744,7 @@ dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustyline 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "stahl_ast 0.1.0",
+ "stahl_context 0.1.0",
  "stahl_errors 0.1.0",
  "stahl_modules 0.1.0",
  "stahl_parser 0.1.0",
@@ -763,6 +764,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "stahl_context"
+version = "0.1.0"
+dependencies = [
+ "owning_ref 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stahl_ast 0.1.0",
+ "stahl_errors 0.1.0",
+ "stahl_modules 0.1.0",
+ "stahl_util 0.1.0",
+]
+
+[[package]]
 name = "stahl_errors"
 version = "0.1.0"
 dependencies = [
@@ -773,6 +785,12 @@ dependencies = [
 [[package]]
 name = "stahl_modules"
 version = "0.1.0"
+dependencies = [
+ "stahl_ast 0.1.0",
+ "stahl_errors 0.1.0",
+ "stahl_parser 0.1.0",
+ "stahl_util 0.1.0",
+]
 
 [[package]]
 name = "stahl_parser"
