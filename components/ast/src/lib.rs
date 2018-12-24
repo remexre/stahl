@@ -1,4 +1,6 @@
 #[macro_use]
+extern crate derivative;
+#[macro_use]
 extern crate stahl_errors;
 
 mod from_value;
@@ -9,20 +11,32 @@ use stahl_util::SharedString;
 use std::sync::Arc;
 
 /// A top-level declaration.
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub enum Decl {
     /// A constant.
-    Def {},
+    Def(
+        #[derivative(Debug = "ignore")] Location,
+        SharedString,
+        Arc<Expr>,
+    ),
 
     /// A effect declaration.
-    DefEffects {},
+    DefEff(#[derivative(Debug = "ignore")] Location, Effect),
+}
 
-    /// A type declaration.
-    DefType {},
+impl Decl {
+    /// Returns the location at which the expression is.
+    pub fn loc(&self) -> Location {
+        match self {
+            Decl::Def(loc, _, _) | Decl::DefEff(loc, _) => loc.clone(),
+        }
+    }
 }
 
 /// An effect.
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Effect(SharedString, Arc<Expr>, Option<Arc<Expr>>);
 
 /// A set of effects, possibly an extensible one.
@@ -30,30 +44,40 @@ pub struct Effect(SharedString, Arc<Expr>, Option<Arc<Expr>>);
 pub struct Effects(Vec<Effect>);
 
 /// An expression.
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub enum Expr {
     /// A call to a function with a given number of arguments.
-    Call(Location, Arc<Expr>, Vec<Arc<Expr>>),
+    Call(
+        #[derivative(Debug = "ignore")] Location,
+        Arc<Expr>,
+        Vec<Arc<Expr>>,
+    ),
 
     /// A constant.
-    Const(Location, Value),
+    Const(#[derivative(Debug = "ignore")] Location, Value),
 
     /// A lambda.
     Lam(
-        Location,
+        #[derivative(Debug = "ignore")] Location,
         Vec<SharedString>,
         Vec<(Option<SharedString>, Arc<Expr>)>,
     ),
 
     /// A pi type with effects.
-    Pi(Location, Vec<(SharedString, Arc<Expr>)>, Arc<Expr>, Effects),
+    Pi(
+        #[derivative(Debug = "ignore")] Location,
+        Vec<(SharedString, Arc<Expr>)>,
+        Arc<Expr>,
+        Effects,
+    ),
 
     /// The type of types. Note that there is no syntax for this; it is exposed as a constant in
     /// the standard library via a tactic.
-    Ty(Location),
+    Ty(#[derivative(Debug = "ignore")] Location),
 
     /// A variable.
-    Var(Location, SharedString),
+    Var(#[derivative(Debug = "ignore")] Location, SharedString),
 }
 
 impl Expr {

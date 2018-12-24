@@ -45,7 +45,7 @@ macro_rules! ensure_ne {
 
 /// Evaluates to an `Error` constructed from a formatting expression.
 #[macro_export]
-macro_rules! error {
+macro_rules! err {
     ($($e:expr),+) => {
         $crate::Error::new_basic(format!($($e),+), $crate::Location::default())
     };
@@ -58,10 +58,10 @@ macro_rules! error {
 #[macro_export]
 macro_rules! raise {
     ($($e:expr),+) => {
-        return std::result::Result::Err(error!($($e),+));
+        return std::result::Result::Err(err!($($e),+));
     };
     (@$l:expr, $($e:expr),+) => {
-        return std::result::Result::Err(error!(@$l, $($e),+));
+        return std::result::Result::Err(err!(@$l, $($e),+));
     };
 }
 
@@ -71,8 +71,14 @@ macro_rules! todo {
     () => {
         raise!("TODO at {}:{}", file!(), line!())
     };
+    (@$l:expr) => {
+        raise!(@$l, "TODO at {}:{}", file!(), line!())
+    };
     ($f:expr, $($a:expr),*) => {
-        raise!(concat!("TODO at {}:{}: ", $f), file!(), line!(), $($a),*)
+        raise!(concat!("TODO at {}:{}, ", $f), file!(), line!(), $($a),*)
+    };
+    (@$l:expr, $f:expr, $($a:expr),*) => {
+        raise!(@$l, concat!("TODO at {}:{}, ", $f), file!(), line!(), $($a),*)
     };
 }
 

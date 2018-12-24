@@ -6,17 +6,36 @@ use std::sync::Arc;
 
 impl Decl {
     /// Parses the declaration from a value.
-    pub fn from_value(val: &Value) -> Result<Decl> {
-        /*
-        match val {
-            Value::Cons(_, h, t) => todo!(),
-            Value::Int(_, n) => todo!(),
-            Value::String(_, s) => todo!(),
-            Value::Symbol(_, s) => todo!(),
-            Value::Nil(_) => todo!(),
+    pub fn from_value(val: Value) -> Result<Decl> {
+        let (loc, decl_type, t) = if let Value::Cons(loc, h, t) = val {
+            let decl_type = if let Value::Symbol(_, s) = *h {
+                s
+            } else {
+                raise!(@loc, "{} is not a valid declaration type", h)
+            };
+            (loc, decl_type, *t)
+        } else {
+            raise!(@val.loc(), "Non-cons value {} is not a declaration", val)
+        };
+
+        match decl_type.as_ref() {
+            "def" => match t {
+                Value::Cons(_, h, t) => match (*h, *t) {
+                    (Value::Symbol(_, name), Value::Cons(_, expr, t)) => match *t {
+                        Value::Nil(_) => Expr::from_value_unnamed(&expr, "a def's body")
+                            .map(|expr| Decl::Def(loc, name, expr)),
+                        _ => raise!(@loc, "A def must have two arguments"),
+                    },
+                    (Value::Symbol(_, _), _) => raise!(@loc, "A def must have two arguments"),
+                    _ => raise!(@loc, "A def's name must be a symbol"),
+                },
+                _ => raise!(@loc, "A def must have two arguments"),
+            },
+            "defeff" => Effect::from_value(&t)
+                .map(|eff| Decl::DefEff(loc, eff))
+                .chain(|| err!(@t.loc(), "Invalid defeff")),
+            decl_type => raise!(@loc, "{} is not a declaration type", decl_type),
         }
-        */
-        todo!("{}", val);
     }
 }
 
@@ -54,7 +73,7 @@ impl Effects {
             Value::Cons(_, h, t) => {
                 let eff = Effect::from_value(h)?;
                 let mut effs = Effects::from_value(t)
-                    .chain(|| error!(@val.loc(), "Invalid effect set: {}", val))?;
+                    .chain(|| err!(@val.loc(), "Invalid effect set: {}", val))?;
                 effs.0.push(eff);
                 Ok(effs)
             }
@@ -188,7 +207,7 @@ impl Expr {
                     if vals.len() > 1 {
                         let args = vals.remove(0);
                         let args = as_sym_list(&args).ok_or_else(
-                            || error!(@args.loc(), "An argument list must be composed of symbols"),
+                            || err!(@args.loc(), "An argument list must be composed of symbols"),
                         )?;
                         let body = vals
                             .iter()
