@@ -1,8 +1,11 @@
+use crate::print::fmt_string;
+use stahl_util::SharedString;
 use std::{
     char::from_u32,
     fmt::{Display, Formatter, Result as FmtResult},
     iter::Peekable,
     str::CharIndices,
+    sync::Arc,
 };
 
 #[derive(Debug, Fail)]
@@ -36,8 +39,8 @@ pub enum Token {
     ParenOpen,
     Pipe,
     Quote,
-    String(String),
-    Symbol(String),
+    String(SharedString),
+    Symbol(SharedString),
 }
 
 impl Display for Token {
@@ -48,8 +51,8 @@ impl Display for Token {
             Token::ParenOpen => write!(fmt, "("),
             Token::Pipe => write!(fmt, "|"),
             Token::Quote => write!(fmt, "'"),
-            Token::String(s) => write!(fmt, "{:?}", s), // TODO
-            Token::Symbol(s) => write!(fmt, "{}", s),
+            Token::String(s) => fmt_string(s, fmt),
+            Token::Symbol(s) => write!(fmt, "{}", s.as_ref()),
         }
     }
 }
@@ -143,7 +146,7 @@ impl<'src> Lexer<'src> {
                 None => return Err(LexerError::UnclosedString),
             }
         };
-        Ok((start, Token::String(s), end))
+        Ok((start, Token::String(SharedString::new(Arc::from(s))), end))
     }
 
     fn lex_symbolish(
@@ -180,7 +183,7 @@ impl<'src> Lexer<'src> {
                 Err(_) => return Err(LexerError::IntTooBig(symbolish)),
             }
         } else {
-            Token::Symbol(symbolish)
+            Token::Symbol(SharedString::new(Arc::from(symbolish)))
         };
         Ok((start, tok, end))
     }

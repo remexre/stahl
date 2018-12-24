@@ -7,3 +7,4 @@ version = "0.1.0"
 [dependencies]
 stahl_errors = { path = "../errors" }
 stahl_parser = { path = "../parser" }
+stahl_util = { path = "../util" }

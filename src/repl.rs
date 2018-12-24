@@ -46,6 +46,7 @@ fn run_line(line: String) -> Result<()> {
     let exprs = parse_str(&line)?;
     for expr in exprs {
         println!("{}", expr);
+        println!("{:?}", stahl_ast::Expr::from_value(&expr));
     }
 
     Ok(())

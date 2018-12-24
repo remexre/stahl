@@ -17,7 +17,7 @@ mod tests;
 use crate::lexer::{Lexer, LexerError, Token};
 use lalrpop_util::ParseError;
 use stahl_errors::{Error, Location, Result};
-use stahl_util::SharedPath;
+use stahl_util::{SharedPath, SharedString};
 use std::{fs::File, io::Read, str::FromStr};
 
 /// An acyclic value. Note that these are inefficient to do just about anything other than parse
@@ -31,20 +31,20 @@ pub enum Value {
         Box<Value>,
     ),
     Int(#[derivative(PartialEq = "ignore")] Location, isize),
-    String(#[derivative(PartialEq = "ignore")] Location, String),
-    Symbol(#[derivative(PartialEq = "ignore")] Location, String),
+    String(#[derivative(PartialEq = "ignore")] Location, SharedString),
+    Symbol(#[derivative(PartialEq = "ignore")] Location, SharedString),
     Nil(#[derivative(PartialEq = "ignore")] Location),
 }
 
 impl Value {
     /// Gets the location at which the value appeared.
-    pub fn location(&self) -> &Location {
+    pub fn loc(&self) -> Location {
         match self {
             Value::Cons(loc, _, _)
             | Value::Int(loc, _)
             | Value::String(loc, _)
             | Value::Symbol(loc, _)
-            | Value::Nil(loc) => loc,
+            | Value::Nil(loc) => loc.clone(),
         }
     }
 }

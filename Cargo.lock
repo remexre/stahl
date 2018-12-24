@@ -758,6 +758,7 @@ version = "0.1.0"
 dependencies = [
  "stahl_errors 0.1.0",
  "stahl_parser 0.1.0",
+ "stahl_util 0.1.0",
 ]
 
 [[package]]

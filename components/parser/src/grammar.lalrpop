@@ -1,6 +1,6 @@
 use crate::{lexer::{Token, LexerError}, Value};
 use stahl_errors::Location;
-use stahl_util::SharedPath;
+use stahl_util::{SharedPath, SharedString};
 
 grammar(path: &Option<SharedPath>);
 
@@ -13,8 +13,8 @@ extern {
     	")" => Token::ParenClose,
     	"|" => Token::Pipe,
     	Int => Token::Int(<isize>),
-    	String => Token::String(<String>),
-    	Symbol => Token::Symbol(<String>),
+    	String => Token::String(<SharedString>),
+    	Symbol => Token::Symbol(<SharedString>),
 	}
 }
 

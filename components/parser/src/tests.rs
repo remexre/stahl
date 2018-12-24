@@ -1,6 +1,7 @@
 use crate::{parse_str, Value};
 use proptest::prelude::*;
 use stahl_errors::Location;
+use stahl_util::s;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ValueArbitraryParams {
@@ -27,10 +28,11 @@ impl Arbitrary for Value {
         let leaf = prop_oneof![
             Just(Value::Nil(Location::default())),
             any::<isize>().prop_map(|n| Value::Int(Location::default(), n)),
-            ".*".prop_map(|s| Value::String(Location::default(), s)),
+            ".*".prop_map(|s| Value::String(Location::default(), s!(s))),
             // TODO: Cover all symbols.
-            "[A-Za-z*/:][0-9A-Za-z*+/:-]*".prop_map(|s| Value::Symbol(Location::default(), s)),
-            "[+-][0-9]*[A-Za-z*+/:-]+[0-9]*".prop_map(|s| Value::Symbol(Location::default(), s)),
+            "[A-Za-z*/:][0-9A-Za-z*+/:-]*".prop_map(|s| Value::Symbol(Location::default(), s!(s))),
+            "[+-][0-9]*[A-Za-z*+/:-]+[0-9]*"
+                .prop_map(|s| Value::Symbol(Location::default(), s!(s))),
         ];
         leaf.prop_recursive(
             params.depth,
@@ -58,13 +60,13 @@ foo-again)"#,
     assert_eq!(
         v,
         vec![
-            Value::Symbol(Location::default(), "foo".to_string()),
+            Value::Symbol(Location::default(), s!("foo")),
             Value::Cons(
                 Location::default(),
-                Box::new(Value::Symbol(Location::default(), "quux".to_string())),
+                Box::new(Value::Symbol(Location::default(), s!("quux"))),
                 Box::new(Value::Cons(
                     Location::default(),
-                    Box::new(Value::Symbol(Location::default(), "foo-again".to_string())),
+                    Box::new(Value::Symbol(Location::default(), s!("foo-again"))),
                     Box::new(Value::Nil(Location::default())),
                 ))
             )

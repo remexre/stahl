@@ -4,11 +4,75 @@ use failure::{err_msg, Error as FailureError};
 use stahl_util::SharedPath;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-/// Returns an Error constructed from a formatting expression.
+/// The equivalent of `assert!`, but using `raise!` instead of `panic!`.
+#[macro_export]
+macro_rules! ensure {
+    ($c:expr) => {
+        if !$c {
+            raise!(concat!("Ensurance failed: ", stringify!($c)))
+        }
+    };
+    ($c:expr, @$l:expr) => {
+        if !$c {
+            raise!(@$l, concat!("Ensurance failed: ", stringify!($c)))
+        }
+    };
+    ($c:expr, $($e:expr),+) => {
+        if !$c {
+            raise!($($e),+)
+        }
+    };
+    ($c:expr, @$l:expr, $($e:expr),+) => {
+        if !$c {
+            raise!(@$l, $($e),+)
+        }
+    };
+}
+
+/// The equivalent of `assert_eq!`, but using `raise!` instead of `panic!`.
+#[macro_export]
+macro_rules! ensure_eq {
+    ($a:expr, $b:expr) => { ensure!($a == $b) };
+    ($a:expr, $b:expr, $($tt:tt)*) => { ensure!($a == $b, $($tt)*) };
+}
+
+/// The equivalent of `assert_ne!`, but using `raise!` instead of `panic!`.
+#[macro_export]
+macro_rules! ensure_ne {
+    ($a:expr, $b:expr) => { ensure!($a != $b) };
+    ($a:expr, $b:expr, $($tt:tt)*) => { ensure!($a != $b, $($tt)*) };
+}
+
+/// Evaluates to an `Error` constructed from a formatting expression.
+#[macro_export]
+macro_rules! error {
+    ($($e:expr),+) => {
+        $crate::Error::new_basic(format!($($e),+), $crate::Location::default())
+    };
+    (@$l:expr, $($e:expr),+) => {
+        $crate::Error::new_basic(format!($($e),+), $l)
+    };
+}
+
+/// Returns an `Error` constructed from a formatting expression.
 #[macro_export]
 macro_rules! raise {
-    ($($e:expr),*) => {
-        return std::result::Result::Err($crate::Error::new_basic(format!($($e),*)))
+    ($($e:expr),+) => {
+        return std::result::Result::Err(error!($($e),+));
+    };
+    (@$l:expr, $($e:expr),+) => {
+        return std::result::Result::Err(error!(@$l, $($e),+));
+    };
+}
+
+/// An equivalent of `unimplemented!()` that returns an `Error` instead.
+#[macro_export]
+macro_rules! todo {
+    () => {
+        raise!("TODO at {}:{}", file!(), line!())
+    };
+    ($f:expr, $($a:expr),*) => {
+        raise!(concat!("TODO at {}:{}: ", $f), file!(), line!(), $($a),*)
     };
 }
 
@@ -29,10 +93,10 @@ impl Error {
     /// Creates a new error with no location information from a string. Intended for the `raise!()`
     /// macro, mainly to avoid having to export `err_msg`.
     #[doc(hidden)]
-    pub fn new_basic(s: String) -> Error {
+    pub fn new_basic(s: String, loc: Location) -> Error {
         Error {
             err: err_msg(s),
-            loc: Location::default(),
+            loc,
         }
     }
 
@@ -62,6 +126,14 @@ impl Error {
         Error {
             err: t.into(),
             loc: Location::new_span(path, start, end),
+        }
+    }
+
+    /// Chains an error onto this one. The resulting error will have this error as a cause.
+    pub fn chain(self, other: Error) -> Error {
+        Error {
+            err: other.err.context(self).into(),
+            loc: other.loc,
         }
     }
 }
@@ -152,6 +224,22 @@ impl Display for Position {
         match self {
             Position::Point(point) => write!(fmt, "byte {}", point),
             Position::Span(start, end) => write!(fmt, "bytes {}-{}", start, end),
+        }
+    }
+}
+
+/// An extension trait for `Result`s.
+pub trait ResultExt {
+    /// Chains an error onto the error present, if any. The resulting error will have this error as
+    /// a cause.
+    fn chain(self, other: impl FnOnce() -> Error) -> Self;
+}
+
+impl<T> ResultExt for Result<T> {
+    fn chain(self, other: impl FnOnce() -> Error) -> Self {
+        match self {
+            Ok(x) => Ok(x),
+            Err(e) => Err(e.chain(other())),
         }
     }
 }
