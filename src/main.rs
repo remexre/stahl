@@ -11,6 +11,7 @@ extern crate structopt;
 
 mod options;
 mod repl;
+mod script;
 
 use crate::options::{Command, Options};
 use stahl_errors::Result;
@@ -29,6 +30,7 @@ fn main() {
 fn run(command: Command) -> Result<()> {
     match command {
         Command::Repl => repl::run(),
+        Command::Script { main } => script::run(main),
         _ => raise!("TODO {:?}", command),
     }
 }

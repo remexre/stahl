@@ -12,7 +12,7 @@ lalrpop_mod!(grammar);
 mod lexer;
 mod print;
 #[cfg(test)]
-mod tests;
+pub mod tests;
 
 use crate::lexer::{Lexer, LexerError, Token};
 use lalrpop_util::ParseError;
@@ -60,12 +60,12 @@ impl FromStr for Value {
 }
 
 /// Parses several `Value`s from a file.
-pub fn parse_file(s: &str, path: SharedPath) -> Result<Vec<Value>> {
+pub fn parse_file(path: SharedPath) -> Result<Vec<Value>> {
     let mut buf = String::new();
     File::open(path.as_ref())?.read_to_string(&mut buf)?;
     grammar::ValuesParser::new()
         .parse(&Some(path.clone()), Lexer::new(&buf))
-        .map_err(|err| convert_err(err, Some(path), s.len()))
+        .map_err(|err| convert_err(err, Some(path), buf.len()))
 }
 
 /// Parses several `Value`s from a string.

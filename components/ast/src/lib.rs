@@ -7,8 +7,11 @@ mod from_value;
 
 use stahl_errors::Location;
 use stahl_parser::Value;
-use stahl_util::SharedString;
-use std::sync::Arc;
+use stahl_util::{fmt_iter, SharedString};
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult},
+    sync::Arc,
+};
 
 /// A top-level declaration.
 #[derive(Derivative)]
@@ -34,10 +37,34 @@ impl Decl {
     }
 }
 
+impl Display for Decl {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        match self {
+            Decl::Def(_, name, expr) => write!(fmt, "(def {} {})", name.as_ref(), expr),
+            Decl::DefEff(_, Effect(name, expr, None)) => {
+                write!(fmt, "(defeff {} {})", name.as_ref(), expr)
+            }
+            Decl::DefEff(_, Effect(name, expr, Some(ret))) => {
+                write!(fmt, "(defeff {} {} {})", name.as_ref(), expr, ret)
+            }
+        }
+    }
+}
+
 /// An effect.
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Effect(SharedString, Arc<Expr>, Option<Arc<Expr>>);
+
+impl Display for Effect {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        if let Some(ret) = self.2.as_ref() {
+            write!(fmt, "({} {} {})", self.0.as_ref(), self.1, ret)
+        } else {
+            write!(fmt, "({} {})", self.0.as_ref(), self.1)
+        }
+    }
+}
 
 /// A set of effects, possibly an extensible one.
 #[derive(Debug, Default)]
@@ -90,6 +117,56 @@ impl Expr {
             | Expr::Pi(loc, _, _, _)
             | Expr::Ty(loc)
             | Expr::Var(loc, _) => loc.clone(),
+        }
+    }
+}
+
+impl Display for Expr {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        match self {
+            Expr::Call(_, func, args) => {
+                write!(fmt, "({} ", func)?;
+                fmt_iter(fmt, args)?;
+                write!(fmt, ")")
+            }
+            Expr::Const(_, val) => match val {
+                Value::Int(_, _) | Value::String(_, _) => write!(fmt, "{}", val),
+                Value::Cons(_, _, _) | Value::Symbol(_, _) | Value::Nil(_) => {
+                    write!(fmt, "'{}", val)
+                }
+            },
+            Expr::Lam(_, args, body) => {
+                write!(fmt, "(fn (")?;
+                fmt_iter(fmt, args.iter().map(|s| s.as_ref()))?;
+                write!(fmt, ")")?;
+                for (name, expr) in body {
+                    if let Some(name) = name {
+                        write!(fmt, " (def {} {})", name.as_ref(), expr)?;
+                    } else {
+                        write!(fmt, " {}", expr)?;
+                    }
+                }
+                write!(fmt, ")")
+            }
+            Expr::Pi(_, args, body, effs) => {
+                write!(fmt, "(pi (")?;
+                let mut first = true;
+                for (name, expr) in args {
+                    if first {
+                        first = false;
+                    } else {
+                        fmt.write_str(" ")?;
+                    }
+                    write!(fmt, "({} {})", name.as_ref(), expr)?;
+                }
+                write!(fmt, ") {}", body)?;
+                if !effs.0.is_empty() {
+                    unimplemented!();
+                }
+                write!(fmt, ")")
+            }
+            Expr::Ty(_) => write!(fmt, "#TYPE#"),
+            Expr::Var(_, name) => write!(fmt, "{}", name.as_ref()),
         }
     }
 }

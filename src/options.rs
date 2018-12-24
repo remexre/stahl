@@ -34,14 +34,15 @@ impl Options {
 
 #[derive(Debug, StructOpt)]
 pub enum Command {
-    /// Compiles a file to a binary.
-    #[structopt(name = "build")]
-    Build {
-        #[structopt(name = "main_file", parse(from_os_str))]
-        main: PathBuf,
-    },
-
     /// Starts a REPL.
     #[structopt(name = "repl")]
     Repl,
+
+    /// Interprets a single file.
+    #[structopt(name = "script")]
+    Script {
+        /// The file being interpreted.
+        #[structopt(name = "main_file", parse(from_os_str))]
+        main: PathBuf,
+    },
 }
