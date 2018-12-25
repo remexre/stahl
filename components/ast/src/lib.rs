@@ -5,10 +5,7 @@ extern crate stahl_errors;
 
 use stahl_errors::Location;
 use stahl_util::{fmt_iter, fmt_string, SharedString};
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
-    sync::Arc,
-};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// A top-level declaration.
 #[derive(Derivative)]
@@ -18,8 +15,8 @@ pub enum Decl {
     Def(
         #[derivative(Debug = "ignore")] Location,
         SharedString,
-        Arc<Expr>,
-        Arc<Expr>,
+        Box<Expr>,
+        Box<Expr>,
     ),
 
     /// A effect declaration.
@@ -59,7 +56,7 @@ impl Display for Decl {
 /// An effect.
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct Effect(SharedString, Arc<Expr>, Option<Arc<Expr>>);
+pub struct Effect(SharedString, Box<Expr>, Option<Box<Expr>>);
 
 impl Display for Effect {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
@@ -82,8 +79,8 @@ pub enum Expr {
     /// A call to a function with a given number of arguments.
     Call(
         #[derivative(Debug = "ignore")] Location,
-        Arc<Expr>,
-        Vec<Arc<Expr>>,
+        Box<Expr>,
+        Vec<Box<Expr>>,
     ),
 
     /// A constant.
@@ -101,7 +98,7 @@ pub enum Expr {
     Lam(
         #[derivative(Debug = "ignore")] Location,
         Vec<SharedString>,
-        Vec<(Option<SharedString>, Arc<Expr>, Arc<Expr>, Effects)>,
+        Vec<(Option<SharedString>, Box<Expr>, Box<Expr>, Effects)>,
     ),
 
     /// A local variable.
@@ -110,8 +107,8 @@ pub enum Expr {
     /// A pi type with effects.
     Pi(
         #[derivative(Debug = "ignore")] Location,
-        Vec<(SharedString, Arc<Expr>)>,
-        Arc<Expr>,
+        Vec<(SharedString, Box<Expr>)>,
+        Box<Expr>,
         Effects,
     ),
 
