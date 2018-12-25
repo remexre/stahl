@@ -1,7 +1,7 @@
 use std::{
     fmt::{Debug, Formatter, Result as FmtResult},
-    mem::{forget, uninitialized},
-    ptr::{swap, write},
+    mem::{forget, swap, uninitialized},
+    ptr::write,
 };
 
 /// A vector which is split at a given index. Effectively, this is a `Vec` with a single
@@ -9,14 +9,29 @@ use std::{
 /// allocation.
 pub struct SplitVec<T> {
     idx: usize,
-    vec: Vec<T>,
+
+    // Note: vec[idx] is uninitialized. If vec is `None`, we're partway through a drop.
+    vec: Option<Vec<T>>,
 }
 
 impl<T> SplitVec<T> {
     /// Creates a `SplitVec`, yielding the element at the given index. Panics if the index is out
     /// of bounds.
-    pub fn new(vec: Vec<T>, idx: usize) -> (T, SplitVec<T>) {
-        unimplemented!()
+    pub fn new(mut vec: Vec<T>, idx: usize) -> (T, SplitVec<T>) {
+        assert!(idx < vec.len());
+
+        let elem = unsafe {
+            let mut elem = uninitialized();
+            swap(&mut vec[idx], &mut elem);
+            elem
+        };
+        (
+            elem,
+            SplitVec {
+                idx,
+                vec: Some(vec),
+            },
+        )
     }
 
     /// Places a value at the empty position and returns the original `Vec`.
@@ -53,6 +68,10 @@ impl<T: Debug> Debug for SplitVec<T> {
 
 impl<T> Drop for SplitVec<T> {
     fn drop(&mut self) {
+        let mut vec = None;
+        swap(&mut self.vec, &mut vec);
+        let mut vec = vec.expect("Double-dropping SplitVec?");
+
         unimplemented!()
     }
 }
