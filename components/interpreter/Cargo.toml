@@ -1,10 +1,11 @@
 [package]
 authors = ["Nathan Ringo <remexre@gmail.com>"]
 edition = "2018"
-name = "stahl_ast"
+name = "stahl_interpreter"
 version = "0.1.0"
 
 [dependencies]
-derivative = "1.0.2"
+stahl_ast = { path = "../ast" }
+stahl_context = { path = "../context" }
 stahl_errors = { path = "../errors" }
 stahl_util = { path = "../util" }

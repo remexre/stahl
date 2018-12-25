@@ -20,13 +20,13 @@ use stahl_errors::{Error, Location, Result};
 use stahl_util::{SharedPath, SharedString};
 use std::{fs::File, io::Read, str::FromStr};
 
-/// An acyclic value. Note that these are inefficient to do just about anything other than parse
-/// to, and so should not be used for e.g. term representation during evaluation.
+/// An acyclic value.
 #[derive(Clone, Derivative, Eq)]
 #[derivative(PartialEq = "feature_allow_slow_enum")]
 pub enum Value {
     Cons(
         #[derivative(PartialEq = "ignore")] Location,
+        // TODO: See if there's a performance gain from converting these to Arcs.
         Box<Value>,
         Box<Value>,
     ),

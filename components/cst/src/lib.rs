@@ -3,8 +3,11 @@ extern crate derivative;
 #[macro_use]
 extern crate stahl_errors;
 
+mod from_value;
+
 use stahl_errors::Location;
-use stahl_util::{fmt_iter, fmt_string, SharedString};
+use stahl_parser::Value;
+use stahl_util::{fmt_iter, SharedString};
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     sync::Arc,
@@ -59,7 +62,7 @@ impl Display for Decl {
 /// An effect.
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct Effect(SharedString, Arc<Expr>, Option<Arc<Expr>>);
+pub struct Effect(pub SharedString, pub Arc<Expr>, pub Option<Arc<Expr>>);
 
 impl Display for Effect {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
@@ -73,7 +76,7 @@ impl Display for Effect {
 
 /// A set of effects, possibly an extensible one.
 #[derive(Debug, Default)]
-pub struct Effects(Vec<Effect>);
+pub struct Effects(pub Vec<Effect>);
 
 /// An expression.
 #[derive(Derivative)]
@@ -87,25 +90,17 @@ pub enum Expr {
     ),
 
     /// A constant.
-    Const(#[derivative(Debug = "ignore")] Location, Literal),
+    Const(#[derivative(Debug = "ignore")] Location, Value),
 
-    /// A global variable.
-    GlobalVar(
-        #[derivative(Debug = "ignore")] Location,
-        SharedString,
-        SharedString,
-        SharedString,
-    ),
+    /// A hole, to be filled in via unification.
+    Hole(#[derivative(Debug = "ignore")] Location),
 
     /// A lambda.
     Lam(
         #[derivative(Debug = "ignore")] Location,
         Vec<SharedString>,
-        Vec<(Option<SharedString>, Arc<Expr>, Arc<Expr>, Effects)>,
+        Vec<(Option<(SharedString, Option<Arc<Expr>>)>, Arc<Expr>)>,
     ),
-
-    /// A local variable.
-    LocalVar(#[derivative(Debug = "ignore")] Location, SharedString),
 
     /// A pi type with effects.
     Pi(
@@ -115,8 +110,8 @@ pub enum Expr {
         Effects,
     ),
 
-    /// The type of types.
-    Type(#[derivative(Debug = "ignore")] Location),
+    /// A variable.
+    Var(#[derivative(Debug = "ignore")] Location, SharedString),
 }
 
 impl Expr {
@@ -125,11 +120,10 @@ impl Expr {
         match self {
             Expr::Call(loc, _, _)
             | Expr::Const(loc, _)
-            | Expr::GlobalVar(loc, _, _, _)
+            | Expr::Hole(loc)
             | Expr::Lam(loc, _, _)
-            | Expr::LocalVar(loc, _)
             | Expr::Pi(loc, _, _, _)
-            | Expr::Type(loc) => loc.clone(),
+            | Expr::Var(loc, _) => loc.clone(),
         }
     }
 }
@@ -143,30 +137,27 @@ impl Display for Expr {
                 write!(fmt, ")")
             }
             Expr::Const(_, val) => match val {
-                Literal::Int(_, _) | Literal::String(_, _) => write!(fmt, "{}", val),
-                Literal::Symbol(_, _) => write!(fmt, "'{}", val),
+                Value::Int(_, _) | Value::String(_, _) => write!(fmt, "{}", val),
+                Value::Cons(_, _, _) | Value::Symbol(_, _) | Value::Nil(_) => {
+                    write!(fmt, "'{}", val)
+                }
             },
-            Expr::GlobalVar(_, lib_name, mod_name, name) => write!(
-                fmt,
-                "{}/{}/{}",
-                lib_name.as_ref(),
-                mod_name.as_ref(),
-                name.as_ref(),
-            ),
+            Expr::Hole(_) => write!(fmt, "_"),
             Expr::Lam(_, args, body) => {
                 write!(fmt, "(fn (")?;
                 fmt_iter(fmt, args.iter().map(|s| s.as_ref()))?;
                 write!(fmt, ")")?;
-                for (name, ty, expr, _) in body {
-                    if let Some(name) = name {
-                        write!(fmt, " (def {} {} {})", name.as_ref(), ty, expr)?;
-                    } else {
-                        write!(fmt, " {}", expr)?;
+                for (def_info, expr) in body {
+                    match def_info {
+                        Some((name, None)) => write!(fmt, " (def {} {})", name.as_ref(), expr)?,
+                        Some((name, Some(ty))) => {
+                            write!(fmt, " (def {} {} {})", name.as_ref(), ty, expr)?
+                        }
+                        None => write!(fmt, " {}", expr)?,
                     }
                 }
                 write!(fmt, ")")
             }
-            Expr::LocalVar(_, name) => write!(fmt, "{}", name.as_ref()),
             Expr::Pi(_, args, body, effs) => {
                 write!(fmt, "(pi (")?;
                 let mut first = true;
@@ -184,26 +175,7 @@ impl Display for Expr {
                 }
                 write!(fmt, ")")
             }
-            Expr::Type(_) => write!(fmt, "#TYPE#"),
-        }
-    }
-}
-
-/// A literal value. Cons and nil are excluded, as they are converted to function calls.
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
-pub enum Literal {
-    Int(#[derivative(Debug = "ignore")] Location, isize),
-    String(#[derivative(Debug = "ignore")] Location, SharedString),
-    Symbol(#[derivative(Debug = "ignore")] Location, SharedString),
-}
-
-impl Display for Literal {
-    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        match self {
-            Literal::Int(_, n) => write!(fmt, "{}", n),
-            Literal::String(_, s) => fmt_string(s, fmt),
-            Literal::Symbol(_, s) => write!(fmt, "{}", s.as_ref()),
+            Expr::Var(_, name) => write!(fmt, "{}", name.as_ref()),
         }
     }
 }

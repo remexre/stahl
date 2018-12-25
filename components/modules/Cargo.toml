@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [dependencies]
 stahl_ast = { path = "../ast" }
+stahl_cst = { path = "../cst" }
 stahl_errors = { path = "../errors" }
 stahl_parser = { path = "../parser" }
 stahl_util = { path = "../util" }

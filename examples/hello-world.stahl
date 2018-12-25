@@ -4,4 +4,6 @@
   (prelude foo bar))
 
 (def main (fn ()
-  (println "Hello, world!")))
+  (def msg string
+    "Hello, world!")
+  (println msg)))

@@ -21,15 +21,34 @@ impl Decl {
         match decl_type.as_ref() {
             "def" => match t {
                 Value::Cons(_, h, t) => match (*h, *t) {
-                    (Value::Symbol(_, name), Value::Cons(_, expr, t)) => match *t {
-                        Value::Nil(_) => Expr::from_value_unnamed(&expr, "a def's body")
-                            .map(|expr| Decl::Def(loc, name, expr)),
-                        _ => raise!(@loc, "A def must have two arguments"),
+                    (Value::Symbol(_, name), Value::Cons(_, e1, t)) => match *t {
+                        Value::Cons(_, e2, t) => match *t {
+                            Value::Nil(_) => Expr::from_value_unnamed(&e1, "a def's type")
+                                .and_then(|ty| {
+                                    Expr::from_value_unnamed(&e2, "a def's body").map(|expr| {
+                                        Decl::Def(
+                                            loc.clone(),
+                                            name,
+                                            Arc::new(Expr::Hole(loc)),
+                                            expr,
+                                        )
+                                    })
+                                }),
+                            _ => raise!(@loc, "A def must have two or three arguments"),
+                        },
+                        Value::Nil(_) => {
+                            Expr::from_value_unnamed(&e1, "a def's body").map(|expr| {
+                                Decl::Def(loc.clone(), name, Arc::new(Expr::Hole(loc)), expr)
+                            })
+                        }
+                        _ => raise!(@loc, "A def must have two or three arguments"),
                     },
-                    (Value::Symbol(_, _), _) => raise!(@loc, "A def must have two arguments"),
+                    (Value::Symbol(_, _), _) => {
+                        raise!(@loc, "A def must have two or three arguments")
+                    }
                     _ => raise!(@loc, "A def's name must be a symbol"),
                 },
-                _ => raise!(@loc, "A def must have two arguments"),
+                _ => raise!(@loc, "A def must have two or three arguments"),
             },
             "defeff" => Effect::from_value(&t)
                 .map(|eff| Decl::DefEff(loc, eff))
@@ -114,7 +133,9 @@ fn as_pi_arg_list(val: &Value) -> Result<Vec<(SharedString, Arc<Expr>)>> {
 
 impl Expr {
     /// Parses the expression from a value, allowing a `def`.
-    pub fn from_value(val: &Value) -> Result<(Option<SharedString>, Arc<Expr>)> {
+    pub fn from_value(
+        val: &Value,
+    ) -> Result<(Option<(SharedString, Option<Arc<Expr>>)>, Arc<Expr>)> {
         match val {
             Value::Cons(loc, _, _) => {
                 let (l, t) = val.clone().as_list();
@@ -129,7 +150,9 @@ impl Expr {
             }
             Value::Symbol(loc, s) => {
                 let name = s.as_ref();
-                if name == "def" || name == "fn" || name == "pi" || name == "quote" {
+                if name == "_" {
+                    Ok((None, Arc::new(Expr::Hole(loc.clone()))))
+                } else if name == "def" || name == "fn" || name == "pi" || name == "quote" {
                     raise!(@loc.clone(), "{} is not a legal variable name", name)
                 } else {
                     Ok((None, Arc::new(Expr::Var(loc.clone(), s.clone()))))
@@ -141,8 +164,8 @@ impl Expr {
 
     /// Parses the expression from a value, erroring on a `def`.
     pub fn from_value_unnamed(val: &Value, s: &str) -> Result<Arc<Expr>> {
-        let (name, expr) = Expr::from_value(val)?;
-        if name.is_some() {
+        let (def_info, expr) = Expr::from_value(val)?;
+        if def_info.is_some() {
             raise!(@val.loc(), "{} is not legal in {}", val, s)
         }
         Ok(expr)
@@ -152,14 +175,14 @@ impl Expr {
     pub fn from_values(
         mut vals: Vec<Value>,
         loc: Location,
-    ) -> Result<(Option<SharedString>, Arc<Expr>)> {
+    ) -> Result<(Option<(SharedString, Option<Arc<Expr>>)>, Arc<Expr>)> {
         // Theoretically, this is impossible anyway.
         ensure_ne!(vals.len(), 0, @loc);
         let head = vals.remove(0);
         if let Value::Symbol(_, ref s) = head {
             match &**s {
                 "def" => {
-                    if vals.len() == 2 {
+                    if vals.len() == 2 || vals.len() == 3 {
                         let name = if let Value::Symbol(_, s) = vals.remove(0) {
                             let name = s.as_ref();
                             if name == "def" || name == "fn" || name == "pi" || name == "quote" {
@@ -170,8 +193,14 @@ impl Expr {
                         } else {
                             raise!(@loc, "A def's name must be a symbol")
                         };
-                        let expr = Expr::from_value_unnamed(&head, "a def's body")?;
-                        return Ok((Some(name), expr));
+                        if vals.len() == 1 {
+                            let expr = Expr::from_value_unnamed(&vals[0], "a def's body")?;
+                            return Ok((Some((name, None /* TODO */)), expr));
+                        } else {
+                            let ty = Expr::from_value_unnamed(&vals[0], "a def's type")?;
+                            let expr = Expr::from_value_unnamed(&vals[1], "a def's body")?;
+                            return Ok((Some((name, Some(ty))), expr));
+                        }
                     } else {
                         raise!(@loc, "A def must have two arguments")
                     }

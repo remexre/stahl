@@ -2,7 +2,9 @@ use rustyline::{
     config::{Config, EditMode},
     Editor,
 };
+use stahl_context::Context;
 use stahl_errors::Result;
+use stahl_interpreter::Interpreter;
 use stahl_parser::parse_str;
 
 /// Runs the REPL.
@@ -22,8 +24,10 @@ pub fn run() -> Result<()> {
         }
     }
 
+    let mut ctx = Context::new();
+    let mut interp = Interpreter::new(&mut ctx);
     while let Ok(line) = rl.readline("\u{03bb}> ") {
-        if let Err(e) = run_line(line) {
+        if let Err(e) = run_line(&mut interp, line) {
             error!("{}", e);
         }
     }
@@ -42,11 +46,11 @@ pub fn run() -> Result<()> {
     Ok(())
 }
 
-fn run_line(line: String) -> Result<()> {
+fn run_line(interp: &mut Interpreter, line: String) -> Result<()> {
     let exprs = parse_str(&line)?;
     for expr in exprs {
         println!("{}", expr);
-        println!("{:?}", stahl_ast::Decl::from_value(expr)?);
+        println!("{:?}", stahl_cst::Decl::from_value(expr)?);
     }
 
     Ok(())

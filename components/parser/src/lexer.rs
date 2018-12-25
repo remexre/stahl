@@ -1,5 +1,4 @@
-use crate::print::fmt_string;
-use stahl_util::SharedString;
+use stahl_util::{fmt_string, SharedString};
 use std::{
     char::from_u32,
     fmt::{Display, Formatter, Result as FmtResult},
@@ -34,6 +33,7 @@ pub enum LexerError {
 
 #[derive(Debug)]
 pub enum Token {
+    Hole,
     Int(isize),
     ParenClose,
     ParenOpen,
@@ -46,6 +46,7 @@ pub enum Token {
 impl Display for Token {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
+            Token::Hole => write!(fmt, "_"),
             Token::Int(n) => write!(fmt, "{}", n),
             Token::ParenClose => write!(fmt, ")"),
             Token::ParenOpen => write!(fmt, "("),
@@ -205,6 +206,7 @@ impl<'src> Iterator for Lexer<'src> {
                 (i, '\'') => break Ok((i, Token::Quote, i + 1)),
                 (i, '(') => break Ok((i, Token::ParenOpen, i + 1)),
                 (i, ')') => break Ok((i, Token::ParenClose, i + 1)),
+                (i, '_') => break Ok((i, Token::Hole, i + 1)),
                 (i, '|') => break Ok((i, Token::Pipe, i + 1)),
                 (i, c) if is_symbolish(c) => break self.lex_symbolish(i, c),
                 (_, c) => break Err(LexerError::Unexpected(c)),

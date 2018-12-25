@@ -3,7 +3,9 @@ members = [
 	".",
 	"components/ast",
 	"components/context",
+	"components/cst",
 	"components/errors",
+	"components/interpreter",
 	"components/modules",
 	"components/parser",
 	"components/util"
@@ -20,9 +22,10 @@ version = "0.1.0"
 dirs = "1.0.4"
 log = "0.4.6"
 rustyline = "3.0.0"
-stahl_ast = { path = "components/ast" }
+stahl_cst = { path = "components/cst" }
 stahl_context = { path = "components/context" }
 stahl_errors = { path = "components/errors" }
+stahl_interpreter = { path = "components/interpreter" }
 stahl_modules = { path = "components/modules" }
 stahl_parser = { path = "components/parser" }
 stahl_util = { path = "components/util" }

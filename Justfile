@@ -1,4 +1,4 @@
-all: check build test build-release
+all: check build test
 
 build:
 	cargo build --all

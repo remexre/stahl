@@ -5,8 +5,10 @@ name = "stahl_context"
 version = "0.1.0"
 
 [dependencies]
+derivative = "1.0.2"
 owning_ref = "0.4.0"
 stahl_ast = { path = "../ast" }
+stahl_cst = { path = "../cst" }
 stahl_errors = { path = "../errors" }
 stahl_modules = { path = "../modules" }
 stahl_util = { path = "../util" }

@@ -1,5 +1,5 @@
 use crate::Module;
-use stahl_ast::Decl;
+use stahl_cst::Decl;
 use stahl_errors::{Location, Result};
 use stahl_parser::Value;
 use stahl_util::SharedString;
@@ -7,7 +7,15 @@ use std::collections::HashMap;
 
 impl Module {
     /// Parses a module from values.
-    pub fn from_values(mut vals: Vec<Value>, loc: Location) -> Result<(SharedString, Module)> {
+    pub fn from_values(
+        mut vals: Vec<Value>,
+        loc: Location,
+    ) -> Result<(
+        SharedString,
+        Vec<SharedString>,
+        HashMap<SharedString, HashMap<SharedString, Vec<SharedString>>>,
+        Vec<Decl>,
+    )> {
         let mut vals = vals.drain(..);
 
         let (mod_name, exports) = match vals.next() {
@@ -36,14 +44,7 @@ impl Module {
             }
         }
 
-        Ok((
-            mod_name,
-            Module {
-                exports,
-                imports,
-                decls,
-            },
-        ))
+        Ok((mod_name, exports, imports, decls))
     }
 }
 
