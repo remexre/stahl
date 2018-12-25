@@ -34,6 +34,18 @@ impl<T> SplitVec<T> {
         vec
     }
 
+    /// Returns the slices corresponding to the elements left of the split and right of the split.
+    pub fn both(&self) -> (&[T], &[T]) {
+        (self.left(), self.right())
+    }
+
+    /// Returns the mutable slices corresponding to the elements left of the split and right of the
+    /// split.
+    pub fn both_mut(&mut self) -> (&mut [T], &mut [T]) {
+        let (l, ur) = self.vec.split_at_mut(self.idx);
+        (l, &mut ur[1..])
+    }
+
     /// Returns the slice corresponding to the elements left of the split.
     pub fn left(&self) -> &[T] {
         &self.vec[..self.idx]
@@ -81,19 +93,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn drop_copy() {
-        let (three, mut sv) = SplitVec::new(vec![1, 2, 3, 4, 5], 2);
-        assert_eq!(sv.left_mut(), &[1, 2]);
+    fn copy() {
+        let (three, sv) = SplitVec::new(vec![1, 2, 3, 4, 5], 2);
+        assert_eq!(sv.left(), &[1, 2]);
         assert_eq!(three, 3);
-        assert_eq!(sv.right_mut(), &[4, 5]);
+        assert_eq!(sv.right(), &[4, 5]);
+        assert_eq!(sv.both(), (&[1, 2] as &[_], &[4, 5] as &[_]));
     }
 
     #[test]
-    fn drop_non_copy() {
-        let (bar, sv) = SplitVec::new(vec!["foo".to_string(), "bar".to_string()], 1);
-        assert_eq!(sv.left(), &["foo"]);
+    fn non_copy() {
+        let vec = vec![
+            "foo".to_string(),
+            "bar".to_string(),
+            "baz".to_string(),
+            "quux".to_string(),
+        ];
+
+        let (bar, mut sv) = SplitVec::new(vec, 1);
+        assert_eq!(sv.left_mut(), &["foo"]);
         assert_eq!(bar, "bar");
-        assert_eq!(sv.right(), &[] as &[String]);
+        assert_eq!(sv.right_mut(), &["baz", "quux"]);
+        assert_eq!(
+            sv.both_mut(),
+            (
+                &mut ["foo".to_string()] as &mut [String],
+                &mut ["baz".to_string(), "quux".to_string()] as &mut [String]
+            )
+        );
     }
 
     #[test]
