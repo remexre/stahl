@@ -26,7 +26,11 @@ impl Zipper {
 
     /// Goes up one level, panicking if we're already at the top.
     pub fn go_up(&mut self) {
-        unimplemented!()
+        self.expr = self
+            .path
+            .pop()
+            .expect("Cannot go up from top of expression")
+            .rebuild(self.expr.clone());
     }
 }
 
@@ -84,13 +88,20 @@ pub enum ZipperPathNode {
 impl ZipperPathNode {
     /// Inserts the given expression into the correct position.
     fn rebuild(self, expr: Arc<Expr>) -> Arc<Expr> {
-        match self {
-            ZipperPathNode::CallArgs(loc, func, args) => unimplemented!(),
-            ZipperPathNode::CallFunc(loc, args) => unimplemented!(),
-            ZipperPathNode::LamExpr(loc, args, name, ty, effs, body) => unimplemented!(),
-            ZipperPathNode::LamTy(loc, args, name, expr, effs, body) => unimplemented!(),
-            ZipperPathNode::PiArg(loc, name, args, body, effs) => unimplemented!(),
-            ZipperPathNode::PiRet(loc, args, effs) => unimplemented!(),
-        }
+        let expr = match self {
+            ZipperPathNode::CallArgs(loc, func, args) => Expr::Call(loc, func, args.reunify(expr)),
+            ZipperPathNode::CallFunc(loc, args) => Expr::Call(loc, expr, args),
+            ZipperPathNode::LamExpr(loc, args, name, ty, effs, body) => {
+                Expr::Lam(loc, args, body.reunify((name, ty, expr, effs)))
+            }
+            ZipperPathNode::LamTy(loc, args, name, body_expr, effs, body) => {
+                Expr::Lam(loc, args, body.reunify((name, expr, body_expr, effs)))
+            }
+            ZipperPathNode::PiArg(loc, name, args, body, effs) => {
+                Expr::Pi(loc, args.reunify((name, expr)), body, effs)
+            }
+            ZipperPathNode::PiRet(loc, args, effs) => Expr::Pi(loc, args, expr, effs),
+        };
+        Arc::new(expr)
     }
 }
