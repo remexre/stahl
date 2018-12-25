@@ -15,6 +15,21 @@ pub struct Zipper {
     pub path: Vec<ZipperPathNode>,
 }
 
+impl Zipper {
+    /// Creates a zipper around the given expression.
+    pub fn new(expr: Arc<Expr>) -> Zipper {
+        Zipper {
+            expr,
+            path: Vec::new(),
+        }
+    }
+
+    /// Goes up one level, panicking if we're already at the top.
+    pub fn go_up(&mut self) {
+        unimplemented!()
+    }
+}
+
 /// A node in the path to the root of an AST expression tree, for use in a zipper.
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -29,35 +44,53 @@ pub enum ZipperPathNode {
     /// The function position of a call expression.
     CallFunc(#[derivative(Debug = "ignore")] Location, Vec<Arc<Expr>>),
 
-    /// A constant.
-    Const(#[derivative(Debug = "ignore")] Location, Literal),
-
-    /// A global variable.
-    GlobalVar(
-        #[derivative(Debug = "ignore")] Location,
-        SharedString,
-        SharedString,
-        SharedString,
-    ),
-
-    /// A lambda.
-    Lam(
+    /// An expression in the body of a lambda.
+    LamExpr(
         #[derivative(Debug = "ignore")] Location,
         Vec<SharedString>,
-        Vec<(Option<SharedString>, Arc<Expr>, Arc<Expr>, Effects)>,
+        Option<SharedString>,
+        Arc<Expr>,
+        Effects,
+        SplitVec<(Option<SharedString>, Arc<Expr>, Arc<Expr>, Effects)>,
     ),
 
-    /// A local variable.
-    LocalVar(#[derivative(Debug = "ignore")] Location, SharedString),
-
-    /// A pi type with effects.
-    Pi(
+    /// The type of an expression in the body of a lambda.
+    LamTy(
         #[derivative(Debug = "ignore")] Location,
-        Vec<(SharedString, Arc<Expr>)>,
+        Vec<SharedString>,
+        Option<SharedString>,
+        Arc<Expr>,
+        Effects,
+        SplitVec<(Option<SharedString>, Arc<Expr>, Arc<Expr>, Effects)>,
+    ),
+
+    /// An argument to a pi type.
+    PiArg(
+        #[derivative(Debug = "ignore")] Location,
+        SharedString,
+        SplitVec<(SharedString, Arc<Expr>)>,
         Arc<Expr>,
         Effects,
     ),
 
-    /// The type of types.
-    Type(#[derivative(Debug = "ignore")] Location),
+    /// The return type of a pi type.
+    PiRet(
+        #[derivative(Debug = "ignore")] Location,
+        Vec<(SharedString, Arc<Expr>)>,
+        Effects,
+    ),
+}
+
+impl ZipperPathNode {
+    /// Inserts the given expression into the correct position.
+    fn rebuild(self, expr: Arc<Expr>) -> Arc<Expr> {
+        match self {
+            ZipperPathNode::CallArgs(loc, func, args) => unimplemented!(),
+            ZipperPathNode::CallFunc(loc, args) => unimplemented!(),
+            ZipperPathNode::LamExpr(loc, args, name, ty, effs, body) => unimplemented!(),
+            ZipperPathNode::LamTy(loc, args, name, expr, effs, body) => unimplemented!(),
+            ZipperPathNode::PiArg(loc, name, args, body, effs) => unimplemented!(),
+            ZipperPathNode::PiRet(loc, args, effs) => unimplemented!(),
+        }
+    }
 }
