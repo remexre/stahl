@@ -35,34 +35,48 @@ impl<T> SplitVec<T> {
     }
 
     /// Places a value at the empty position and returns the original `Vec`.
-    pub fn reunify(self, elem: T) -> Vec<T> {
-        unimplemented!()
+    pub fn reunify(mut self, mut elem: T) -> Vec<T> {
+        let mut vec = None;
+        swap(&mut self.vec, &mut vec);
+        let mut vec = vec.expect("Reunifying dropped SplitVec");
+        swap(&mut vec[self.idx], &mut elem);
+        forget(elem);
+        vec
     }
 
     /// Returns the slice corresponding to the elements left of the split.
-    pub fn left_ref(&self) -> &[T] {
-        unimplemented!()
+    pub fn left(&self) -> &[T] {
+        &self.vec.as_ref().expect("Taking left of dropped SplitVec")[..self.idx]
     }
 
     /// Returns the mutable slice corresponding to the elements left of the split.
     pub fn left_mut(&mut self) -> &mut [T] {
-        unimplemented!()
+        &mut self
+            .vec
+            .as_mut()
+            .expect("Taking left_mut of dropped SplitVec")[..self.idx]
     }
 
     /// Returns the slice corresponding to the elements right of the split.
-    pub fn right_ref(&self) -> &[T] {
-        unimplemented!()
+    pub fn right(&self) -> &[T] {
+        &self.vec.as_ref().expect("Taking right of dropped SplitVec")[self.idx + 1..]
     }
 
     /// Returns the mutable slice corresponding to the elements right of the split.
     pub fn right_mut(&mut self) -> &mut [T] {
-        unimplemented!()
+        &mut self
+            .vec
+            .as_mut()
+            .expect("Taking right_mut of dropped SplitVec")[self.idx + 1..]
     }
 }
 
 impl<T: Debug> Debug for SplitVec<T> {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        unimplemented!()
+        fmt.debug_tuple("SplitVec")
+            .field(&self.left())
+            .field(&self.right())
+            .finish()
     }
 }
 
@@ -71,7 +85,9 @@ impl<T> Drop for SplitVec<T> {
         let mut vec = None;
         swap(&mut self.vec, &mut vec);
         let mut vec = vec.expect("Double-dropping SplitVec?");
-
-        unimplemented!()
+        vec.drain(self.idx + 1..).for_each(drop);
+        unsafe {
+            vec.set_len(self.idx);
+        }
     }
 }
