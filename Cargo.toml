@@ -22,6 +22,7 @@ version = "0.1.0"
 dirs = "1.0.4"
 log = "0.4.6"
 rustyline = "3.0.0"
+stahl_ast = { path = "components/ast" }
 stahl_cst = { path = "components/cst" }
 stahl_context = { path = "components/context" }
 stahl_errors = { path = "components/errors" }

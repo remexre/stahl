@@ -88,6 +88,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// The common error wrapper, which allows attaching a location or span.
 #[derive(Debug)]
 pub struct Error {
+    /// The cause of the error, if any.
+    pub cause: Option<Box<Error>>,
+
     /// The error.
     pub err: FailureError,
 
@@ -101,6 +104,7 @@ impl Error {
     #[doc(hidden)]
     pub fn new_basic(s: String, loc: Location) -> Error {
         Error {
+            cause: None,
             err: err_msg(s),
             loc,
         }
@@ -109,6 +113,7 @@ impl Error {
     /// Creates an error in the given file.
     pub fn new_file<T: Into<FailureError>>(t: T, path: Option<SharedPath>) -> Error {
         Error {
+            cause: None,
             err: t.into(),
             loc: Location::new_file(path),
         }
@@ -117,6 +122,7 @@ impl Error {
     /// Creates an error at a certain point in the given file.
     pub fn new_point<T: Into<FailureError>>(t: T, path: Option<SharedPath>, point: usize) -> Error {
         Error {
+            cause: None,
             err: t.into(),
             loc: Location::new_point(path, point),
         }
@@ -130,6 +136,7 @@ impl Error {
         end: usize,
     ) -> Error {
         Error {
+            cause: None,
             err: t.into(),
             loc: Location::new_span(path, start, end),
         }
@@ -138,7 +145,8 @@ impl Error {
     /// Chains an error onto this one. The resulting error will have this error as a cause.
     pub fn chain(self, other: Error) -> Error {
         Error {
-            err: other.err.context(self).into(),
+            cause: Some(Box::new(self)),
+            err: other.err,
             loc: other.loc,
         }
     }
@@ -146,7 +154,18 @@ impl Error {
 
 impl Display for Error {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        write!(fmt, "{}: {}", self.loc, self.err)
+        let mut err = Some(self);
+        let mut first = true;
+        while let Some(e) = err {
+            if first {
+                first = false
+            } else {
+                write!(fmt, "\n        ")?;
+            }
+            write!(fmt, "{}: {}", e.loc, e.err)?;
+            err = e.cause.as_ref().map(|e| &**e);
+        }
+        Ok(())
     }
 }
 
@@ -156,6 +175,7 @@ where
 {
     fn from(t: T) -> Error {
         Error {
+            cause: None,
             err: t.into(),
             loc: Location::default(),
         }

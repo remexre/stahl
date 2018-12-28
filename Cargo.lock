@@ -743,6 +743,7 @@ dependencies = [
  "dirs 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustyline 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stahl_ast 0.1.0",
  "stahl_context 0.1.0",
  "stahl_cst 0.1.0",
  "stahl_errors 0.1.0",

@@ -2,10 +2,11 @@ use rustyline::{
     config::{Config, EditMode},
     Editor,
 };
-use stahl_context::Context;
-use stahl_errors::Result;
-use stahl_interpreter::Interpreter;
+use stahl_context::{Context, ModContext};
+use stahl_cst::Expr as CstExpr;
+use stahl_errors::{Location, Result};
 use stahl_parser::parse_str;
+use stahl_util::SharedString;
 
 /// Runs the REPL.
 pub fn run() -> Result<()> {
@@ -25,9 +26,11 @@ pub fn run() -> Result<()> {
     }
 
     let mut ctx = Context::new();
-    let mut interp = Interpreter::new(&mut ctx);
+    let mut lib_ctx = ctx.create_lib(SharedString::from("#repl#"), 0, 0, 0)?;
+    let mut mod_ctx =
+        lib_ctx.create_mod(SharedString::from(""), vec![], vec![].into_iter().collect())?;
     while let Ok(line) = rl.readline("\u{03bb}> ") {
-        if let Err(e) = run_line(&mut interp, line) {
+        if let Err(e) = run_line(&mut mod_ctx, line) {
             error!("{}", e);
         }
     }
@@ -46,11 +49,17 @@ pub fn run() -> Result<()> {
     Ok(())
 }
 
-fn run_line(interp: &mut Interpreter, line: String) -> Result<()> {
+fn run_line(mod_ctx: &mut ModContext, line: String) -> Result<()> {
     let exprs = parse_str(&line)?;
     for expr in exprs {
         println!("{}", expr);
-        println!("{:?}", stahl_cst::Decl::from_value(expr)?);
+        let expr = CstExpr::from_value_unnamed(&expr, "the REPL")?;
+        let (expr, ty) = mod_ctx.elab(&expr, &CstExpr::Hole(Location::default()))?;
+        println!("expr = {}", expr);
+        println!("  ty = {}", ty);
+
+        // let interp = Interpreter::new(&mut mod_ctx);
+        // println!("{}", interp.is_normal(&expr));
     }
 
     Ok(())

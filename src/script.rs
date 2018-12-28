@@ -13,7 +13,7 @@ pub fn run(main: PathBuf) -> Result<()> {
         Module::from_values(vals, Location::new_file(Some(main)))?;
 
     let mut context = Context::new();
-    let mut library = context.create_lib(SharedString::new(Arc::from("#script#")), 0, 0, 0)?;
+    let mut library = context.create_lib(SharedString::from("#script#"), 0, 0, 0)?;
     let mut module = library.create_mod(mod_name, exports, imports)?;
 
     for decl in decls {

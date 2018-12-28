@@ -1,5 +1,5 @@
 use crate::split_vec::SplitVec;
-use stahl_ast::{Effects, Expr, Literal};
+use stahl_ast::{Effects, Expr};
 use stahl_errors::Location;
 use stahl_util::SharedString;
 

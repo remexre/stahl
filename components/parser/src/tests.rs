@@ -1,7 +1,7 @@
 use crate::{parse_str, Value};
 use proptest::prelude::*;
 use stahl_errors::Location;
-use stahl_util::s;
+use stahl_util::SharedString;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ValueArbitraryParams {
@@ -28,11 +28,12 @@ impl Arbitrary for Value {
         let leaf = prop_oneof![
             Just(Value::Nil(Location::default())),
             any::<isize>().prop_map(|n| Value::Int(Location::default(), n)),
-            ".*".prop_map(|s| Value::String(Location::default(), s!(s))),
+            ".*".prop_map(|s| Value::String(Location::default(), SharedString::from(&s))),
             // TODO: Cover all symbols.
-            "[A-Za-z*/:][0-9A-Za-z*+/:-]*".prop_map(|s| Value::Symbol(Location::default(), s!(s))),
+            "[A-Za-z*/:][0-9A-Za-z*+/:-]*"
+                .prop_map(|s| Value::Symbol(Location::default(), SharedString::from(&s))),
             "[+-][0-9]*[A-Za-z*+/:-]+[0-9]*"
-                .prop_map(|s| Value::Symbol(Location::default(), s!(s))),
+                .prop_map(|s| Value::Symbol(Location::default(), SharedString::from(&s))),
         ];
         leaf.prop_recursive(
             params.depth,
@@ -60,13 +61,19 @@ foo-again)"#,
     assert_eq!(
         v,
         vec![
-            Value::Symbol(Location::default(), s!("foo")),
+            Value::Symbol(Location::default(), SharedString::from("foo")),
             Value::Cons(
                 Location::default(),
-                Box::new(Value::Symbol(Location::default(), s!("quux"))),
+                Box::new(Value::Symbol(
+                    Location::default(),
+                    SharedString::from("quux")
+                )),
                 Box::new(Value::Cons(
                     Location::default(),
-                    Box::new(Value::Symbol(Location::default(), s!("foo-again"))),
+                    Box::new(Value::Symbol(
+                        Location::default(),
+                        SharedString::from("foo-again")
+                    )),
                     Box::new(Value::Nil(Location::default())),
                 ))
             )

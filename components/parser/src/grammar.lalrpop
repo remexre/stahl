@@ -1,7 +1,6 @@
 use crate::{lexer::{Token, LexerError}, Value};
 use stahl_errors::Location;
 use stahl_util::{SharedPath, SharedString};
-use std::sync::Arc;
 
 grammar(path: &Option<SharedPath>);
 
@@ -25,7 +24,7 @@ pub Values = <Value*>;
 pub Value: Value = {
 	"(" <ListBody>,
 	<l:@L> "_" <r:@R> => Value::Symbol(Location::new_span(path.clone(), l, r),
-	                                   SharedString::from(Arc::from("_"))),
+	                                   SharedString::from("_")),
 	<l:@L> <n:Int> <r:@R> => Value::Int(Location::new_span(path.clone(), l, r), n),
 	<l:@L> <s:String> <r:@R> => Value::String(Location::new_span(path.clone(), l, r), s),
 	<l:@L> <s:Symbol> <r:@R> => Value::Symbol(Location::new_span(path.clone(), l, r), s),

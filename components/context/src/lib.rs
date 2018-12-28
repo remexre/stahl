@@ -1,17 +1,17 @@
 //! The context of the compiler and interpreter.
 //!
-//! This is more or less just the data structures, without much logic.
+//! This also contains elaboration logic.
 
 #[macro_use]
 extern crate derivative;
 #[macro_use]
 extern crate stahl_errors;
 
+mod elab;
 mod split_vec;
 mod zipper;
 
 use owning_ref::OwningRefMut;
-use stahl_ast::{Decl, Expr};
 use stahl_cst::{Decl as CstDecl, Effect as CstEffect, Expr as CstExpr};
 use stahl_errors::{Location, Result};
 use stahl_modules::{Library, Module};
@@ -42,7 +42,7 @@ impl Context {
         if self.libs.contains_key(&key) {
             raise!(
                 "Library {}-{}-{}-{} already exists",
-                name.as_ref(),
+                name,
                 major,
                 minor,
                 patch
@@ -89,11 +89,11 @@ impl LibContext<'_> {
         if self.library.mods.contains_key(&name) {
             raise!(
                 "Module {}-{}-{}-{}/{} already exists",
-                self.key.0.as_ref(),
+                self.key.0,
                 self.key.1,
                 self.key.2,
                 self.key.3,
-                name.as_ref()
+                name
             )
         }
         self.library.mods.insert(name.clone(), module);
@@ -122,12 +122,12 @@ impl ModContext<'_> {
         if self.module.decls.iter().any(|decl| decl.name() == name) {
             raise!(
                 "Module {}-{}-{}-{}/{} already declares {}",
-                self.lib.0.as_ref(),
+                self.lib.0,
                 self.lib.1,
                 self.lib.2,
                 self.lib.3,
-                self.name.as_ref(),
-                name.as_ref()
+                self.name,
+                name
             )
         }
 
@@ -145,7 +145,7 @@ impl ModContext<'_> {
         ty: Arc<CstExpr>,
         expr: Arc<CstExpr>,
     ) -> Result<()> {
-        todo!("{} {} {}", name.as_ref(), ty, expr)
+        todo!("{} {} {}", name, ty, expr)
     }
 
     /// Adds an effect definition to the module context.
@@ -156,11 +156,11 @@ impl ModContext<'_> {
         arg: Arc<CstExpr>,
         ret: Option<Arc<CstExpr>>,
     ) -> Result<()> {
-        todo!("{} {}", name.as_ref(), arg)
+        todo!("{} {}", name, arg)
     }
 
     /// Resolves a name in the module context.
-    pub fn resolve(&self, name: SharedString) -> Result<&CstDecl> {
+    pub fn resolve(&self, name: &str) -> Result<&CstDecl> {
         todo!()
     }
 }

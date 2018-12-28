@@ -24,7 +24,7 @@ impl Debug for Value {
             }
             Value::Int(_, n) => write!(fmt, "{}", n),
             Value::String(_, s) => fmt_string(s, fmt),
-            Value::Symbol(_, s) => write!(fmt, "{}", s.as_ref()),
+            Value::Symbol(_, s) => write!(fmt, "{}", s),
             Value::Nil(_) => write!(fmt, "()"),
         }
     }

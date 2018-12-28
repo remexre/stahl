@@ -32,7 +32,7 @@ impl Module {
             if processing_imports {
                 if let Some((implib, imps)) = parse_import_form(&val)? {
                     if imports.contains_key(&implib) {
-                        raise!(@val.loc(), "Duplicate import form for {}", implib.as_ref())
+                        raise!(@val.loc(), "Duplicate import form for {}", implib)
                     }
                     imports.insert(implib, imps);
                 } else {
@@ -51,7 +51,7 @@ impl Module {
 fn parse_module_form(val: &Value) -> Option<(SharedString, Vec<SharedString>)> {
     if let Value::Cons(_, h, t) = val {
         if let (&Value::Symbol(_, ref module), &Value::Cons(_, ref h, ref t)) = (&**h, &**t) {
-            if module.as_ref() != "module" {
+            if module != "module" {
                 None
             } else if let Value::Symbol(_, ref name) = **h {
                 let exps = t.as_sym_list()?;
@@ -72,7 +72,7 @@ fn parse_import_form(
 ) -> Result<Option<(SharedString, HashMap<SharedString, Vec<SharedString>>)>> {
     if let Value::Cons(_, h, t) = val {
         if let (&Value::Symbol(_, ref import), &Value::Cons(_, ref h, ref t)) = (&**h, &**t) {
-            if import.as_ref() != "import" {
+            if import != "import" {
                 Ok(None)
             } else if let Value::Symbol(_, ref name) = **h {
                 let mut imps = HashMap::new();

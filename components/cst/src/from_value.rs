@@ -148,14 +148,13 @@ impl Expr {
             Value::Int(_, _) | Value::String(_, _) => {
                 Ok((None, Arc::new(Expr::Const(val.loc(), val.clone()))))
             }
-            Value::Symbol(loc, s) => {
-                let name = s.as_ref();
+            Value::Symbol(loc, name) => {
                 if name == "_" {
                     Ok((None, Arc::new(Expr::Hole(loc.clone()))))
                 } else if name == "def" || name == "fn" || name == "pi" || name == "quote" {
                     raise!(@loc.clone(), "{} is not a legal variable name", name)
                 } else {
-                    Ok((None, Arc::new(Expr::Var(loc.clone(), s.clone()))))
+                    Ok((None, Arc::new(Expr::Var(loc.clone(), name.clone()))))
                 }
             }
             Value::Nil(loc) => raise!(@loc.clone(), "Nil is not an expression"),
@@ -183,8 +182,7 @@ impl Expr {
             match &**s {
                 "def" => {
                     if vals.len() == 2 || vals.len() == 3 {
-                        let name = if let Value::Symbol(_, s) = vals.remove(0) {
-                            let name = s.as_ref();
+                        let name = if let Value::Symbol(_, name) = vals.remove(0) {
                             if name == "def" || name == "fn" || name == "pi" || name == "quote" {
                                 raise!(@loc.clone(), "{} is not a legal variable name", name)
                             } else {
@@ -195,11 +193,11 @@ impl Expr {
                         };
                         if vals.len() == 1 {
                             let expr = Expr::from_value_unnamed(&vals[0], "a def's body")?;
-                            return Ok((Some((name, None /* TODO */)), expr));
+                            return Ok((Some((name.clone(), None)), expr));
                         } else {
                             let ty = Expr::from_value_unnamed(&vals[0], "a def's type")?;
                             let expr = Expr::from_value_unnamed(&vals[1], "a def's body")?;
-                            return Ok((Some((name, Some(ty))), expr));
+                            return Ok((Some((name.clone(), Some(ty))), expr));
                         }
                     } else {
                         raise!(@loc, "A def must have two arguments")

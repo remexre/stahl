@@ -1,7 +1,5 @@
 #[macro_use]
 extern crate derivative;
-#[macro_use]
-extern crate stahl_errors;
 
 use stahl_errors::Location;
 use stahl_util::{fmt_iter, fmt_string, SharedString};
@@ -42,38 +40,44 @@ impl Decl {
 impl Display for Decl {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
-            Decl::Def(_, name, ty, expr) => write!(fmt, "(def {} {} {})", name.as_ref(), ty, expr),
-            Decl::DefEff(_, Effect(name, expr, None)) => {
-                write!(fmt, "(defeff {} {})", name.as_ref(), expr)
-            }
+            Decl::Def(_, name, ty, expr) => write!(fmt, "(def {} {} {})", name, ty, expr),
+            Decl::DefEff(_, Effect(name, expr, None)) => write!(fmt, "(defeff {} {})", name, expr),
             Decl::DefEff(_, Effect(name, expr, Some(ret))) => {
-                write!(fmt, "(defeff {} {} {})", name.as_ref(), expr, ret)
+                write!(fmt, "(defeff {} {} {})", name, expr, ret)
             }
         }
     }
 }
 
 /// An effect.
-#[derive(Derivative)]
+#[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct Effect(SharedString, Box<Expr>, Option<Box<Expr>>);
+pub struct Effect(pub SharedString, pub Box<Expr>, pub Option<Box<Expr>>);
 
 impl Display for Effect {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         if let Some(ret) = self.2.as_ref() {
-            write!(fmt, "({} {} {})", self.0.as_ref(), self.1, ret)
+            write!(fmt, "({} {} {})", self.0, self.1, ret)
         } else {
-            write!(fmt, "({} {})", self.0.as_ref(), self.1)
+            write!(fmt, "({} {})", self.0, self.1)
         }
     }
 }
 
 /// A set of effects, possibly an extensible one.
-#[derive(Debug, Default)]
-pub struct Effects(Vec<Effect>);
+#[derive(Clone, Debug, Default)]
+pub struct Effects(pub Vec<Effect>);
+
+impl Display for Effects {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        write!(fmt, "(")?;
+        fmt_iter(fmt, &self.0)?;
+        write!(fmt, ")")
+    }
+}
 
 /// An expression.
-#[derive(Derivative)]
+#[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum Expr {
     /// A call to a function with a given number of arguments.
@@ -143,27 +147,23 @@ impl Display for Expr {
                 Literal::Int(_, _) | Literal::String(_, _) => write!(fmt, "{}", val),
                 Literal::Symbol(_, _) => write!(fmt, "'{}", val),
             },
-            Expr::GlobalVar(_, lib_name, mod_name, name) => write!(
-                fmt,
-                "{}/{}/{}",
-                lib_name.as_ref(),
-                mod_name.as_ref(),
-                name.as_ref(),
-            ),
+            Expr::GlobalVar(_, lib_name, mod_name, name) => {
+                write!(fmt, "{}/{}/{}", lib_name, mod_name, name,)
+            }
             Expr::Lam(_, args, body) => {
                 write!(fmt, "(fn (")?;
-                fmt_iter(fmt, args.iter().map(|s| s.as_ref()))?;
+                fmt_iter(fmt, args)?;
                 write!(fmt, ")")?;
                 for (name, ty, expr, _) in body {
                     if let Some(name) = name {
-                        write!(fmt, " (def {} {} {})", name.as_ref(), ty, expr)?;
+                        write!(fmt, " (def {} {} {})", name, ty, expr)?;
                     } else {
                         write!(fmt, " {}", expr)?;
                     }
                 }
                 write!(fmt, ")")
             }
-            Expr::LocalVar(_, name) => write!(fmt, "{}", name.as_ref()),
+            Expr::LocalVar(_, name) => write!(fmt, "{}", name),
             Expr::Pi(_, args, body, effs) => {
                 write!(fmt, "(pi (")?;
                 let mut first = true;
@@ -173,11 +173,11 @@ impl Display for Expr {
                     } else {
                         fmt.write_str(" ")?;
                     }
-                    write!(fmt, "({} {})", name.as_ref(), expr)?;
+                    write!(fmt, "({} {})", name, expr)?;
                 }
                 write!(fmt, ") {}", body)?;
                 if !effs.0.is_empty() {
-                    unimplemented!();
+                    write!(fmt, " {}", effs)?;
                 }
                 write!(fmt, ")")
             }
@@ -200,7 +200,7 @@ impl Display for Literal {
         match self {
             Literal::Int(_, n) => write!(fmt, "{}", n),
             Literal::String(_, s) => fmt_string(s, fmt),
-            Literal::Symbol(_, s) => write!(fmt, "{}", s.as_ref()),
+            Literal::Symbol(_, s) => write!(fmt, "{}", s),
         }
     }
 }

@@ -6,7 +6,7 @@ extern crate stahl_errors;
 mod from_value;
 
 use stahl_errors::Location;
-use stahl_parser::Value;
+pub use stahl_parser::Value;
 use stahl_util::{fmt_iter, SharedString};
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
@@ -48,12 +48,10 @@ impl Decl {
 impl Display for Decl {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
-            Decl::Def(_, name, ty, expr) => write!(fmt, "(def {} {} {})", name.as_ref(), ty, expr),
-            Decl::DefEff(_, Effect(name, expr, None)) => {
-                write!(fmt, "(defeff {} {})", name.as_ref(), expr)
-            }
+            Decl::Def(_, name, ty, expr) => write!(fmt, "(def {} {} {})", name, ty, expr),
+            Decl::DefEff(_, Effect(name, expr, None)) => write!(fmt, "(defeff {} {})", name, expr),
             Decl::DefEff(_, Effect(name, expr, Some(ret))) => {
-                write!(fmt, "(defeff {} {} {})", name.as_ref(), expr, ret)
+                write!(fmt, "(defeff {} {} {})", name, expr, ret)
             }
         }
     }
@@ -67,9 +65,9 @@ pub struct Effect(pub SharedString, pub Arc<Expr>, pub Option<Arc<Expr>>);
 impl Display for Effect {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         if let Some(ret) = self.2.as_ref() {
-            write!(fmt, "({} {} {})", self.0.as_ref(), self.1, ret)
+            write!(fmt, "({} {} {})", self.0, self.1, ret)
         } else {
-            write!(fmt, "({} {})", self.0.as_ref(), self.1)
+            write!(fmt, "({} {})", self.0, self.1)
         }
     }
 }
@@ -145,14 +143,12 @@ impl Display for Expr {
             Expr::Hole(_) => write!(fmt, "_"),
             Expr::Lam(_, args, body) => {
                 write!(fmt, "(fn (")?;
-                fmt_iter(fmt, args.iter().map(|s| s.as_ref()))?;
+                fmt_iter(fmt, args)?;
                 write!(fmt, ")")?;
                 for (def_info, expr) in body {
                     match def_info {
-                        Some((name, None)) => write!(fmt, " (def {} {})", name.as_ref(), expr)?,
-                        Some((name, Some(ty))) => {
-                            write!(fmt, " (def {} {} {})", name.as_ref(), ty, expr)?
-                        }
+                        Some((name, None)) => write!(fmt, " (def {} {})", name, expr)?,
+                        Some((name, Some(ty))) => write!(fmt, " (def {} {} {})", name, ty, expr)?,
                         None => write!(fmt, " {}", expr)?,
                     }
                 }
@@ -167,7 +163,7 @@ impl Display for Expr {
                     } else {
                         fmt.write_str(" ")?;
                     }
-                    write!(fmt, "({} {})", name.as_ref(), expr)?;
+                    write!(fmt, "({} {})", name, expr)?;
                 }
                 write!(fmt, ") {}", body)?;
                 if !effs.0.is_empty() {
@@ -175,7 +171,7 @@ impl Display for Expr {
                 }
                 write!(fmt, ")")
             }
-            Expr::Var(_, name) => write!(fmt, "{}", name.as_ref()),
+            Expr::Var(_, name) => write!(fmt, "{}", name),
         }
     }
 }
