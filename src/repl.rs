@@ -12,7 +12,7 @@ use stahl_util::SharedString;
 pub fn run() -> Result<()> {
     let config = Config::builder()
         .auto_add_history(true)
-        .edit_mode(EditMode::Vi)
+        .edit_mode(EditMode::Emacs)
         .build();
     let mut rl = Editor::<()>::with_config(config);
 

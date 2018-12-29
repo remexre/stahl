@@ -1,6 +1,8 @@
 stahl
 =====
 
+[![Dependency Status](https://deps.rs/repo/github/remexre/stahl/status.svg)](https://deps.rs/repo/github/remexre/stahl)
+
 A dependently typed Lisp with algebraic effects.
 
 Goals

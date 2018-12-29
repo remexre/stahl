@@ -3,7 +3,7 @@ use stahl_ast::{Effects, Expr};
 use stahl_errors::Location;
 use stahl_util::SharedString;
 
-/// A path to the root of an AST expression tree, for use in a zipper.
+/// A zipper for an expression.
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Zipper {

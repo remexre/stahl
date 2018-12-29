@@ -1,10 +1,12 @@
 use crate::ModContext;
+use log::warn;
 use stahl_ast::{Effects, Expr, Literal};
 use stahl_cst::{Expr as CstExpr, Value};
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_util::{fmt_iter, genint, unwrap_rc, unzip_result_iter, SharedString};
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
+    iter::once,
     rc::Rc,
 };
 
@@ -21,8 +23,8 @@ impl ModContext<'_> {
         constraints.push(Constraint(chk_ty.loc(), inf_ty, chk_ty.clone()));
         let expr = unify(expr, constraints)?;
 
-        let expr = reify(expr)?;
-        let chk_ty = reify(chk_ty)
+        let expr = reify(&*expr).chain(|| err!(@cst_expr.loc(), "When elaborating {}", expr))?;
+        let chk_ty = reify(&*chk_ty)
             .chain(|| err!(@cst_expr.loc(), "Cannot infer the type of {}", cst_expr))?;
         Ok((expr, chk_ty))
     }
@@ -168,6 +170,30 @@ enum UnifExpr {
 }
 
 impl UnifExpr {
+    fn gather_effects(&self) -> Effects {
+        match self {
+            UnifExpr::Call(_, func, args) => args
+                .iter()
+                .map(|arg| arg.gather_effects())
+                .chain(once(func.gather_effects()))
+                .sum(),
+            UnifExpr::Pi(_, args, body, effs) => args
+                .iter()
+                .map(|(_, arg)| arg.gather_effects())
+                .chain(once(body.gather_effects()))
+                .sum(),
+            UnifExpr::Const(_, _)
+            | UnifExpr::GlobalVar(_, _, _, _)
+            | UnifExpr::Lam(_, _, _)
+            | UnifExpr::LocalVar(_, _)
+            | UnifExpr::Type(_) => Effects::default(),
+            UnifExpr::UnifVar(_, _) => {
+                warn!("A unification variable should not be having its effects computed...");
+                Effects::default()
+            }
+        }
+    }
+
     fn loc(&self) -> Location {
         match self {
             UnifExpr::Call(loc, _, _)
@@ -225,11 +251,11 @@ impl Display for UnifExpr {
                 fmt_iter(fmt, args)?;
                 write!(fmt, ")")?;
                 for (name, ty, expr) in body {
-                    if let Some(name) = name {
-                        write!(fmt, " (def {} {} {})", name, ty, expr)?;
-                    } else {
-                        write!(fmt, " {}", expr)?;
-                    }
+                    let name = match name {
+                        Some(name) => &*name,
+                        None => "_",
+                    };
+                    write!(fmt, "  (def {} {} {})", name, ty, expr)?;
                 }
                 write!(fmt, ")")
             }
@@ -268,17 +294,23 @@ fn unify(mut target: Rc<UnifExpr>, mut constraints: Vec<Constraint>) -> Result<R
     Ok(target)
 }
 
-fn reify(expr: Rc<UnifExpr>) -> Result<Expr> {
-    match unwrap_rc(expr) {
+fn reify(expr: &UnifExpr) -> Result<Expr> {
+    match expr {
         UnifExpr::Lam(loc, args, body) => {
             let body = body
                 .iter()
                 .map(|(def_name, ty, expr)| {
-                    todo!("{:?} {} {}", def_name, ty, expr);
+                    let effs = expr.gather_effects();
+                    let ty =
+                        reify(ty).chain(|| err!(@ty.loc(), "in {} (the type of {})", ty, expr))?;
+                    let expr = todo!("{:?} {} {} {}", def_name, ty, expr, effs);
+                    Ok((def_name.clone(), Box::new(ty), expr, effs))
                 })
-                .collect::<Result<_>>()?;
+                .collect::<Result<_>>()
+                .chain(|| err!(@expr.loc(), "in {}", expr))?;
             Ok(Expr::Lam(loc.clone(), args.clone(), body))
         }
+        UnifExpr::UnifVar(loc, _) => raise!(@loc.clone(), "Cannot reify a hole!"),
         expr => todo!(@expr.loc(), "reify({:?})", expr),
     }
 }

@@ -3,7 +3,11 @@ extern crate derivative;
 
 use stahl_errors::Location;
 use stahl_util::{fmt_iter, fmt_string, SharedString};
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult},
+    iter::Sum,
+    ops::{Add, AddAssign},
+};
 
 /// A top-level declaration.
 #[derive(Derivative)]
@@ -32,7 +36,7 @@ impl Decl {
     /// Returns the name of the declaration.
     pub fn name(&self) -> SharedString {
         match self {
-            Decl::Def(_, name, _, _) | Decl::DefEff(_, Effect(name, _, _)) => name.clone(),
+            Decl::Def(_, name, _, _) | Decl::DefEff(_, Effect(_, name, _, _)) => name.clone(),
         }
     }
 }
@@ -41,8 +45,10 @@ impl Display for Decl {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
             Decl::Def(_, name, ty, expr) => write!(fmt, "(def {} {} {})", name, ty, expr),
-            Decl::DefEff(_, Effect(name, expr, None)) => write!(fmt, "(defeff {} {})", name, expr),
-            Decl::DefEff(_, Effect(name, expr, Some(ret))) => {
+            Decl::DefEff(_, Effect(_, name, expr, None)) => {
+                write!(fmt, "(defeff {} {})", name, expr)
+            }
+            Decl::DefEff(_, Effect(_, name, expr, Some(ret))) => {
                 write!(fmt, "(defeff {} {} {})", name, expr, ret)
             }
         }
@@ -50,23 +56,45 @@ impl Display for Decl {
 }
 
 /// An effect.
-#[derive(Clone, Derivative)]
+#[derive(Clone, Derivative, Eq, Ord, PartialEq, PartialOrd)]
 #[derivative(Debug)]
-pub struct Effect(pub SharedString, pub Box<Expr>, pub Option<Box<Expr>>);
+pub struct Effect(
+    #[derivative(Debug = "ignore")] Location,
+    pub SharedString,
+    pub Box<Expr>,
+    pub Option<Box<Expr>>,
+);
 
 impl Display for Effect {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        if let Some(ret) = self.2.as_ref() {
-            write!(fmt, "({} {} {})", self.0, self.1, ret)
+        if let Some(ret) = self.3.as_ref() {
+            write!(fmt, "({} {} {})", self.1, self.2, ret)
         } else {
-            write!(fmt, "({} {})", self.0, self.1)
+            write!(fmt, "({} {})", self.1, self.2)
         }
     }
 }
 
 /// A set of effects, possibly an extensible one.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Effects(pub Vec<Effect>);
+
+impl Add for Effects {
+    type Output = Effects;
+
+    fn add(mut self, other: Effects) -> Effects {
+        self += other;
+        self
+    }
+}
+
+impl AddAssign for Effects {
+    fn add_assign(&mut self, other: Effects) {
+        self.0.extend(other.0);
+        self.0.sort();
+        self.0.dedup();
+    }
+}
 
 impl Display for Effects {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
@@ -76,8 +104,14 @@ impl Display for Effects {
     }
 }
 
+impl Sum for Effects {
+    fn sum<I: Iterator<Item = Effects>>(iter: I) -> Effects {
+        iter.fold(Effects::default(), Effects::add)
+    }
+}
+
 /// An expression.
-#[derive(Clone, Derivative)]
+#[derive(Clone, Derivative, Eq, Ord, PartialEq, PartialOrd)]
 #[derivative(Debug)]
 pub enum Expr {
     /// A call to a function with a given number of arguments.
@@ -187,7 +221,7 @@ impl Display for Expr {
 }
 
 /// A literal value. Cons and nil are excluded, as they are converted to function calls.
-#[derive(Clone, Derivative)]
+#[derive(Clone, Derivative, Eq, Ord, PartialEq, PartialOrd)]
 #[derivative(Debug)]
 pub enum Literal {
     Int(#[derivative(Debug = "ignore")] Location, isize),
