@@ -17,7 +17,7 @@ pub struct SplitVec<T> {
 impl<T> SplitVec<T> {
     /// Creates a `SplitVec`, yielding the element at the given index. Panics if the index is out
     /// of bounds.
-    pub fn new(mut vec: Vec<T>, idx: usize) -> (T, SplitVec<T>) {
+    pub fn new(vec: Vec<T>, idx: usize) -> (T, SplitVec<T>) {
         assert!(idx < vec.len());
 
         let elem = unsafe { read(&vec[idx]) };
@@ -37,6 +37,11 @@ impl<T> SplitVec<T> {
     /// Returns the slices corresponding to the elements left of the split and right of the split.
     pub fn both(&self) -> (&[T], &[T]) {
         (self.left(), self.right())
+    }
+
+    /// Returns the lengths of the left and right slices.
+    pub fn both_lens(&self) -> (usize, usize) {
+        (self.idx, self.vec.len() - self.idx - 1)
     }
 
     /// Returns the mutable slices corresponding to the elements left of the split and right of the
@@ -98,6 +103,7 @@ mod tests {
         assert_eq!(sv.left(), &[1, 2]);
         assert_eq!(three, 3);
         assert_eq!(sv.right(), &[4, 5]);
+        assert_eq!(sv.both_lens(), (2, 2));
         assert_eq!(sv.both(), (&[1, 2] as &[_], &[4, 5] as &[_]));
     }
 

@@ -9,14 +9,21 @@ extern crate stahl_errors;
 
 mod elab;
 mod split_vec;
-mod zipper;
 
+pub use crate::elab::Zipper;
+use crate::elab::{reify, UnifExpr};
 use owning_ref::OwningRefMut;
+use stahl_ast::Decl;
 use stahl_cst::{Decl as CstDecl, Effect as CstEffect, Expr as CstExpr};
 use stahl_errors::{Location, Result};
 use stahl_modules::{Library, Module};
-use stahl_util::SharedString;
-use std::{collections::HashMap, ops::Deref, sync::Arc};
+use stahl_util::{genint, SharedString};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+    rc::Rc,
+    sync::Arc,
+};
 
 /// The context in which compilation and interpretation occur.
 #[derive(Debug, Default)]
@@ -100,8 +107,8 @@ impl LibContext<'_> {
         let module =
             OwningRefMut::new(&mut *self.library).map_mut(|lib| lib.mods.get_mut(&name).unwrap());
         Ok(ModContext {
-            lib: self.key.clone(),
-            name,
+            lib_name: self.key.clone(),
+            mod_name: name,
             module,
         })
     }
@@ -110,27 +117,34 @@ impl LibContext<'_> {
 /// A single module's portion of the context.
 #[derive(Debug)]
 pub struct ModContext<'a> {
-    lib: (SharedString, u16, u16, u32),
-    name: SharedString,
+    lib_name: (SharedString, u16, u16, u32),
+    mod_name: SharedString,
     module: OwningRefMut<&'a mut Library, Module>,
 }
 
-impl ModContext<'_> {
+impl<'lib> ModContext<'lib> {
     /// Adds a new declaration.
-    pub fn add(&mut self, decl: CstDecl) -> Result<()> {
+    pub fn add(&mut self, decl: Decl) -> Result<()> {
         let name = decl.name();
         if self.module.decls.iter().any(|decl| decl.name() == name) {
             raise!(
+                @decl.loc(),
                 "Module {}-{}-{}-{}/{} already declares {}",
-                self.lib.0,
-                self.lib.1,
-                self.lib.2,
-                self.lib.3,
-                self.name,
+                self.lib_name.0,
+                self.lib_name.1,
+                self.lib_name.2,
+                self.lib_name.3,
+                self.mod_name,
                 name
             )
         }
 
+        self.module.decls.push(decl);
+        Ok(())
+    }
+
+    /// Adds a new CST declaration.
+    pub fn add_cst_decl(&mut self, decl: CstDecl) -> Result<()> {
         match decl {
             CstDecl::Def(loc, name, ty, expr) => self.add_def(loc, name, ty, expr),
             CstDecl::DefEff(loc, CstEffect(name, arg, ret)) => self.add_defeff(loc, name, arg, ret),
@@ -159,15 +173,87 @@ impl ModContext<'_> {
         todo!("{} {}", name, arg)
     }
 
+    /// Begins creating a def with a known (wildcard-free) type.
+    pub fn create_def<'a>(
+        &'a mut self,
+        loc: Location,
+        name: SharedString,
+    ) -> Result<DefContext<'a, 'lib>> {
+        let type_zipper = Zipper::new(Rc::new(UnifExpr::UnifVar(loc.clone(), genint())));
+        let expr_zipper = Zipper::new(Rc::new(UnifExpr::UnifVar(loc.clone(), genint())));
+        Ok(DefContext {
+            mod_ctx: self,
+            loc: Some(loc),
+            name: Some(name),
+            type_zipper: Some(type_zipper),
+            expr_zipper: Some(expr_zipper),
+        })
+    }
+
     /// Resolves a name in the module context.
     pub fn resolve(&self, name: &str) -> Result<&CstDecl> {
-        todo!()
+        todo!("resolve {}", name)
     }
 }
 
 impl Deref for ModContext<'_> {
     type Target = Module;
     fn deref(&self) -> &Module {
-        self.module.deref()
+        &self.module
+    }
+}
+
+/// A single def's portion of the context.
+#[derive(Debug)]
+pub struct DefContext<'m, 'l> {
+    mod_ctx: &'m mut ModContext<'l>,
+    loc: Option<Location>,
+    name: Option<SharedString>,
+    type_zipper: Option<Zipper>,
+    expr_zipper: Option<Zipper>,
+}
+
+impl DefContext<'_, '_> {
+    /// Gets the zipper for the type, immutably.
+    pub fn expr_zipper(&mut self) -> &mut Zipper {
+        self.expr_zipper.as_mut().unwrap()
+    }
+
+    /// Gets the zipper for the type, immutably.
+    pub fn type_zipper(&mut self) -> &mut Zipper {
+        self.type_zipper.as_mut().unwrap()
+    }
+
+    /// Adds this def to the module.
+    pub fn finish(mut self) -> Result<()> {
+        let loc = self.loc.take().unwrap();
+        let name = self.name.take().unwrap();
+        let ty = self.type_zipper.take().unwrap();
+        let expr = self.expr_zipper.take().unwrap();
+
+        let ty = Box::new(reify(&ty.into_expr())?);
+        let expr = Box::new(reify(&expr.into_expr())?);
+        self.mod_ctx.add(Decl::Def(loc, name, ty, expr))
+    }
+
+    /// Discards this def. Use this instead of just dropping in the case where the def should not
+    /// be added!
+    pub fn discard(mut self) {
+        self.loc.take().unwrap();
+        self.name.take().unwrap();
+        self.type_zipper.take().unwrap();
+        self.expr_zipper.take().unwrap();
+    }
+}
+
+impl Drop for DefContext<'_, '_> {
+    fn drop(&mut self) {
+        if self.loc.is_some()
+            || self.name.is_some()
+            || self.type_zipper.is_some()
+            || self.expr_zipper.is_some()
+        {
+            panic!("Dropping a DefContext that has not called .finish() or .discard()");
+        }
     }
 }

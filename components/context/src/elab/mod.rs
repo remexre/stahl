@@ -1,9 +1,12 @@
+mod zipper;
+
+pub use crate::elab::zipper::Zipper;
 use crate::ModContext;
 use log::warn;
 use stahl_ast::{Effects, Expr, Literal};
 use stahl_cst::{Expr as CstExpr, Value};
 use stahl_errors::{Location, Result, ResultExt};
-use stahl_util::{fmt_iter, genint, unwrap_rc, unzip_result_iter, SharedString};
+use stahl_util::{fmt_iter, genint, unzip_result_iter, SharedString};
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     iter::once,
@@ -140,7 +143,7 @@ struct Constraint(
 
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-enum UnifExpr {
+pub enum UnifExpr {
     Call(
         #[derivative(Debug = "ignore")] Location,
         Rc<UnifExpr>,
@@ -283,7 +286,7 @@ impl Display for UnifExpr {
     }
 }
 
-fn unify(mut target: Rc<UnifExpr>, mut constraints: Vec<Constraint>) -> Result<Rc<UnifExpr>> {
+fn unify(mut target: Rc<UnifExpr>, constraints: Vec<Constraint>) -> Result<Rc<UnifExpr>> {
     for Constraint(loc, l, r) in constraints {
         match (&*l, &*r) {
             (&UnifExpr::UnifVar(_, n), _) => UnifExpr::substitute(&mut target, n, r, loc),
@@ -294,7 +297,7 @@ fn unify(mut target: Rc<UnifExpr>, mut constraints: Vec<Constraint>) -> Result<R
     Ok(target)
 }
 
-fn reify(expr: &UnifExpr) -> Result<Expr> {
+pub fn reify(expr: &UnifExpr) -> Result<Expr> {
     match expr {
         UnifExpr::Lam(loc, args, body) => {
             let body = body
@@ -303,8 +306,8 @@ fn reify(expr: &UnifExpr) -> Result<Expr> {
                     let effs = expr.gather_effects();
                     let ty =
                         reify(ty).chain(|| err!(@ty.loc(), "in {} (the type of {})", ty, expr))?;
-                    let expr = todo!("{:?} {} {} {}", def_name, ty, expr, effs);
-                    Ok((def_name.clone(), Box::new(ty), expr, effs))
+                    let expr = reify(expr).chain(|| err!(@expr.loc(), "in {}", expr))?;
+                    Ok((def_name.clone(), Box::new(ty), Box::new(expr), effs))
                 })
                 .collect::<Result<_>>()
                 .chain(|| err!(@expr.loc(), "in {}", expr))?;

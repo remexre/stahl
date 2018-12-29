@@ -17,7 +17,7 @@ pub fn run(main: PathBuf) -> Result<()> {
     let mut module = library.create_mod(mod_name, exports, imports)?;
 
     for decl in decls {
-        module.add(decl)?;
+        module.add_cst_decl(decl)?;
     }
 
     Ok(())

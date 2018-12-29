@@ -2,7 +2,7 @@ use rustyline::{
     config::{Config, EditMode},
     Editor,
 };
-use stahl_context::{Context, ModContext};
+use stahl_context::{Context, DefContext, ModContext};
 use stahl_cst::Expr as CstExpr;
 use stahl_errors::{Location, Result};
 use stahl_parser::parse_str;
@@ -29,6 +29,8 @@ pub fn run() -> Result<()> {
     let mut lib_ctx = ctx.create_lib(SharedString::from("#repl#"), 0, 0, 0)?;
     let mut mod_ctx =
         lib_ctx.create_mod(SharedString::from(""), vec![], vec![].into_iter().collect())?;
+    let mut def_ctx = mod_ctx.create_def(Location::default(), "the".into())?;
+    build_the(def_ctx)?;
     while let Ok(line) = rl.readline("\u{03bb}> ") {
         if let Err(e) = run_line(&mut mod_ctx, line) {
             error!("{}", e);
@@ -63,4 +65,10 @@ fn run_line(mod_ctx: &mut ModContext, line: String) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn build_the(mut def_ctx: DefContext) -> Result<()> {
+    let mut expr = def_ctx.expr_zipper();
+
+    def_ctx.finish()
 }
