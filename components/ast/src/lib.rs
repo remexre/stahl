@@ -3,11 +3,17 @@ extern crate derivative;
 
 use stahl_errors::Location;
 use stahl_util::{fmt_iter, fmt_string, SharedString};
-use std::{
-    fmt::{Display, Formatter, Result as FmtResult},
-    iter::Sum,
-    ops::{Add, AddAssign},
-};
+use std::fmt::{Display, Formatter, Result as FmtResult};
+
+/// A fully-qualified name.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct FQName(pub SharedString, pub SharedString, pub SharedString);
+
+impl Display for FQName {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        write!(fmt, "{}/{}/{}", self.0, self.1, self.2)
+    }
+}
 
 /// A top-level declaration.
 #[derive(Derivative)]
@@ -22,21 +28,26 @@ pub enum Decl {
     ),
 
     /// A effect declaration.
-    DefEff(#[derivative(Debug = "ignore")] Location, Effect),
+    DefEff(
+        #[derivative(Debug = "ignore")] Location,
+        SharedString,
+        Box<Expr>,
+        Option<Box<Expr>>,
+    ),
 }
 
 impl Decl {
     /// Returns the location at which the declaration is.
     pub fn loc(&self) -> Location {
         match self {
-            Decl::Def(loc, _, _, _) | Decl::DefEff(loc, _) => loc.clone(),
+            Decl::Def(loc, _, _, _) | Decl::DefEff(loc, _, _, _) => loc.clone(),
         }
     }
 
     /// Returns the name of the declaration.
     pub fn name(&self) -> SharedString {
         match self {
-            Decl::Def(_, name, _, _) | Decl::DefEff(_, Effect(_, name, _, _)) => name.clone(),
+            Decl::Def(_, name, _, _) | Decl::DefEff(_, name, _, _) => name.clone(),
         }
     }
 }
@@ -45,68 +56,23 @@ impl Display for Decl {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
             Decl::Def(_, name, ty, expr) => write!(fmt, "(def {} {} {})", name, ty, expr),
-            Decl::DefEff(_, Effect(_, name, expr, None)) => {
-                write!(fmt, "(defeff {} {})", name, expr)
-            }
-            Decl::DefEff(_, Effect(_, name, expr, Some(ret))) => {
+            Decl::DefEff(_, name, expr, None) => write!(fmt, "(defeff {} {})", name, expr),
+            Decl::DefEff(_, name, expr, Some(ret)) => {
                 write!(fmt, "(defeff {} {} {})", name, expr, ret)
             }
         }
     }
 }
 
-/// An effect.
-#[derive(Clone, Derivative, Eq, Ord, PartialEq, PartialOrd)]
-#[derivative(Debug)]
-pub struct Effect(
-    #[derivative(Debug = "ignore")] Location,
-    pub SharedString,
-    pub Box<Expr>,
-    pub Option<Box<Expr>>,
-);
-
-impl Display for Effect {
-    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        if let Some(ret) = self.3.as_ref() {
-            write!(fmt, "({} {} {})", self.1, self.2, ret)
-        } else {
-            write!(fmt, "({} {})", self.1, self.2)
-        }
-    }
-}
-
 /// A set of effects, possibly an extensible one.
 #[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Effects(pub Vec<Effect>);
-
-impl Add for Effects {
-    type Output = Effects;
-
-    fn add(mut self, other: Effects) -> Effects {
-        self += other;
-        self
-    }
-}
-
-impl AddAssign for Effects {
-    fn add_assign(&mut self, other: Effects) {
-        self.0.extend(other.0);
-        self.0.sort();
-        self.0.dedup();
-    }
-}
+pub struct Effects(pub Vec<FQName>);
 
 impl Display for Effects {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         write!(fmt, "(")?;
         fmt_iter(fmt, &self.0)?;
         write!(fmt, ")")
-    }
-}
-
-impl Sum for Effects {
-    fn sum<I: Iterator<Item = Effects>>(iter: I) -> Effects {
-        iter.fold(Effects::default(), Effects::add)
     }
 }
 
@@ -125,12 +91,7 @@ pub enum Expr {
     Const(#[derivative(Debug = "ignore")] Location, Literal),
 
     /// A global variable.
-    GlobalVar(
-        #[derivative(Debug = "ignore")] Location,
-        SharedString,
-        SharedString,
-        SharedString,
-    ),
+    GlobalVar(#[derivative(Debug = "ignore")] Location, FQName),
 
     /// A lambda.
     Lam(
@@ -160,7 +121,7 @@ impl Expr {
         match self {
             Expr::Call(loc, _, _)
             | Expr::Const(loc, _)
-            | Expr::GlobalVar(loc, _, _, _)
+            | Expr::GlobalVar(loc, _)
             | Expr::Lam(loc, _, _)
             | Expr::LocalVar(loc, _)
             | Expr::Pi(loc, _, _, _)
@@ -181,9 +142,7 @@ impl Display for Expr {
                 Literal::Int(_, _) | Literal::String(_, _) => write!(fmt, "{}", val),
                 Literal::Symbol(_, _) => write!(fmt, "'{}", val),
             },
-            Expr::GlobalVar(_, lib_name, mod_name, name) => {
-                write!(fmt, "{}/{}/{}", lib_name, mod_name, name,)
-            }
+            Expr::GlobalVar(_, name) => write!(fmt, "{}", name),
             Expr::Lam(_, args, body) => {
                 write!(fmt, "(fn (")?;
                 fmt_iter(fmt, args)?;

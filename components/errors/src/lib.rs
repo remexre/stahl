@@ -1,7 +1,8 @@
 extern crate failure;
 
 use failure::{err_msg, Error as FailureError};
-use stahl_util::SharedPath;
+use log::warn;
+use stahl_util::{SharedPath, SharedString};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// The equivalent of `assert!`, but using `raise!` instead of `panic!`.
@@ -47,6 +48,7 @@ macro_rules! ensure_ne {
 #[macro_export]
 macro_rules! err {
     ($($e:expr),+) => {
+        // TODO: Warn about this.
         $crate::Error::new_basic(format!($($e),+), $crate::Location::default())
     };
     (@$l:expr, $($e:expr),+) => {
@@ -74,11 +76,11 @@ macro_rules! todo {
     (@$l:expr) => {
         raise!(@$l, "TODO at {}:{}", file!(), line!())
     };
-    ($f:expr, $($a:expr),*) => {
+    ($f:expr $(, $a:expr)* $(,)*) => {
         raise!(concat!("TODO at {}:{}, ", $f), file!(), line!(), $($a),*)
     };
-    (@$l:expr, $f:expr, $($a:expr),*) => {
-        raise!(@$l, concat!("TODO at {}:{}, ", $f), file!(), line!(), $($a),*)
+    (@$l:expr, $f:expr $(, $a:expr)* $(,)*) => {
+        raise!(@$l, concat!("TODO at {}:{}, ", $f), file!(), line!() $(, $a)*)
     };
 }
 
@@ -103,42 +105,15 @@ impl Error {
     /// macro, mainly to avoid having to export `err_msg`.
     #[doc(hidden)]
     pub fn new_basic(s: String, loc: Location) -> Error {
-        Error {
-            cause: None,
-            err: err_msg(s),
-            loc,
-        }
+        Error::new(err_msg(s), loc)
     }
 
-    /// Creates an error in the given file.
-    pub fn new_file<T: Into<FailureError>>(t: T, path: Option<SharedPath>) -> Error {
+    /// Creates a new error with no cause.
+    pub fn new(err: impl Into<FailureError>, loc: impl Into<Location>) -> Error {
         Error {
             cause: None,
-            err: t.into(),
-            loc: Location::new_file(path),
-        }
-    }
-
-    /// Creates an error at a certain point in the given file.
-    pub fn new_point<T: Into<FailureError>>(t: T, path: Option<SharedPath>, point: usize) -> Error {
-        Error {
-            cause: None,
-            err: t.into(),
-            loc: Location::new_point(path, point),
-        }
-    }
-
-    /// Creates an error at a span in the given file.
-    pub fn new_span<T: Into<FailureError>>(
-        t: T,
-        path: Option<SharedPath>,
-        start: usize,
-        end: usize,
-    ) -> Error {
-        Error {
-            cause: None,
-            err: t.into(),
-            loc: Location::new_span(path, start, end),
+            err: err.into(),
+            loc: loc.into(),
         }
     }
 
@@ -185,6 +160,9 @@ where
 /// The location at which an error occurred.
 #[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Location {
+    /// The name of the location.
+    pub name: Option<SharedString>,
+
     /// The file where the error occurred.
     pub path: Option<SharedPath>,
 
@@ -193,45 +171,85 @@ pub struct Location {
 }
 
 impl Location {
-    /// Creates an error in the given file.
-    pub fn new_file(path: Option<SharedPath>) -> Location {
-        Location { path, pos: None }
+    /// Creates an "empty" location.
+    pub fn new() -> Location {
+        Location::default()
     }
 
-    /// Creates an error at a certain point in the given file.
-    pub fn new_point(path: Option<SharedPath>, point: usize) -> Location {
-        Location {
-            path,
-            pos: Some(Position::Point(point)),
+    /// Adds a name to the location.
+    pub fn name(mut self, name: SharedString) -> Location {
+        self.name = Some(name);
+        self
+    }
+
+    /// Adds a file path to the location.
+    pub fn path(mut self, path: SharedPath) -> Location {
+        if self.path.is_some() {
+            warn!(
+                "Adding path {} to location that already has one: {}",
+                path.display(),
+                self
+            );
+        }
+        self.path = Some(path);
+        self
+    }
+
+    /// Adds a file path to the location, if it is present.
+    pub fn path_opt(self, path: Option<SharedPath>) -> Location {
+        if let Some(path) = path {
+            self.path(path)
+        } else {
+            self
         }
     }
 
-    /// Creates an error at a span in the given file.
-    pub fn new_span(path: Option<SharedPath>, start: usize, end: usize) -> Location {
-        Location {
-            path,
-            pos: Some(Position::Span(start, end)),
+    /// Adds a position to the location.
+    pub fn position(mut self, pos: Position) -> Location {
+        if self.pos.is_some() {
+            warn!(
+                "Adding position {} to location that already has one: {}",
+                pos, self
+            );
         }
+        self.pos = Some(pos);
+        self
+    }
+
+    /// Adds the given point to the location as a position.
+    pub fn point(self, point: usize) -> Location {
+        self.position(Position::Point(point))
+    }
+
+    /// Adds the given span to the location as a position.
+    pub fn span(self, start: usize, end: usize) -> Location {
+        self.position(Position::Span(start, end))
     }
 }
 
 impl Display for Location {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        match (self.path.as_ref(), self.pos) {
-            (Some(path), Some(pos)) => write!(fmt, "In {}, at {}", path.display(), pos),
-            (Some(path), None) => write!(fmt, "In {}", path.display()),
-            (None, Some(pos)) => write!(fmt, "At {}", pos),
-            (None, None) => write!(fmt, "At an unknown location"),
+        match (self.name.as_ref(), self.path.as_ref(), self.pos) {
+            (None, Some(path), Some(pos)) => write!(fmt, "In {}, at {}", path.display(), pos),
+            (None, Some(path), None) => write!(fmt, "In {}", path.display()),
+            (None, None, Some(pos)) => write!(fmt, "At {}", pos),
+            (None, None, None) => {
+                // TODO: Suitably chastise the programmer, ideally with line numbers.
+                write!(fmt, "At an unknown location")
+            }
+            (Some(name), Some(path), Some(pos)) => {
+                write!(fmt, "In {} (in {}, at {})", name, path.display(), pos)
+            }
+            (Some(name), Some(path), None) => write!(fmt, "In {} (in {})", name, path.display()),
+            (Some(name), None, Some(pos)) => write!(fmt, "In {} (at {})", name, pos),
+            (Some(name), None, None) => write!(fmt, "In {}", name),
         }
     }
 }
 
 impl From<Position> for Location {
     fn from(pos: Position) -> Location {
-        Location {
-            path: None,
-            pos: Some(pos),
-        }
+        Location::new().position(pos)
     }
 }
 

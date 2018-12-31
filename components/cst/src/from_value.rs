@@ -1,44 +1,43 @@
-use crate::{Decl, Effect, Effects, Expr};
-use stahl_errors::{Location, Result, ResultExt};
+use crate::{Decl, Expr};
+use stahl_errors::{Location, Result};
 use stahl_parser::Value;
 use stahl_util::SharedString;
 use std::sync::Arc;
 
 impl Decl {
     /// Parses the declaration from a value.
-    pub fn from_value(val: Value) -> Result<Decl> {
+    pub fn from_value(val: &Value) -> Result<Decl> {
         let (loc, decl_type, t) = if let Value::Cons(loc, h, t) = val {
-            let decl_type = if let Value::Symbol(_, s) = *h {
+            let decl_type = if let Value::Symbol(_, s) = &**h {
                 s
             } else {
-                raise!(@loc, "{} is not a valid declaration type", h)
+                raise!(@loc.clone(), "{} is not a valid declaration type", h)
             };
-            (loc, decl_type, *t)
+            (loc.clone(), decl_type, &**t)
         } else {
             raise!(@val.loc(), "Non-cons value {} is not a declaration", val)
         };
 
         match decl_type.as_ref() {
-            "def" => match t {
-                Value::Cons(_, h, t) => match (*h, *t) {
-                    (Value::Symbol(_, name), Value::Cons(_, e1, t)) => match *t {
-                        Value::Cons(_, e2, t) => match *t {
+            "def" => match &*t {
+                Value::Cons(_, h, t) => match (&**h, &**t) {
+                    (Value::Symbol(_, name), Value::Cons(_, e1, t)) => match &**t {
+                        Value::Cons(_, e2, t) => match &**t {
                             Value::Nil(_) => Expr::from_value_unnamed(&e1, "a def's type")
                                 .and_then(|ty| {
-                                    Expr::from_value_unnamed(&e2, "a def's body").map(|expr| {
-                                        Decl::Def(
-                                            loc.clone(),
-                                            name,
-                                            Arc::new(Expr::Hole(loc)),
-                                            expr,
-                                        )
-                                    })
+                                    Expr::from_value_unnamed(&e2, "a def's body")
+                                        .map(|expr| Decl::Def(loc.clone(), name.clone(), ty, expr))
                                 }),
                             _ => raise!(@loc, "A def must have two or three arguments"),
                         },
                         Value::Nil(_) => {
                             Expr::from_value_unnamed(&e1, "a def's body").map(|expr| {
-                                Decl::Def(loc.clone(), name, Arc::new(Expr::Hole(loc)), expr)
+                                Decl::Def(
+                                    loc.clone(),
+                                    name.clone(),
+                                    Arc::new(Expr::Hole(loc)),
+                                    expr,
+                                )
                             })
                         }
                         _ => raise!(@loc, "A def must have two or three arguments"),
@@ -50,54 +49,28 @@ impl Decl {
                 },
                 _ => raise!(@loc, "A def must have two or three arguments"),
             },
-            "defeff" => Effect::from_value(&t)
-                .map(|eff| Decl::DefEff(loc, eff))
-                .chain(|| err!(@t.loc(), "Invalid defeff")),
-            decl_type => raise!(@loc, "{} is not a declaration type", decl_type),
-        }
-    }
-}
-
-impl Effect {
-    /// Parses the effect specification from a value.
-    pub fn from_value(val: &Value) -> Result<Effect> {
-        match val {
-            Value::Cons(_, h, t) => match (&**h, &**t) {
-                (Value::Symbol(_, s), Value::Cons(_, e1, t)) => {
-                    let s = s.clone();
-                    let e1 = Expr::from_value_unnamed(e1, "an effect")?;
-                    match &**t {
-                        Value::Cons(_, e2, t) => {
-                            let e2 = Expr::from_value_unnamed(e2, "an effect")?;
-                            match &**t {
-                                Value::Nil(_) => Ok(Effect(s, e1, Some(e2))),
-                                _ => raise!(@val.loc(), "Invalid effect: {}", val),
+            "defeff" => match &*t {
+                Value::Cons(_, h, t) => match (&**h, &**t) {
+                    (Value::Symbol(_, s), Value::Cons(_, e1, t)) => {
+                        let s = s.clone();
+                        let e1 = Expr::from_value_unnamed(e1, "a defeff form")?;
+                        match &**t {
+                            Value::Cons(_, e2, t) => {
+                                let e2 = Expr::from_value_unnamed(e2, "a defeff form")?;
+                                match &**t {
+                                    Value::Nil(_) => Ok(Decl::DefEff(loc, s, e1, Some(e2))),
+                                    _ => raise!(@val.loc(), "Invalid defeff: {}", val),
+                                }
                             }
+                            Value::Nil(_) => Ok(Decl::DefEff(loc, s, e1, None)),
+                            _ => raise!(@val.loc(), "Invalid defeff: {}", val),
                         }
-                        Value::Nil(_) => Ok(Effect(s, e1, None)),
-                        _ => raise!(@val.loc(), "Invalid effect: {}", val),
                     }
-                }
-                _ => raise!(@val.loc(), "Invalid effect: {}", val),
+                    _ => raise!(@val.loc(), "Invalid defeff: {}", val),
+                },
+                _ => raise!(@val.loc(), "Invalid defeff: {}", val),
             },
-            _ => raise!(@val.loc(), "Invalid effect: {}", val),
-        }
-    }
-}
-
-impl Effects {
-    /// Parses the effect set specification from a value.
-    pub fn from_value(val: &Value) -> Result<Effects> {
-        match val {
-            Value::Cons(_, h, t) => {
-                let eff = Effect::from_value(h)?;
-                let mut effs = Effects::from_value(t)
-                    .chain(|| err!(@val.loc(), "Invalid effect set: {}", val))?;
-                effs.0.push(eff);
-                Ok(effs)
-            }
-            Value::Nil(_) => Ok(Effects(Vec::new())),
-            _ => raise!(@val.loc(), "Invalid effect set: {}", val),
+            decl_type => raise!(@loc, "{} is not a declaration type", decl_type),
         }
     }
 }
@@ -224,8 +197,12 @@ impl Expr {
                         let ret = Expr::from_value_unnamed(&vals[1], "a pi return type")?;
                         let effs = vals
                             .get(2)
-                            .map(Effects::from_value)
-                            .unwrap_or_else(|| Ok(Effects::default()))?;
+                            .map(|val| {
+                                val.as_sym_list().ok_or_else(
+                                    || err!(@loc.clone(), "Invalid effect set: {}", val),
+                                )
+                            })
+                            .unwrap_or_else(|| Ok(Vec::new()))?;
                         return Ok((None, Arc::new(Expr::Pi(loc, args, ret, effs))));
                     } else {
                         raise!(@loc, concat!("A pi expression must have arguments, a return, and ",

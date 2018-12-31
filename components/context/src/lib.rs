@@ -10,11 +10,11 @@ extern crate stahl_errors;
 mod elab;
 mod split_vec;
 
-pub use crate::elab::Zipper;
-use crate::elab::{reify, UnifExpr};
+use crate::elab::{reify, unify_ty_expr};
+pub use crate::elab::{UnifExpr, Zipper};
 use owning_ref::OwningRefMut;
 use stahl_ast::Decl;
-use stahl_cst::{Decl as CstDecl, Effect as CstEffect, Expr as CstExpr};
+use stahl_cst::{Decl as CstDecl, Expr as CstExpr};
 use stahl_errors::{Location, Result};
 use stahl_modules::{Library, Module};
 use stahl_util::{genint, SharedString};
@@ -103,6 +103,8 @@ impl LibContext<'_> {
                 name
             )
         }
+
+        // TODO: Process imports, etc.
         self.library.mods.insert(name.clone(), module);
         let module =
             OwningRefMut::new(&mut *self.library).map_mut(|lib| lib.mods.get_mut(&name).unwrap());
@@ -147,7 +149,7 @@ impl<'lib> ModContext<'lib> {
     pub fn add_cst_decl(&mut self, decl: CstDecl) -> Result<()> {
         match decl {
             CstDecl::Def(loc, name, ty, expr) => self.add_def(loc, name, ty, expr),
-            CstDecl::DefEff(loc, CstEffect(name, arg, ret)) => self.add_defeff(loc, name, arg, ret),
+            CstDecl::DefEff(loc, name, arg, ret) => self.add_defeff(loc, name, arg, ret),
         }
     }
 
@@ -159,7 +161,8 @@ impl<'lib> ModContext<'lib> {
         ty: Arc<CstExpr>,
         expr: Arc<CstExpr>,
     ) -> Result<()> {
-        todo!("{} {} {}", name, ty, expr)
+        let (expr, ty) = self.elab(&expr, &ty)?;
+        todo!(@loc)
     }
 
     /// Adds an effect definition to the module context.
@@ -170,7 +173,7 @@ impl<'lib> ModContext<'lib> {
         arg: Arc<CstExpr>,
         ret: Option<Arc<CstExpr>>,
     ) -> Result<()> {
-        todo!("{} {}", name, arg)
+        todo!(@loc, "{} {}", name, arg)
     }
 
     /// Begins creating a def with a known (wildcard-free) type.
@@ -203,6 +206,12 @@ impl Deref for ModContext<'_> {
     }
 }
 
+impl DerefMut for ModContext<'_> {
+    fn deref_mut(&mut self) -> &mut Module {
+        &mut self.module
+    }
+}
+
 /// A single def's portion of the context.
 #[derive(Debug)]
 pub struct DefContext<'m, 'l> {
@@ -228,11 +237,15 @@ impl DefContext<'_, '_> {
     pub fn finish(mut self) -> Result<()> {
         let loc = self.loc.take().unwrap();
         let name = self.name.take().unwrap();
-        let ty = self.type_zipper.take().unwrap();
-        let expr = self.expr_zipper.take().unwrap();
 
-        let ty = Box::new(reify(&ty.into_expr())?);
-        let expr = Box::new(reify(&expr.into_expr())?);
+        let mut ty = Rc::new(self.type_zipper.take().unwrap().into_expr());
+        let mut expr = Rc::new(self.expr_zipper.take().unwrap().into_expr());
+        unify_ty_expr(&mut ty, &mut expr)?;
+        println!("expr = {:#?}", expr);
+        println!("  ty = {:#?}", ty);
+
+        let expr = Box::new(reify(&expr)?);
+        let ty = Box::new(reify(&ty)?);
         self.mod_ctx.add(Decl::Def(loc, name, ty, expr))
     }
 

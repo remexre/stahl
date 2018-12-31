@@ -82,9 +82,10 @@ impl FromStr for Value {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Value> {
+        let loc = Location::new();
         grammar::ValueParser::new()
-            .parse(&None, Lexer::new(s))
-            .map_err(|err| convert_err(err, None, s.len()))
+            .parse(&loc.clone(), Lexer::new(s))
+            .map_err(|err| convert_err(err, loc, s.len()))
     }
 }
 
@@ -92,32 +93,37 @@ impl FromStr for Value {
 pub fn parse_file(path: SharedPath) -> Result<Vec<Value>> {
     let mut buf = String::new();
     File::open(path.as_ref())?.read_to_string(&mut buf)?;
+    let loc = Location::new().path(path);
     grammar::ValuesParser::new()
-        .parse(&Some(path.clone()), Lexer::new(&buf))
-        .map_err(|err| convert_err(err, Some(path), buf.len()))
+        .parse(&loc.clone(), Lexer::new(&buf))
+        .map_err(|err| convert_err(err, loc, buf.len()))
 }
 
 /// Parses several `Value`s from a string.
 pub fn parse_str(s: &str) -> Result<Vec<Value>> {
+    let loc = Location::new();
     grammar::ValuesParser::new()
-        .parse(&None, Lexer::new(s))
-        .map_err(|err| convert_err(err, None, s.len()))
+        .parse(&loc.clone(), Lexer::new(s))
+        .map_err(|err| convert_err(err, loc, s.len()))
 }
 
-fn convert_err(
-    err: ParseError<usize, Token, LexerError>,
-    path: Option<SharedPath>,
-    l: usize,
-) -> Error {
+/// Parses several `Value`s from a string with the given location.
+pub fn parse_str_from(s: &str, loc: Location) -> Result<Vec<Value>> {
+    grammar::ValuesParser::new()
+        .parse(&loc.clone(), Lexer::new(s))
+        .map_err(|err| convert_err(err, loc, s.len()))
+}
+
+fn convert_err(err: ParseError<usize, Token, LexerError>, loc: Location, l: usize) -> Error {
     match err {
         ParseError::ExtraToken { token: (l, _, _) } | ParseError::InvalidToken { location: l } => {
-            Error::new_point(err, path, l)
+            Error::new(err, loc.point(l))
         }
         ParseError::UnrecognizedToken {
             token: Some((start, _, end)),
             ..
-        } => Error::new_span(err, path, start, end),
-        ParseError::UnrecognizedToken { token: None, .. } => Error::new_point(err, path, l),
-        ParseError::User { error } => Error::new_file(error, path),
+        } => Error::new(err, loc.span(start, end)),
+        ParseError::UnrecognizedToken { token: None, .. } => Error::new(err, loc.point(l)),
+        ParseError::User { error } => Error::new(error, loc),
     }
 }

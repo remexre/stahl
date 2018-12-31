@@ -24,7 +24,7 @@ impl Deref for SharedString {
 
 impl Debug for SharedString {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        write!(fmt, "{:?}", *self)
+        write!(fmt, "{:?}", &**self)
     }
 }
 
@@ -46,15 +46,27 @@ impl From<&String> for SharedString {
     }
 }
 
+impl From<String> for SharedString {
+    fn from(s: String) -> SharedString {
+        SharedString(ArcRef::from(Arc::from(s)))
+    }
+}
+
 impl PartialEq<str> for SharedString {
     fn eq(&self, other: &str) -> bool {
-        &**self == other
+        **self == *other
     }
 }
 
 impl PartialEq<&str> for SharedString {
     fn eq(&self, other: &&str) -> bool {
-        self == *other
+        **self == **other
+    }
+}
+
+impl PartialEq<&SharedString> for SharedString {
+    fn eq(&self, other: &&SharedString) -> bool {
+        **self == ***other
     }
 }
 

@@ -1,7 +1,7 @@
 (module main)
 
 (import std
-  (prelude foo bar))
+  (prelude println string))
 
 (def main (fn ()
   (def msg string

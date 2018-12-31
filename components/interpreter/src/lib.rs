@@ -19,10 +19,10 @@ impl<'a> Interpreter<'a> {
         match expr {
             Expr::Call(_, func, args) => false, // TODO
             Expr::Const(_, val) => true,
-            Expr::GlobalVar(_, lib_name, mod_name, name) => false, // TODO
-            Expr::Lam(_, args, body) => false,                     // TODO
-            Expr::LocalVar(_, name) => false,                      // TODO
-            Expr::Pi(_, args, body, effs) => false,                // TODO
+            Expr::GlobalVar(_, name) => false,      // TODO
+            Expr::Lam(_, args, body) => false,      // TODO
+            Expr::LocalVar(_, name) => false,       // TODO
+            Expr::Pi(_, args, body, effs) => false, // TODO
             Expr::Type(_) => true,
         }
     }

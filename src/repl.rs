@@ -2,11 +2,12 @@ use rustyline::{
     config::{Config, EditMode},
     Editor,
 };
-use stahl_context::{Context, DefContext, ModContext};
+use stahl_context::{Context, DefContext, ModContext, UnifExpr};
 use stahl_cst::Expr as CstExpr;
 use stahl_errors::{Location, Result};
-use stahl_parser::parse_str;
+use stahl_parser::parse_str_from;
 use stahl_util::SharedString;
+use std::rc::Rc;
 
 /// Runs the REPL.
 pub fn run() -> Result<()> {
@@ -29,8 +30,9 @@ pub fn run() -> Result<()> {
     let mut lib_ctx = ctx.create_lib(SharedString::from("#repl#"), 0, 0, 0)?;
     let mut mod_ctx =
         lib_ctx.create_mod(SharedString::from(""), vec![], vec![].into_iter().collect())?;
-    let mut def_ctx = mod_ctx.create_def(Location::default(), "the".into())?;
-    build_the(def_ctx)?;
+    let loc = Location::new().name("the built-in definition of `the'".into());
+    let def_ctx = mod_ctx.create_def(loc.clone(), "the".into())?;
+    build_the(loc, def_ctx)?;
     while let Ok(line) = rl.readline("\u{03bb}> ") {
         if let Err(e) = run_line(&mut mod_ctx, line) {
             error!("{}", e);
@@ -52,11 +54,13 @@ pub fn run() -> Result<()> {
 }
 
 fn run_line(mod_ctx: &mut ModContext, line: String) -> Result<()> {
-    let exprs = parse_str(&line)?;
+    let loc = Location::new().name("the REPL".into());
+
+    let exprs = parse_str_from(&line, loc.clone())?;
     for expr in exprs {
         println!("{}", expr);
         let expr = CstExpr::from_value_unnamed(&expr, "the REPL")?;
-        let (expr, ty) = mod_ctx.elab(&expr, &CstExpr::Hole(Location::default()))?;
+        let (expr, ty) = mod_ctx.elab(&expr, &CstExpr::Hole(loc.clone()))?;
         println!("expr = {}", expr);
         println!("  ty = {}", ty);
 
@@ -67,8 +71,14 @@ fn run_line(mod_ctx: &mut ModContext, line: String) -> Result<()> {
     Ok(())
 }
 
-fn build_the(mut def_ctx: DefContext) -> Result<()> {
-    let mut expr = def_ctx.expr_zipper();
+fn build_the(loc: Location, mut def_ctx: DefContext) -> Result<()> {
+    let ty = def_ctx.type_zipper();
+    ty.intros_pi(loc.clone(), vec!["T".into(), "x".into()]);
+    ty.fill(Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())));
+
+    let expr = def_ctx.expr_zipper();
+    expr.intros(loc.clone(), vec!["T".into(), "x".into()]);
+    expr.fill(Rc::new(UnifExpr::LocalVar(loc, "x".into())));
 
     def_ctx.finish()
 }

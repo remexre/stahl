@@ -1,5 +1,7 @@
-use crate::{elab::UnifExpr, split_vec::SplitVec};
-use stahl_ast::Effects;
+use crate::{
+    elab::{UnifEffs, UnifExpr},
+    split_vec::SplitVec,
+};
 use stahl_errors::Location;
 use stahl_util::{unwrap_rc, SharedString};
 use std::{
@@ -28,6 +30,11 @@ impl Zipper {
         }
     }
 
+    /// Modifies the expression under focus.
+    pub(crate) fn modify_expr(&mut self, f: impl FnOnce(Rc<UnifExpr>) -> Rc<UnifExpr>) {
+        self.expr = Some(f(self.expr.take().unwrap()));
+    }
+
     /// Returns the expression currently under focus, taking it out.
     fn take_expr(&mut self) -> UnifExpr {
         unwrap_rc(self.expr.take().unwrap())
@@ -40,7 +47,7 @@ impl Zipper {
 
     /// Fully zips up the zipper, returning the expression.
     pub(crate) fn into_expr(mut self) -> UnifExpr {
-        while self.at_top() {
+        while !self.at_top() {
             self.go_up();
         }
         self.take_expr()
@@ -52,8 +59,7 @@ impl Zipper {
             .path
             .pop()
             .expect("Cannot go up from top of expression");
-        let expr = self.take_expr();
-        self.expr = Some(Rc::new(path_head.rebuild(self.expr.take().unwrap())));
+        self.modify_expr(|expr| Rc::new(path_head.rebuild(expr)));
     }
 
     /// Descends to the argument of the currently selected call expression. Panics if there aren't
@@ -86,9 +92,9 @@ impl Zipper {
     pub fn go_to_lam_expr(&mut self, exprn: usize) {
         let expr = self.take_expr();
         if let UnifExpr::Lam(loc, args, body) = expr {
-            let ((name, ty, expr), body) = SplitVec::new(body, exprn);
+            let ((name, ty, expr, effs), body) = SplitVec::new(body, exprn);
             self.path
-                .push(ZipperPathNode::LamExpr(loc, args, name, ty, body));
+                .push(ZipperPathNode::LamExpr(loc, args, name, ty, effs, body));
             self.expr = Some(expr);
         } else {
             panic!("go_to_lam_expr on non-lambda expression {}", expr)
@@ -100,9 +106,9 @@ impl Zipper {
     pub fn go_to_lam_ty(&mut self, exprn: usize) {
         let expr = self.take_expr();
         if let UnifExpr::Lam(loc, args, body) = expr {
-            let ((name, ty, expr), body) = SplitVec::new(body, exprn);
+            let ((name, ty, expr, effs), body) = SplitVec::new(body, exprn);
             self.path
-                .push(ZipperPathNode::LamTy(loc, args, name, expr, body));
+                .push(ZipperPathNode::LamTy(loc, args, name, expr, effs, body));
             self.expr = Some(ty);
         } else {
             panic!("go_to_lam_ty on non-lambda expression {}", expr)
@@ -168,8 +174,8 @@ impl Zipper {
                     true
                 }
             }
-            ZipperPathNode::LamExpr(_, _, _, _, ref body) => unimplemented!(),
-            ZipperPathNode::LamTy(_, _, _, _, ref body) => {
+            ZipperPathNode::LamExpr(_, _, _, _, _, ref body) => unimplemented!(),
+            ZipperPathNode::LamTy(_, _, _, _, _, ref body) => {
                 let n = body.left().len();
                 self.go_up();
                 self.go_to_lam_expr(n);
@@ -226,7 +232,8 @@ enum ZipperPathNode {
         Vec<SharedString>,
         Option<SharedString>,
         Rc<UnifExpr>,
-        SplitVec<(Option<SharedString>, Rc<UnifExpr>, Rc<UnifExpr>)>,
+        UnifEffs,
+        SplitVec<(Option<SharedString>, Rc<UnifExpr>, Rc<UnifExpr>, UnifEffs)>,
     ),
 
     /// The type of an expression in the body of a lambda.
@@ -235,7 +242,8 @@ enum ZipperPathNode {
         Vec<SharedString>,
         Option<SharedString>,
         Rc<UnifExpr>,
-        SplitVec<(Option<SharedString>, Rc<UnifExpr>, Rc<UnifExpr>)>,
+        UnifEffs,
+        SplitVec<(Option<SharedString>, Rc<UnifExpr>, Rc<UnifExpr>, UnifEffs)>,
     ),
 
     /// An argument to a pi type.
@@ -244,14 +252,14 @@ enum ZipperPathNode {
         SharedString,
         SplitVec<(SharedString, Rc<UnifExpr>)>,
         Rc<UnifExpr>,
-        Effects,
+        UnifEffs,
     ),
 
     /// The return type of a pi type.
     PiRet(
         #[derivative(Debug = "ignore")] Location,
         Vec<(SharedString, Rc<UnifExpr>)>,
-        Effects,
+        UnifEffs,
     ),
 }
 
@@ -261,8 +269,8 @@ impl ZipperPathNode {
         match self {
             ZipperPathNode::CallArgs(_, func, args) => unimplemented!(),
             ZipperPathNode::CallFunc(_, args) => unimplemented!(),
-            ZipperPathNode::LamExpr(_, args, name, ty, body) => unimplemented!(),
-            ZipperPathNode::LamTy(_, args, name, body_expr, body) => unimplemented!(),
+            ZipperPathNode::LamExpr(_, args, name, ty, effs, body) => unimplemented!(),
+            ZipperPathNode::LamTy(_, args, name, body_expr, effs, body) => unimplemented!(),
             ZipperPathNode::PiArg(_, name, args, body, effs) => unimplemented!(),
             ZipperPathNode::PiRet(_, args, effs) => unimplemented!(),
         }
@@ -273,8 +281,8 @@ impl ZipperPathNode {
         match self {
             ZipperPathNode::CallArgs(_, func, args) => unimplemented!(),
             ZipperPathNode::CallFunc(_, args) => unimplemented!(),
-            ZipperPathNode::LamExpr(_, args, name, ty, body) => unimplemented!(),
-            ZipperPathNode::LamTy(_, args, name, body_expr, body) => unimplemented!(),
+            ZipperPathNode::LamExpr(_, args, name, ty, effs, body) => unimplemented!(),
+            ZipperPathNode::LamTy(_, args, name, body_expr, effs, body) => unimplemented!(),
             ZipperPathNode::PiArg(_, name, args, body, effs) => unimplemented!(),
             ZipperPathNode::PiRet(_, args, effs) => unimplemented!(),
         }
@@ -287,11 +295,11 @@ impl ZipperPathNode {
                 UnifExpr::Call(loc, func, args.reunify(expr))
             }
             ZipperPathNode::CallFunc(loc, args) => UnifExpr::Call(loc, expr, args),
-            ZipperPathNode::LamExpr(loc, args, name, ty, body) => {
-                UnifExpr::Lam(loc, args, body.reunify((name, ty, expr)))
+            ZipperPathNode::LamExpr(loc, args, name, ty, effs, body) => {
+                UnifExpr::Lam(loc, args, body.reunify((name, ty, expr, effs)))
             }
-            ZipperPathNode::LamTy(loc, args, name, body_expr, body) => {
-                UnifExpr::Lam(loc, args, body.reunify((name, expr, body_expr)))
+            ZipperPathNode::LamTy(loc, args, name, body_expr, effs, body) => {
+                UnifExpr::Lam(loc, args, body.reunify((name, expr, body_expr, effs)))
             }
             ZipperPathNode::PiArg(loc, name, args, body, effs) => {
                 UnifExpr::Pi(loc, args.reunify((name, expr)), body, effs)

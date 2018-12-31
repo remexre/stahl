@@ -1,15 +1,16 @@
+mod tactical;
 mod zipper;
 
 pub use crate::elab::zipper::Zipper;
 use crate::ModContext;
-use log::warn;
-use stahl_ast::{Effects, Expr, Literal};
+use log::{debug, warn};
+use stahl_ast::{Effects, Expr, FQName, Literal};
 use stahl_cst::{Expr as CstExpr, Value};
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_util::{fmt_iter, genint, unzip_result_iter, SharedString};
 use std::{
+    collections::HashSet,
     fmt::{Display, Formatter, Result as FmtResult},
-    iter::once,
     rc::Rc,
 };
 
@@ -18,13 +19,14 @@ impl ModContext<'_> {
     pub fn elab(&mut self, cst_expr: &CstExpr, chk_ty: &CstExpr) -> Result<(Expr, Expr)> {
         let mut constraints = Vec::new();
         let mut locals = Vec::new();
-        let (chk_ty, _) = self.elab_with_locals(chk_ty, None, &mut constraints, &mut locals)?;
-        let (expr, inf_ty) =
+        let (mut chk_ty, _) = self.elab_with_locals(chk_ty, None, &mut constraints, &mut locals)?;
+        let (mut expr, inf_ty) =
             self.elab_with_locals(cst_expr, Some(&chk_ty), &mut constraints, &mut locals)?;
         assert!(locals.is_empty());
 
-        constraints.push(Constraint(chk_ty.loc(), inf_ty, chk_ty.clone()));
-        let expr = unify(expr, constraints)?;
+        constraints.push(Constraint::ExprEq(chk_ty.loc(), inf_ty, chk_ty.clone()));
+        unify(&mut expr, constraints.clone())?;
+        unify(&mut chk_ty, constraints)?;
 
         let expr = reify(&*expr).chain(|| err!(@cst_expr.loc(), "When elaborating {}", expr))?;
         let chk_ty = reify(&*chk_ty)
@@ -70,7 +72,7 @@ impl ModContext<'_> {
                 )),
                 None, // TODO Infer a type
             ),
-            CstExpr::Hole(loc) => (Rc::new(UnifExpr::UnifVar(loc.clone(), genint())), None),
+            CstExpr::Hole(loc) => (hole(loc.clone()), None),
             CstExpr::Lam(loc, args, body) => {
                 let old_len = locals.len();
                 locals.extend(args.iter().cloned());
@@ -92,14 +94,18 @@ impl ModContext<'_> {
                         let ty = chk_ty.unwrap_or_else(|| {
                             let n = genint();
                             let var = Rc::new(UnifExpr::UnifVar(expr.loc(), n));
-                            constraints.push(Constraint(expr.loc(), var.clone(), inf_ty.clone()));
+                            constraints.push(Constraint::ExprEq(
+                                expr.loc(),
+                                var.clone(),
+                                inf_ty.clone(),
+                            ));
                             var
                         });
 
                         if let Some(def_name) = def_name.clone() {
                             locals.push(def_name);
                         }
-                        Ok((def_name, ty, expr))
+                        Ok((def_name, ty, expr, unimplemented!()))
                     })
                     .collect::<Result<_>>()?;
                 assert!(locals.len() >= old_len);
@@ -119,7 +125,7 @@ impl ModContext<'_> {
                         None, // TODO Look up the type
                     )
                 } else if self.resolve(name).is_ok() {
-                    todo!()
+                    todo!(@loc.clone(), "global variables")
                 } else {
                     raise!(@loc.clone(), "Undefined variable: {}", name)
                 }
@@ -133,66 +139,256 @@ impl ModContext<'_> {
     }
 }
 
-#[derive(Derivative)]
+#[derive(Clone, Derivative)]
 #[derivative(Debug)]
-struct Constraint(
-    #[derivative(Debug = "ignore")] Location,
-    Rc<UnifExpr>,
-    Rc<UnifExpr>,
-);
+enum Constraint {
+    /// The first effect set must be a superset of the second.
+    EffSuperset(#[derivative(Debug = "ignore")] Location, UnifEffs, UnifEffs),
 
+    /// The two expressions must be equal.
+    ExprEq(
+        #[derivative(Debug = "ignore")] Location,
+        Rc<UnifExpr>,
+        Rc<UnifExpr>,
+    ),
+}
+
+impl Constraint {
+    fn loc(&self) -> Location {
+        match self {
+            Constraint::EffSuperset(loc, _, _) | Constraint::ExprEq(loc, _, _) => loc.clone(),
+        }
+    }
+
+    /// Applies this constraint to the given expression.
+    pub fn solve(self, target: &mut Rc<UnifExpr>) -> Result<()> {
+        // Constraint::clone is cheap, and this makes error reporting code more readable.
+        match self.clone() {
+            Constraint::EffSuperset(loc, l, r) => {
+                if let Some(l_tail) = l.tail {
+                    UnifExpr::merge_effs(target, l_tail, r);
+                    Ok(())
+                } else {
+                    todo!(@loc, "Solve constraint {}", self)
+                }
+            }
+            Constraint::ExprEq(loc, l, r) => match (&*l, &*r) {
+                (&UnifExpr::UnifVar(_, n), _) => {
+                    UnifExpr::substitute(target, n, r, loc);
+                    Ok(())
+                }
+                (_, &UnifExpr::UnifVar(_, n)) => {
+                    UnifExpr::substitute(target, n, l, loc);
+                    Ok(())
+                }
+                _ => todo!(@loc, "Solve constraint {}", self),
+            },
+        }
+    }
+}
+
+impl Display for Constraint {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        match self {
+            // TODO: Is Unicode reasonable here?
+            Constraint::EffSuperset(_, l, r) => write!(fmt, "{} ⊇ {}", l, r),
+            Constraint::ExprEq(_, l, r) => write!(fmt, "{} ~ {}", l, r),
+        }
+    }
+}
+
+/// A set of effects which can undergo unification.
+#[derive(Clone, Debug)]
+pub struct UnifEffs {
+    /// The effects that must be present.
+    pub effs: HashSet<FQName>,
+
+    /// The unification variable for the "rest" of the set, if there is one.
+    pub tail: Option<usize>,
+}
+
+impl UnifEffs {
+    /// Returns a set of effects that unifies with anything.
+    pub fn any() -> UnifEffs {
+        UnifEffs {
+            effs: HashSet::new(),
+            tail: Some(genint()),
+        }
+    }
+
+    /// Returns the empty set of effects.
+    pub fn none() -> UnifEffs {
+        UnifEffs {
+            effs: HashSet::new(),
+            tail: None,
+        }
+    }
+
+    /// Returns whether this is `UnifEffs::none()`.
+    pub fn is_none(&self) -> bool {
+        self.effs.is_empty() && self.tail.is_none()
+    }
+}
+
+impl Display for UnifEffs {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        if self.effs.is_empty() && self.tail.is_some() {
+            write!(fmt, "#VAR:{}#", self.tail.unwrap())
+        } else {
+            write!(fmt, "(")?;
+            let mut first = true;
+            for eff in &self.effs {
+                if first {
+                    first = false;
+                } else {
+                    write!(fmt, " ")?;
+                }
+
+                write!(fmt, "{}/{}/{}", eff.0, eff.1, eff.2)?;
+            }
+            if let Some(tail) = self.tail {
+                write!(fmt, " | #VAR:{}#", tail)?;
+            }
+            write!(fmt, ")")
+        }
+    }
+}
+
+/// An expression during unification. This is similar to the AST expression, but has an additional
+/// constructor for unification variables.
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub enum UnifExpr {
+    /// A function call.
     Call(
         #[derivative(Debug = "ignore")] Location,
         Rc<UnifExpr>,
         Vec<Rc<UnifExpr>>,
     ),
+
+    /// A constant literal. Note that nil and conses are _not_ literals -- they're instead defined
+    /// in library code via lang items, and correspondingly CST literals containing either are
+    /// lowered appropriately.
     Const(#[derivative(Debug = "ignore")] Location, Literal),
-    GlobalVar(
-        #[derivative(Debug = "ignore")] Location,
-        SharedString,
-        SharedString,
-        SharedString,
-    ),
+
+    /// A global variable.
+    GlobalVar(#[derivative(Debug = "ignore")] Location, FQName),
+
+    /// A lambda.
     Lam(
         #[derivative(Debug = "ignore")] Location,
         Vec<SharedString>,
-        Vec<(Option<SharedString>, Rc<UnifExpr>, Rc<UnifExpr>)>,
+        Vec<(Option<SharedString>, Rc<UnifExpr>, Rc<UnifExpr>, UnifEffs)>,
     ),
+
+    /// A local variable.
     LocalVar(#[derivative(Debug = "ignore")] Location, SharedString),
+
+    /// A pi type.
     Pi(
         #[derivative(Debug = "ignore")] Location,
         Vec<(SharedString, Rc<UnifExpr>)>,
         Rc<UnifExpr>,
-        Effects,
+        UnifEffs,
     ),
+
+    /// The type of types.
     Type(#[derivative(Debug = "ignore")] Location),
+
+    /// A unification variable.
     UnifVar(#[derivative(Debug = "ignore")] Location, usize),
 }
 
 impl UnifExpr {
-    fn gather_effects(&self) -> Effects {
+    /// Collects constraints over the AST, assigning types to expressions as it goes. env is a
+    /// vector with the condition that on an `Ok(_)` return, it must be the same as when it was
+    /// passed in; this is for efficiency reasons.
+    fn collect_constraints(
+        &self,
+        constraints: &mut Vec<Constraint>,
+        chk_ty: Rc<UnifExpr>,
+        env: &mut Vec<(SharedString, Rc<UnifExpr>)>,
+    ) -> Result<()> {
+        let inf_ty = match self {
+            UnifExpr::Call(loc, func, args) => {
+                let ty_args = args.iter().map(|arg| hole(loc.clone())).collect::<Vec<_>>();
+                let ret_ty = hole(loc.clone());
+                unimplemented!()
+            }
+            UnifExpr::Const(loc, val) => {
+                todo!(@loc.clone(), "the type of {} is... I need lang items", val)
+            }
+            // UnifExpr::GlobalVar(loc, name) => unimplemented!(),
+            UnifExpr::Lam(loc, args, body) => {
+                let arg_tys = args
+                    .iter()
+                    .map(|arg| (arg.clone(), hole(loc.clone())))
+                    .collect::<Vec<_>>();
+
+                let old_env_len = env.len();
+                env.extend(arg_tys.clone());
+
+                let lam_effs = UnifEffs::any();
+                println!("env = {:?}", env);
+                let mut body_tys = body
+                    .iter()
+                    .map(|(_, ty, expr, effs)| {
+                        constraints.push(Constraint::EffSuperset(
+                            expr.loc(),
+                            lam_effs.clone(),
+                            effs.clone(),
+                        ));
+                        expr.collect_constraints(constraints, ty.clone(), env)?;
+                        Ok(ty.clone())
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+
+                env.truncate(old_env_len);
+
+                Rc::new(UnifExpr::Pi(
+                    loc.clone(),
+                    arg_tys,
+                    body_tys.pop().unwrap(),
+                    lam_effs,
+                ))
+            }
+            UnifExpr::LocalVar(loc, name) => (0..env.len())
+                .rev()
+                .find(|&i| env[i].0 == name)
+                .map(|i| env[i].1.clone())
+                .ok_or_else(|| err!(@loc.clone(), "Undefined local variable: {}", name))?,
+            UnifExpr::Pi(loc, args, body, effs) => {
+                unimplemented!();
+            }
+            UnifExpr::Type(loc) => todo!(@loc.clone(), "the type of type is undefined"),
+            UnifExpr::UnifVar(loc, _) => hole(loc.clone()),
+            _ => todo!(@self.loc(), "collect over {}", self),
+        };
+
+        constraints.push(Constraint::ExprEq(self.loc(), inf_ty, chk_ty));
+        Ok(())
+    }
+
+    fn gather_effects(&self) -> Vec<FQName> {
         match self {
             UnifExpr::Call(_, func, args) => args
                 .iter()
-                .map(|arg| arg.gather_effects())
-                .chain(once(func.gather_effects()))
-                .sum(),
+                .flat_map(|arg| arg.gather_effects())
+                .chain(func.gather_effects())
+                .collect(),
             UnifExpr::Pi(_, args, body, effs) => args
                 .iter()
-                .map(|(_, arg)| arg.gather_effects())
-                .chain(once(body.gather_effects()))
-                .sum(),
+                .flat_map(|(_, arg)| arg.gather_effects())
+                .chain(body.gather_effects())
+                .collect(),
             UnifExpr::Const(_, _)
-            | UnifExpr::GlobalVar(_, _, _, _)
+            | UnifExpr::GlobalVar(_, _)
             | UnifExpr::Lam(_, _, _)
             | UnifExpr::LocalVar(_, _)
-            | UnifExpr::Type(_) => Effects::default(),
+            | UnifExpr::Type(_) => Vec::new(),
             UnifExpr::UnifVar(_, _) => {
                 warn!("A unification variable should not be having its effects computed...");
-                Effects::default()
+                Vec::new()
             }
         }
     }
@@ -201,12 +397,38 @@ impl UnifExpr {
         match self {
             UnifExpr::Call(loc, _, _)
             | UnifExpr::Const(loc, _)
-            | UnifExpr::GlobalVar(loc, _, _, _)
+            | UnifExpr::GlobalVar(loc, _)
             | UnifExpr::Lam(loc, _, _)
             | UnifExpr::LocalVar(loc, _)
             | UnifExpr::Pi(loc, _, _, _)
             | UnifExpr::Type(loc)
             | UnifExpr::UnifVar(loc, _) => loc.clone(),
+        }
+    }
+
+    fn merge_effs(target: &mut Rc<Self>, var: usize, with: UnifEffs) {
+        match *Rc::make_mut(target) {
+            UnifExpr::Call(_, ref mut func, ref mut args) => {
+                args.iter_mut()
+                    .for_each(|arg| UnifExpr::merge_effs(arg, var, with.clone()));
+                UnifExpr::merge_effs(func, var, with);
+            }
+            UnifExpr::Lam(_, _, ref mut body) => {
+                for &mut (_, ref mut ty, ref mut expr, ref mut effs) in body.iter_mut() {
+                    UnifExpr::merge_effs(ty, var, with.clone());
+                    UnifExpr::merge_effs(expr, var, with.clone());
+                    if effs.tail == Some(var) {
+                        effs.effs.extend(with.effs.iter().cloned());
+                        effs.tail = with.tail;
+                    }
+                }
+            }
+            UnifExpr::Pi(_, ref mut args, ref mut body, _) => {
+                args.iter_mut()
+                    .for_each(|(_, arg)| UnifExpr::merge_effs(arg, var, with.clone()));
+                UnifExpr::merge_effs(body, var, with);
+            }
+            _ => {} // Other constructors cannot contain effects.
         }
     }
 
@@ -218,10 +440,10 @@ impl UnifExpr {
                 UnifExpr::substitute(func, var, with, loc);
             }
             UnifExpr::Lam(_, _, ref mut body) => {
-                body.iter_mut().for_each(|(_, ty, expr)| {
+                for (_, ty, expr, effs) in body {
                     UnifExpr::substitute(ty, var, with.clone(), loc.clone());
                     UnifExpr::substitute(expr, var, with.clone(), loc.clone());
-                });
+                }
             }
             UnifExpr::Pi(_, ref mut args, ref mut body, _) => {
                 args.iter_mut()
@@ -246,19 +468,17 @@ impl Display for UnifExpr {
                 Literal::Int(_, _) | Literal::String(_, _) => write!(fmt, "{}", val),
                 Literal::Symbol(_, _) => write!(fmt, "'{}", val),
             },
-            UnifExpr::GlobalVar(_, lib_name, mod_name, name) => {
-                write!(fmt, "{}/{}/{}", lib_name, mod_name, name,)
-            }
+            UnifExpr::GlobalVar(_, name) => write!(fmt, "{}", name,),
             UnifExpr::Lam(_, args, body) => {
                 write!(fmt, "(fn (")?;
                 fmt_iter(fmt, args)?;
                 write!(fmt, ")")?;
-                for (name, ty, expr) in body {
+                for (name, ty, expr, effs) in body {
                     let name = match name {
                         Some(name) => &*name,
                         None => "_",
                     };
-                    write!(fmt, "  (def {} {} {})", name, ty, expr)?;
+                    write!(fmt, " (def {} {} {})", name, ty, expr)?;
                 }
                 write!(fmt, ")")
             }
@@ -275,8 +495,8 @@ impl Display for UnifExpr {
                     write!(fmt, "({} {})", name, expr)?;
                 }
                 write!(fmt, ") {}", body)?;
-                if !effs.0.is_empty() {
-                    unimplemented!();
+                if !effs.is_none() {
+                    write!(fmt, " {}", effs)?;
                 }
                 write!(fmt, ")")
             }
@@ -286,24 +506,47 @@ impl Display for UnifExpr {
     }
 }
 
-fn unify(mut target: Rc<UnifExpr>, constraints: Vec<Constraint>) -> Result<Rc<UnifExpr>> {
-    for Constraint(loc, l, r) in constraints {
-        match (&*l, &*r) {
-            (&UnifExpr::UnifVar(_, n), _) => UnifExpr::substitute(&mut target, n, r, loc),
-            (_, &UnifExpr::UnifVar(_, n)) => UnifExpr::substitute(&mut target, n, l, loc),
-            (l, r) => raise!(@loc,"Cannot unify {} with {}", l, r),
-        }
+pub fn unify_ty_expr(ty: &mut Rc<UnifExpr>, expr: &mut Rc<UnifExpr>) -> Result<()> {
+    let mut constraints = Vec::new();
+    ty.collect_constraints(&mut constraints, hole(ty.loc()), &mut Vec::new())?;
+    expr.collect_constraints(&mut constraints, ty.clone(), &mut Vec::new())?;
+
+    debug!("Unifying a declaration:");
+    debug!("  ty = {}", ty);
+    debug!("expr = {}", expr);
+    let mut first = true;
+    for c in &constraints {
+        let s = if first {
+            first = false;
+            '['
+        } else {
+            ','
+        };
+        debug!("{} {}", s, c);
     }
-    Ok(target)
+    debug!("]");
+
+    unify(expr, constraints.clone())?;
+    unify(ty, constraints)?;
+
+    Ok(())
+}
+
+fn unify(target: &mut Rc<UnifExpr>, constraints: Vec<Constraint>) -> Result<()> {
+    for c in constraints {
+        c.solve(target)?;
+    }
+    Ok(())
 }
 
 pub fn reify(expr: &UnifExpr) -> Result<Expr> {
+    debug!("About to reify {}", expr);
     match expr {
         UnifExpr::Lam(loc, args, body) => {
             let body = body
                 .iter()
-                .map(|(def_name, ty, expr)| {
-                    let effs = expr.gather_effects();
+                .map(|(def_name, ty, expr, effs)| {
+                    let effs = Effects(effs.effs.iter().cloned().collect());
                     let ty =
                         reify(ty).chain(|| err!(@ty.loc(), "in {} (the type of {})", ty, expr))?;
                     let expr = reify(expr).chain(|| err!(@expr.loc(), "in {}", expr))?;
@@ -316,4 +559,8 @@ pub fn reify(expr: &UnifExpr) -> Result<Expr> {
         UnifExpr::UnifVar(loc, _) => raise!(@loc.clone(), "Cannot reify a hole!"),
         expr => todo!(@expr.loc(), "reify({:?})", expr),
     }
+}
+
+fn hole(loc: Location) -> Rc<UnifExpr> {
+    Rc::new(UnifExpr::UnifVar(loc, genint()))
 }

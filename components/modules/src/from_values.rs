@@ -37,10 +37,10 @@ impl Module {
                     imports.insert(implib, imps);
                 } else {
                     processing_imports = false;
-                    decls.push(Decl::from_value(val)?);
+                    decls.push(Decl::from_value(&val)?);
                 }
             } else {
-                decls.push(Decl::from_value(val)?);
+                decls.push(Decl::from_value(&val)?);
             }
         }
 

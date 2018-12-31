@@ -12,8 +12,8 @@ run +ARGS="":
 	cargo run -- {{ARGS}}
 test:
 	cargo test --all
-watch TARGET="all":
-	watchexec -cre lalrpop,rs -- just "{{TARGET}}"
+watch +TARGETS="all":
+	watchexec -cre lalrpop,rs -- just {{TARGETS}}
 
 open-docs: doc
 	cargo doc --open --package stahl

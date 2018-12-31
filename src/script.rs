@@ -10,7 +10,7 @@ pub fn run(main: PathBuf) -> Result<()> {
     let main = SharedPath::new(Arc::from(main));
     let vals = parse_file(main.clone())?;
     let (mod_name, exports, imports, decls) =
-        Module::from_values(vals, Location::new_file(Some(main)))?;
+        Module::from_values(vals, Location::new().path(main))?;
 
     let mut context = Context::new();
     let mut library = context.create_lib(SharedString::from("#script#"), 0, 0, 0)?;
