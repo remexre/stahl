@@ -30,18 +30,30 @@ pub fn run() -> Result<()> {
 
     let mut ctx = Context::new();
     create_compiler_intrinsics_lib(&mut ctx);
+    println!("{:?}", ctx);
 
-    let mut lib_ctx = ctx.create_lib(SharedString::from("#repl#"), 0, 0, 0)?;
-    let mut mod_ctx = lib_ctx.create_mod("".into(), hashset! {}, hashmap! {})?;
+    let mut lib_ctx = ctx.create_lib(SharedString::from("#repl#"), 0, 0, 0);
+    let mut mod_ctx = lib_ctx.create_mod(
+        "".into(),
+        hashset! {},
+        hashmap! {
+            "#compiler-builtins#".into() => hashmap! {
+                "".into() => hashset!{"type".into() }
+            }
+        },
+    );
 
     let loc = Location::new().name("the built-in definition of `the'".into());
-    build_the(loc.clone(), mod_ctx.create_def(loc, "the".into())?)?;
+    build_the(loc.clone(), mod_ctx.create_def(loc, "the".into()))?;
 
     while let Ok(line) = rl.readline("\u{03bb}> ") {
         if let Err(e) = run_line(&mut mod_ctx, &line) {
             error!("{}", e);
         }
     }
+
+    mod_ctx.discard();
+    lib_ctx.discard();
 
     if let Some(path) = history_path.as_ref() {
         if let Some(dir) = path.parent() {
@@ -85,5 +97,6 @@ fn build_the(loc: Location, mut def_ctx: DefContext) -> Result<()> {
     expr.intros(loc.clone(), vec!["T".into(), "x".into()]);
     expr.fill(Rc::new(UnifExpr::LocalVar(loc, "x".into())));
 
-    def_ctx.finish()
+    def_ctx.finish()?;
+    Ok(())
 }

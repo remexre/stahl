@@ -15,6 +15,9 @@ use std::collections::{HashMap, HashSet};
 /// A library.
 #[derive(Debug)]
 pub struct Library {
+    /// The name of the library.
+    pub name: SharedString,
+
     /// The modules in the library.
     pub mods: HashMap<SharedString, Module>,
 }
@@ -59,26 +62,28 @@ impl Module {
     /// Resolves a name inside this module. This may be a local name (a string that does not
     /// contain `/`, or is literally just `/`), or a global name (a string with more than one
     /// character that contains `/`).
-    pub fn resolve<'a>(&'a self, name: SharedString) -> Option<(FQName, &'a Decl)> {
+    pub fn resolve(&self, name: SharedString) -> Option<FQName> {
         if name != "/" && name.contains('/') {
             unimplemented!("Convert {} to a FQName", name)
         } else {
             // Check declarations in the module.
             for decl in &self.decls {
                 if decl.name() == name {
-                    return Some((
-                        FQName(self.lib_name.clone(), self.mod_name.clone(), name),
-                        decl,
-                    ));
+                    return Some(FQName(self.lib_name.clone(), self.mod_name.clone(), name));
                 }
             }
 
-            unimplemented!(
-                "Check imports of {}/{} for {}",
-                self.lib_name,
-                self.mod_name,
-                name
-            )
+            for (lib_name, mods) in &self.imports {
+                for (mod_name, names) in mods {
+                    for n in names {
+                        if n == &name {
+                            return Some(FQName(lib_name.clone(), mod_name.clone(), name));
+                        }
+                    }
+                }
+            }
+
+            None
         }
     }
 }

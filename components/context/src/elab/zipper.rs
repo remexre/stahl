@@ -1,11 +1,8 @@
 #![allow(clippy::type_complexity)]
 
-use crate::{
-    elab::{UnifEffs, UnifExpr},
-    split_vec::SplitVec,
-};
+use crate::elab::{UnifEffs, UnifExpr};
 use stahl_errors::Location;
-use stahl_util::{unwrap_rc, SharedString};
+use stahl_util::{unwrap_rc, SharedString, SplitVec};
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     rc::Rc,

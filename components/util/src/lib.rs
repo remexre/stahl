@@ -1,10 +1,13 @@
 //! Some utilities used throughout the Stahl compiler.
 #![deny(missing_docs)]
 
+mod split_vec;
+
+pub use crate::split_vec::SplitVec;
 use owning_ref::ArcRef;
 use std::{
     fmt::{Debug, Display, Formatter, Result as FmtResult},
-    ops::Deref,
+    ops::{Deref, DerefMut},
     path::Path,
     rc::Rc,
     sync::atomic::{AtomicUsize, Ordering},
@@ -70,6 +73,41 @@ impl PartialEq<&str> for SharedString {
 impl PartialEq<&SharedString> for SharedString {
     fn eq(&self, other: &&SharedString) -> bool {
         **self == ***other
+    }
+}
+
+/// A wrapper for values which can be taken out.
+#[derive(Debug)]
+pub struct Taker<T>(Option<T>);
+
+impl<T> Taker<T> {
+    /// Takes the value out of the Taker.
+    pub fn take(&mut self) -> T {
+        self.0.take().unwrap()
+    }
+
+    /// Returns whether the value has been taken yet.
+    pub fn taken(&self) -> bool {
+        self.0.is_none()
+    }
+}
+
+impl<T> From<T> for Taker<T> {
+    fn from(t: T) -> Taker<T> {
+        Taker(Some(t))
+    }
+}
+
+impl<T> Deref for Taker<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        self.0.as_ref().unwrap()
+    }
+}
+
+impl<T> DerefMut for Taker<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.0.as_mut().unwrap()
     }
 }
 

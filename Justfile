@@ -6,6 +6,8 @@ build-release:
 	cargo build --all --release
 check:
 	cargo check --all
+clippy:
+	cargo clippy --all
 doc:
 	cargo doc --all
 run +ARGS="":

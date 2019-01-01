@@ -4,7 +4,7 @@ mod zipper;
 
 pub use crate::elab::zipper::Zipper;
 use crate::ModContext;
-use log::{debug, trace, warn};
+use log::{debug, trace};
 use stahl_ast::{Effects, Expr, FQName, Literal};
 use stahl_cst::{Expr as CstExpr, Value};
 use stahl_errors::{Location, Result, ResultExt};
@@ -15,7 +15,7 @@ use std::{
     rc::Rc,
 };
 
-impl ModContext<'_> {
+impl ModContext<'_, '_> {
     /// Elaborates a CST expression into an AST expression.
     pub fn elab(&mut self, cst_expr: &CstExpr, chk_ty: &CstExpr) -> Result<(Expr, Expr)> {
         let mut constraints = Vec::new();
@@ -158,14 +158,6 @@ enum Constraint {
 }
 
 impl Constraint {
-    fn loc(&self) -> Location {
-        match self {
-            Constraint::EffEq(loc, _, _)
-            | Constraint::EffSuperset(loc, _, _)
-            | Constraint::ExprEq(loc, _, _) => loc.clone(),
-        }
-    }
-
     /// Applies this constraint to the given expression.
     pub fn solve(
         &self,
@@ -254,7 +246,7 @@ impl Constraint {
         }
     }
 
-    /// Applies this constraint to another constraint.
+    /// Applies a substitution of effects to this constraint.
     pub fn subst_effs(&mut self, var: usize, with: Rc<UnifEffs>) {
         match self {
             Constraint::EffEq(_, l, r) | Constraint::EffSuperset(_, l, r) => {
@@ -326,7 +318,7 @@ impl Display for UnifEffs {
                     write!(fmt, " ")?;
                 }
 
-                write!(fmt, "{}/{}/{}", eff.0, eff.1, eff.2)?;
+                write!(fmt, "{}", eff)?;
             }
             if let Some(tail) = self.1 {
                 write!(fmt, " | #VAR:{}#", tail)?;
@@ -403,7 +395,10 @@ impl UnifExpr {
     ) -> Result<()> {
         let inf_ty = match self {
             UnifExpr::Call(loc, _func, args) => {
-                let _ty_args = args.iter().map(|_arg| hole(loc.clone())).collect::<Vec<_>>();
+                let _ty_args = args
+                    .iter()
+                    .map(|_arg| hole(loc.clone()))
+                    .collect::<Vec<_>>();
                 let _ret_ty = hole(loc.clone());
                 unimplemented!()
             }
@@ -459,31 +454,6 @@ impl UnifExpr {
 
         constraints.push(Constraint::ExprEq(self.loc(), inf_ty, chk_ty));
         Ok(())
-    }
-
-    fn gather_effects(&self) -> Vec<FQName> {
-        match self {
-            UnifExpr::Call(_, func, args) => args
-                .iter()
-                .flat_map(|arg| arg.gather_effects())
-                .chain(func.gather_effects())
-                .collect(),
-            UnifExpr::Pi(_, args, body, _effs) => args
-                .iter()
-                .flat_map(|(_, arg)| arg.gather_effects())
-                .chain(body.gather_effects())
-                .collect(),
-            UnifExpr::Const(_, _)
-            | UnifExpr::GlobalVar(_, _)
-            | UnifExpr::Lam(_, _, _)
-            | UnifExpr::LocalVar(_, _)
-            | UnifExpr::Type(_)
-            | UnifExpr::TypeOfTypeOfTypes(_) => Vec::new(),
-            UnifExpr::UnifVar(_, _) => {
-                warn!("A unification variable should not be having its effects computed...");
-                Vec::new()
-            }
-        }
     }
 
     fn loc(&self) -> Location {

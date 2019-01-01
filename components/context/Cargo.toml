@@ -7,7 +7,6 @@ version = "0.1.0"
 [dependencies]
 derivative = "1.0.2"
 log = "0.4.6"
-owning_ref = "0.4.0"
 stahl_ast = { path = "../ast" }
 stahl_cst = { path = "../cst" }
 stahl_errors = { path = "../errors" }

@@ -9,16 +9,14 @@ extern crate derivative;
 extern crate stahl_errors;
 
 mod elab;
-mod split_vec;
 
 use crate::elab::{reify, unify_ty_expr};
 pub use crate::elab::{UnifExpr, Zipper};
-use owning_ref::OwningRefMut;
-use stahl_ast::{Decl, FQName};
+use stahl_ast::{Decl, Expr, FQName};
 use stahl_cst::{Decl as CstDecl, Expr as CstExpr};
 use stahl_errors::{Location, Result};
 use stahl_modules::{Library, Module};
-use stahl_util::{genint, SharedString};
+use stahl_util::{genint, SharedString, Taker};
 use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
@@ -46,82 +44,138 @@ impl Context {
         major: u16,
         minor: u16,
         patch: u32,
-    ) -> Result<LibContext> {
+    ) -> LibContext {
         let lib_name = SharedString::from(format!("{}-{}-{}-{}", name, major, minor, patch));
+        LibContext {
+            context: self.into(),
+            key: (name, major, minor, patch).into(),
+            library: Library {
+                name: lib_name,
+                mods: HashMap::new(),
+            }
+            .into(),
+        }
+    }
+
+    /// Inserts the given library, creating an entry for it in the context.
+    pub fn insert_lib(
+        &mut self,
+        name: SharedString,
+        major: u16,
+        minor: u16,
+        patch: u32,
+        library: Library,
+    ) -> Result<()> {
         let key = (name, major, minor, patch);
         if self.libs.contains_key(&key) {
-            raise!("Library {} already exists", lib_name)
+            raise!(
+                "Library {}-{}-{}-{} already exists",
+                key.0,
+                key.1,
+                key.2,
+                key.3
+            )
         }
-        self.libs.insert(
-            key.clone(),
-            Library {
-                mods: HashMap::new(),
-            },
-        );
-        let library = OwningRefMut::new(self).map_mut(|ctx| ctx.libs.get_mut(&key).unwrap());
-        Ok(LibContext {
-            key,
-            library,
-            name: lib_name,
-        })
+
+        // TODO: Check imports, exports, etc.
+        self.libs.insert(key, library);
+        Ok(())
+    }
+
+    /// Returns the type of the given fully qualified name.
+    pub fn get_type_of(&self, name: FQName) -> Result<Expr> {
+        unimplemented!()
     }
 }
 
 /// A single library's portion of the context.
 #[derive(Debug)]
-pub struct LibContext<'a> {
-    key: (SharedString, u16, u16, u32),
-    name: SharedString,
-    library: OwningRefMut<&'a mut Context, Library>,
+pub struct LibContext<'c> {
+    context: Taker<&'c mut Context>,
+    key: Taker<(SharedString, u16, u16, u32)>,
+    library: Taker<Library>,
 }
 
-impl LibContext<'_> {
+impl<'c> LibContext<'c> {
+    /// Adds this library to the context.
+    pub fn finish(mut self) -> Result<&'c mut Context> {
+        let (name, major, minor, patch) = self.key.take();
+        self.context
+            .insert_lib(name, major, minor, patch, self.library.take())?;
+        Ok(self.context.take())
+    }
+
+    /// Discards this library. Use this instead of just dropping in the case where the library
+    /// should not be added!
+    pub fn discard(mut self) {
+        self.library.take();
+    }
+
     /// Creates a context for the module with the given name.
-    pub fn create_mod(
-        &mut self,
+    pub fn create_mod<'l>(
+        &'l mut self,
         name: SharedString,
         exports: HashSet<SharedString>,
         imports: HashMap<SharedString, HashMap<SharedString, HashSet<SharedString>>>,
-    ) -> Result<ModContext> {
-        self.insert_mod(
-            name.clone(),
-            Module {
-                lib_name: self.name.clone(),
+    ) -> ModContext<'l, 'c> {
+        let lib_name = self.library.name.clone();
+        ModContext {
+            library: self.into(),
+            module: Module {
+                lib_name,
                 mod_name: name,
                 exports,
                 imports,
-                decls: Vec::new(),
-            },
-        )
+                decls: vec![],
+            }
+            .into(),
+        }
     }
 
     /// Inserts the given module, creating an entry for it in the context.
-    pub fn insert_mod(&mut self, name: SharedString, module: Module) -> Result<ModContext> {
-        if self.library.mods.contains_key(&name) {
-            raise!("Module {}/{} already exists", self.name, name)
+    pub fn insert_mod(&mut self, module: Module) -> Result<()> {
+        if self.library.mods.contains_key(&module.mod_name) {
+            raise!(
+                "Module {}/{} already exists",
+                self.library.name,
+                module.mod_name
+            )
         }
 
-        // TODO: Process imports, etc.
-        self.library.mods.insert(name.clone(), module);
-        let module =
-            OwningRefMut::new(&mut *self.library).map_mut(|lib| lib.mods.get_mut(&name).unwrap());
-        Ok(ModContext {
-            lib_name: self.name.clone(),
-            mod_name: name,
-            module,
-        })
+        // TODO: Check imports, exports, etc.
+        self.library.mods.insert(module.mod_name.clone(), module);
+        Ok(())
+    }
+}
+
+impl Drop for LibContext<'_> {
+    fn drop(&mut self) {
+        if !(panicking() || self.context.taken() || self.key.taken() || self.library.taken()) {
+            panic!("Dropping a LibContext that has not called .finish() or .discard()");
+        }
     }
 }
 
 /// A single module's portion of the context.
 #[derive(Debug)]
-pub struct ModContext<'lib> {
-    lib_name: SharedString,
-    mod_name: SharedString,
-    module: OwningRefMut<&'lib mut Library, Module>,
+pub struct ModContext<'l, 'c> {
+    library: Taker<&'l mut LibContext<'c>>,
+    module: Taker<Module>,
 }
 
-impl<'lib> ModContext<'lib> {
+impl<'l, 'c: 'l> ModContext<'l, 'c> {
+    /// Adds this module to the library.
+    pub fn finish(mut self) -> Result<&'l mut LibContext<'c>> {
+        self.library.insert_mod(self.module.take())?;
+        Ok(self.library.take())
+    }
+
+    /// Discards this module. Use this instead of just dropping in the case where the module should
+    /// not be added!
+    pub fn discard(mut self) {
+        self.module.take();
+    }
+
     /// Adds a new declaration.
     pub fn add(&mut self, decl: Decl) -> Result<()> {
         let name = decl.name();
@@ -129,8 +183,8 @@ impl<'lib> ModContext<'lib> {
             raise!(
                 @decl.loc(),
                 "Module {}/{} already declares {}",
-                self.lib_name,
-                self.mod_name,
+                self.library.library.name,
+                self.module.mod_name,
                 name
             )
         }
@@ -171,99 +225,110 @@ impl<'lib> ModContext<'lib> {
     }
 
     /// Begins creating a def with a known (wildcard-free) type.
-    pub fn create_def<'a>(
-        &'a mut self,
+    pub fn create_def<'m>(
+        &'m mut self,
         loc: Location,
         name: SharedString,
-    ) -> Result<DefContext<'a, 'lib>> {
+    ) -> DefContext<'m, 'l, 'c> {
         let type_zipper = Zipper::new(Rc::new(UnifExpr::UnifVar(loc.clone(), genint())));
         let expr_zipper = Zipper::new(Rc::new(UnifExpr::UnifVar(loc.clone(), genint())));
-        Ok(DefContext {
-            mod_ctx: self,
-            loc: Some(loc),
-            name: Some(name),
-            type_zipper: Some(type_zipper),
-            expr_zipper: Some(expr_zipper),
-        })
+        DefContext {
+            module: self.into(),
+            loc: loc.into(),
+            name: name.into(),
+            type_zipper: type_zipper.into(),
+            expr_zipper: expr_zipper.into(),
+        }
     }
 
     /// Resolves the name of a definition the module context, returning its type.
     pub fn resolve(&self, name: SharedString) -> Result<(FQName, Rc<UnifExpr>)> {
         match self.module.resolve(name.clone()) {
-            Some((name, decl)) => match decl {
-                Decl::Def(_, _, ty, _) => Ok((name, Rc::new(ty.into()))),
-                Decl::DefEff(_, _, _, _) => raise!("{} is an effect, not a value!", name),
-            },
+            Some(name) => self
+                .library
+                .context
+                .get_type_of(name.clone())
+                .map(|ty| (name, Rc::new((&ty).into()))),
             None => raise!("No definition for {} exists", name),
         }
     }
 }
 
-impl Deref for ModContext<'_> {
+impl Deref for ModContext<'_, '_> {
     type Target = Module;
     fn deref(&self) -> &Module {
-        &self.module
+        &*self.module
     }
 }
 
-impl DerefMut for ModContext<'_> {
+impl DerefMut for ModContext<'_, '_> {
     fn deref_mut(&mut self) -> &mut Module {
-        &mut self.module
+        &mut *self.module
+    }
+}
+
+impl Drop for ModContext<'_, '_> {
+    fn drop(&mut self) {
+        if !(panicking() || self.library.taken() || self.module.taken()) {
+            panic!("Dropping a ModContext that has not called .finish() or .discard()");
+        }
     }
 }
 
 /// A single def's portion of the context.
 #[derive(Debug)]
-pub struct DefContext<'m, 'l> {
-    mod_ctx: &'m mut ModContext<'l>,
-    loc: Option<Location>,
-    name: Option<SharedString>,
-    type_zipper: Option<Zipper>,
-    expr_zipper: Option<Zipper>,
+pub struct DefContext<'m, 'l, 'c> {
+    module: Taker<&'m mut ModContext<'l, 'c>>,
+    loc: Taker<Location>,
+    name: Taker<SharedString>,
+    type_zipper: Taker<Zipper>,
+    expr_zipper: Taker<Zipper>,
 }
 
-impl DefContext<'_, '_> {
-    /// Gets the zipper for the type, immutably.
-    pub fn expr_zipper(&mut self) -> &mut Zipper {
-        self.expr_zipper.as_mut().unwrap()
-    }
-
-    /// Gets the zipper for the type, immutably.
-    pub fn type_zipper(&mut self) -> &mut Zipper {
-        self.type_zipper.as_mut().unwrap()
-    }
-
+impl<'m, 'l: 'm, 'c: 'l> DefContext<'m, 'l, 'c> {
     /// Adds this def to the module.
-    pub fn finish(mut self) -> Result<()> {
-        let loc = self.loc.take().unwrap();
-        let name = self.name.take().unwrap();
+    pub fn finish(mut self) -> Result<&'m mut ModContext<'l, 'c>> {
+        let loc = self.loc.take();
+        let name = self.name.take();
 
-        let mut ty = Rc::new(self.type_zipper.take().unwrap().into_expr());
-        let mut expr = Rc::new(self.expr_zipper.take().unwrap().into_expr());
+        let mut ty = Rc::new(self.type_zipper.take().into_expr());
+        let mut expr = Rc::new(self.expr_zipper.take().into_expr());
         unify_ty_expr(&mut ty, &mut expr)?;
 
         let expr = reify(&expr)?;
         let ty = reify(&ty)?;
-        self.mod_ctx.add(Decl::Def(loc, name, ty, expr))
+        self.module.add(Decl::Def(loc, name, ty, expr))?;
+        Ok(self.module.take())
     }
 
     /// Discards this def. Use this instead of just dropping in the case where the def should not
     /// be added!
     pub fn discard(mut self) {
-        self.loc.take().unwrap();
-        self.name.take().unwrap();
-        self.type_zipper.take().unwrap();
-        self.expr_zipper.take().unwrap();
+        self.loc.take();
+        self.name.take();
+        self.type_zipper.take();
+        self.expr_zipper.take();
+    }
+
+    /// Gets the zipper for the type, immutably.
+    pub fn expr_zipper(&mut self) -> &mut Zipper {
+        &mut *self.expr_zipper
+    }
+
+    /// Gets the zipper for the type, immutably.
+    pub fn type_zipper(&mut self) -> &mut Zipper {
+        &mut *self.type_zipper
     }
 }
 
-impl Drop for DefContext<'_, '_> {
+impl Drop for DefContext<'_, '_, '_> {
     fn drop(&mut self) {
-        if !panicking()
-            && (self.loc.is_some()
-                || self.name.is_some()
-                || self.type_zipper.is_some()
-                || self.expr_zipper.is_some())
+        if !(panicking()
+            || self.module.taken()
+            || self.loc.taken()
+            || self.name.taken()
+            || self.type_zipper.taken()
+            || self.expr_zipper.taken())
         {
             panic!("Dropping a DefContext that has not called .finish() or .discard()");
         }
