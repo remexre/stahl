@@ -22,6 +22,17 @@ impl Options {
         stderrlog::new()
             .verbosity(self.verbose + 1)
             .quiet(self.quiet)
+            .modules(vec![
+                "stahl",
+                "stahl_ast",
+                "stahl_context",
+                "stahl_cst",
+                "stahl_errors",
+                "stahl_interpreter",
+                "stahl_modules",
+                "stahl_parser",
+                "stahl_util",
+            ])
             .init()
             .unwrap();
     }

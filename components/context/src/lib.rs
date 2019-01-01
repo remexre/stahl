@@ -14,7 +14,7 @@ mod zipper;
 
 use crate::elab::{reify, unify_ty_expr};
 pub use crate::{types::UnifExpr, zipper::Zipper};
-use stahl_ast::{Decl, Expr, FQName, LibName};
+use stahl_ast::{Decl, FQName, LibName};
 use stahl_cst::{Decl as CstDecl, Expr as CstExpr};
 use stahl_errors::{Location, Result};
 use stahl_modules::{Library, Module};
@@ -96,14 +96,6 @@ impl Context {
         }
 
         unimplemented!("TODO: Check imports of module")
-    }
-
-    /// Returns the type of the given fully qualified name.
-    pub fn get_type_of(&self, name: FQName) -> Result<&Expr> {
-        match self.get_decl(name.clone())? {
-            Decl::Def(_, _, ty, _) => Ok(ty),
-            Decl::DefEff(_, _, _, _) => raise!("{} is an effect, not a value", name),
-        }
     }
 }
 
@@ -275,14 +267,22 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
         }
     }
 
-    /// Resolves the name of a definition the module context, returning its type.
-    pub fn resolve(&self, name: SharedString) -> Result<(FQName, Rc<UnifExpr>)> {
+    /// Resolves the name of a definition the module context, returning its declaration.
+    pub fn resolve(&self, name: SharedString) -> Result<(FQName, &Decl)> {
         match self.module.resolve(name.clone()) {
-            Some(name) => self
-                .library
-                .context
-                .get_type_of(name.clone())
-                .map(|ty| (name, Rc::new(ty.into()))),
+            Some(name) => {
+                if name.0 == self.module.lib_name && name.1 == self.module.mod_name {
+                    match self.decls.iter().find(|decl| decl.name() == name.2) {
+                        Some(decl) => Ok((name, decl)),
+                        None => panic!("resolve() lied about {} being local", name),
+                    }
+                } else {
+                    self.library
+                        .context
+                        .get_decl(name.clone())
+                        .map(|decl| (name, decl))
+                }
+            }
             None => raise!("No definition for {} exists", name),
         }
     }
