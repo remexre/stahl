@@ -9,10 +9,12 @@ extern crate derivative;
 extern crate stahl_errors;
 
 mod elab;
+mod types;
+mod zipper;
 
 use crate::elab::{reify, unify_ty_expr};
-pub use crate::elab::{UnifExpr, Zipper};
-use stahl_ast::{Decl, Expr, FQName};
+pub use crate::{types::UnifExpr, zipper::Zipper};
+use stahl_ast::{Decl, Expr, FQName, LibName};
 use stahl_cst::{Decl as CstDecl, Expr as CstExpr};
 use stahl_errors::{Location, Result};
 use stahl_modules::{Library, Module};
@@ -28,7 +30,7 @@ use std::{
 /// The context in which compilation and interpretation occur.
 #[derive(Debug, Default)]
 pub struct Context {
-    libs: HashMap<(SharedString, u16, u16, u32), Library>,
+    libs: HashMap<LibName, Library>,
 }
 
 impl Context {
@@ -40,17 +42,14 @@ impl Context {
     /// Creates a context for the library with the given name and version.
     pub fn create_lib(
         &mut self,
-        name: SharedString,
-        major: u16,
-        minor: u16,
-        patch: u32,
+        name: LibName,
+        dep_versions: HashMap<SharedString, LibName>,
     ) -> LibContext {
-        let lib_name = SharedString::from(format!("{}-{}-{}-{}", name, major, minor, patch));
         LibContext {
             context: self.into(),
-            key: (name, major, minor, patch).into(),
             library: Library {
-                name: lib_name,
+                name,
+                dep_versions,
                 mods: HashMap::new(),
             }
             .into(),
@@ -58,33 +57,53 @@ impl Context {
     }
 
     /// Inserts the given library, creating an entry for it in the context.
-    pub fn insert_lib(
-        &mut self,
-        name: SharedString,
-        major: u16,
-        minor: u16,
-        patch: u32,
-        library: Library,
-    ) -> Result<()> {
-        let key = (name, major, minor, patch);
-        if self.libs.contains_key(&key) {
-            raise!(
-                "Library {}-{}-{}-{} already exists",
-                key.0,
-                key.1,
-                key.2,
-                key.3
-            )
+    pub fn insert_lib(&mut self, library: Library) -> Result<()> {
+        if self.libs.contains_key(&library.name) {
+            raise!("Library {} already exists", library.name)
         }
 
         // TODO: Check imports, exports, etc.
-        self.libs.insert(key, library);
+        self.libs.insert(library.name.clone(), library);
         Ok(())
     }
 
+    /// Returns the declaration referenced by the given fully qualified name.
+    pub fn get_decl(&self, name: FQName) -> Result<&Decl> {
+        let library = self
+            .libs
+            .get(&name.0)
+            .ok_or_else(|| err!("No library {} exists", name.0))?;
+        let module = library.mods.get(&name.1).ok_or_else(|| {
+            if name.1 == "" {
+                err!("No module {} exists", name.0)
+            } else {
+                err!("No module {}/{} exists", name.0, name.1)
+            }
+        })?;
+
+        if !module.exports.contains(&name.2) {
+            if name.1 == "" {
+                raise!("{} does not export {}", name.0, name.2)
+            } else {
+                raise!("{}/{} does not export {}", name.0, name.1, name.2)
+            }
+        }
+
+        for decl in &module.decls {
+            if decl.name() == &name.2 {
+                return Ok(decl);
+            }
+        }
+
+        unimplemented!("TODO: Check imports of module")
+    }
+
     /// Returns the type of the given fully qualified name.
-    pub fn get_type_of(&self, name: FQName) -> Result<Expr> {
-        unimplemented!()
+    pub fn get_type_of(&self, name: FQName) -> Result<&Expr> {
+        match self.get_decl(name.clone())? {
+            Decl::Def(_, _, ty, _) => Ok(ty),
+            Decl::DefEff(_, _, _, _) => raise!("{} is an effect, not a value", name),
+        }
     }
 }
 
@@ -92,22 +111,20 @@ impl Context {
 #[derive(Debug)]
 pub struct LibContext<'c> {
     context: Taker<&'c mut Context>,
-    key: Taker<(SharedString, u16, u16, u32)>,
     library: Taker<Library>,
 }
 
 impl<'c> LibContext<'c> {
     /// Adds this library to the context.
     pub fn finish(mut self) -> Result<&'c mut Context> {
-        let (name, major, minor, patch) = self.key.take();
-        self.context
-            .insert_lib(name, major, minor, patch, self.library.take())?;
+        self.context.insert_lib(self.library.take())?;
         Ok(self.context.take())
     }
 
     /// Discards this library. Use this instead of just dropping in the case where the library
     /// should not be added!
     pub fn discard(mut self) {
+        self.context.take();
         self.library.take();
     }
 
@@ -117,9 +134,26 @@ impl<'c> LibContext<'c> {
         name: SharedString,
         exports: HashSet<SharedString>,
         imports: HashMap<SharedString, HashMap<SharedString, HashSet<SharedString>>>,
-    ) -> ModContext<'l, 'c> {
+    ) -> Result<ModContext<'l, 'c>> {
+        let imports = imports
+            .into_iter()
+            .map(|(lib_name, lib_imports)| {
+                if lib_name == self.library.name.0 {
+                    Ok((self.library.name.clone(), lib_imports))
+                } else if let Some(name) = self.library.dep_versions.get(&lib_name) {
+                    Ok((name.clone(), lib_imports))
+                } else {
+                    raise!(
+                        "Library {} has no dependency on {}",
+                        self.library.name,
+                        lib_name
+                    )
+                }
+            })
+            .collect::<Result<_>>()?;
+
         let lib_name = self.library.name.clone();
-        ModContext {
+        Ok(ModContext {
             library: self.into(),
             module: Module {
                 lib_name,
@@ -129,7 +163,7 @@ impl<'c> LibContext<'c> {
                 decls: vec![],
             }
             .into(),
-        }
+        })
     }
 
     /// Inserts the given module, creating an entry for it in the context.
@@ -150,7 +184,7 @@ impl<'c> LibContext<'c> {
 
 impl Drop for LibContext<'_> {
     fn drop(&mut self) {
-        if !(panicking() || self.context.taken() || self.key.taken() || self.library.taken()) {
+        if !(panicking() || self.context.taken() || self.library.taken()) {
             panic!("Dropping a LibContext that has not called .finish() or .discard()");
         }
     }
@@ -248,7 +282,7 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                 .library
                 .context
                 .get_type_of(name.clone())
-                .map(|ty| (name, Rc::new((&ty).into()))),
+                .map(|ty| (name, Rc::new(ty.into()))),
             None => raise!("No definition for {} exists", name),
         }
     }

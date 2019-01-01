@@ -1,6 +1,10 @@
 //! The most basic tactic functions that are not plain zipper traversals.
 
-use crate::elab::{hole, zipper::Zipper, UnifEffs, UnifExpr};
+use crate::{
+    elab::hole,
+    types::{UnifEffs, UnifExpr},
+    zipper::Zipper,
+};
 use stahl_errors::Location;
 use stahl_util::SharedString;
 use std::rc::Rc;

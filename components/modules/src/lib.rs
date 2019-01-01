@@ -7,7 +7,7 @@ extern crate stahl_errors;
 mod from_values;
 
 use maplit::{hashmap, hashset};
-use stahl_ast::{Decl, Expr, FQName};
+use stahl_ast::{Decl, Expr, FQName, LibName};
 use stahl_errors::Location;
 use stahl_util::SharedString;
 use std::collections::{HashMap, HashSet};
@@ -15,8 +15,11 @@ use std::collections::{HashMap, HashSet};
 /// A library.
 #[derive(Debug)]
 pub struct Library {
-    /// The name of the library.
-    pub name: SharedString,
+    /// The name and version of the library.
+    pub name: LibName,
+
+    /// The versioned names of the libraries this library depends on.
+    pub dep_versions: HashMap<SharedString, LibName>,
 
     /// The modules in the library.
     pub mods: HashMap<SharedString, Module>,
@@ -25,8 +28,8 @@ pub struct Library {
 /// A module.
 #[derive(Debug)]
 pub struct Module {
-    /// The name of the library the module is from.
-    pub lib_name: SharedString,
+    /// The name and version of the library the module is from.
+    pub lib_name: LibName,
 
     /// The name of the module.
     pub mod_name: SharedString,
@@ -35,15 +38,15 @@ pub struct Module {
     pub exports: HashSet<SharedString>,
 
     /// The module's imports.
-    pub imports: HashMap<SharedString, HashMap<SharedString, HashSet<SharedString>>>,
+    pub imports: HashMap<LibName, HashMap<SharedString, HashSet<SharedString>>>,
 
     /// The declarations in the module.
     pub decls: Vec<Decl>,
 }
 
 impl Module {
-    /// Creates a module containing the compiler intrinsics.
-    pub fn intrinsics(lib_name: SharedString, mod_name: SharedString) -> Module {
+    /// Creates a module containing the compiler builtins.
+    pub fn builtins(lib_name: LibName, mod_name: SharedString) -> Module {
         let loc = Location::new().name("compiler builtin".into());
 
         let type_name = SharedString::from("type");

@@ -1,6 +1,6 @@
-use crate::elab::{
+use crate::{
+    types::UnifExpr,
     zipper::{Zipper, ZipperPathNode},
-    UnifExpr,
 };
 
 impl Zipper {

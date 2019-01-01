@@ -1,14 +1,14 @@
-use crate::builtins::create_compiler_intrinsics_lib;
+use crate::builtins::create_compiler_builtins_lib;
 use maplit::{hashmap, hashset};
 use rustyline::{
     config::{Config, EditMode},
     Editor,
 };
+use stahl_ast::LibName;
 use stahl_context::{Context, DefContext, ModContext, UnifExpr};
 use stahl_cst::Expr as CstExpr;
 use stahl_errors::{Location, Result};
 use stahl_parser::parse_str_from;
-use stahl_util::SharedString;
 use std::rc::Rc;
 
 /// Runs the REPL.
@@ -29,10 +29,15 @@ pub fn run() -> Result<()> {
     }
 
     let mut ctx = Context::new();
-    create_compiler_intrinsics_lib(&mut ctx);
+    create_compiler_builtins_lib(&mut ctx);
     println!("{:?}", ctx);
 
-    let mut lib_ctx = ctx.create_lib(SharedString::from("#repl#"), 0, 0, 0);
+    let mut lib_ctx = ctx.create_lib(
+        LibName("#repl#".into(), 0, 0, 0),
+        hashmap! {
+            "#compiler-builtins#".into() => LibName("#compiler-builtins#".into(), 0, 0, 0)
+        },
+    );
     let mut mod_ctx = lib_ctx.create_mod(
         "".into(),
         hashset! {},
@@ -41,7 +46,7 @@ pub fn run() -> Result<()> {
                 "".into() => hashset!{"type".into() }
             }
         },
-    );
+    )?;
 
     let loc = Location::new().name("the built-in definition of `the'".into());
     build_the(loc.clone(), mod_ctx.create_def(loc, "the".into()))?;

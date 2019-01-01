@@ -13,7 +13,7 @@ use std::{
 
 /// A fully-qualified name.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct FQName(pub SharedString, pub SharedString, pub SharedString);
+pub struct FQName(pub LibName, pub SharedString, pub SharedString);
 
 impl Display for FQName {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
@@ -22,6 +22,16 @@ impl Display for FQName {
         } else {
             write!(fmt, "{}/{}/{}", self.0, self.1, self.2)
         }
+    }
+}
+
+/// The name of a library, including the version number.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct LibName(pub SharedString, pub u16, pub u16, pub u32);
+
+impl Display for LibName {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        write!(fmt, "{}-{}-{}-{}", self.0, self.1, self.2, self.3,)
     }
 }
 
