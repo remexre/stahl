@@ -18,7 +18,7 @@ pub struct Zipper {
     expr: Option<Rc<UnifExpr>>,
 
     /// The path upwards.
-    path: Vec<ZipperPathNode>,
+    pub(crate) path: Vec<ZipperPathNode>,
 }
 
 impl Zipper {
@@ -30,14 +30,39 @@ impl Zipper {
         }
     }
 
+    /// Returns the expression under focus.
+    pub fn expr(&self) -> &UnifExpr {
+        self.expr.as_ref().unwrap()
+    }
+
     /// Modifies the expression under focus.
     pub(crate) fn modify_expr(&mut self, f: impl FnOnce(Rc<UnifExpr>) -> Rc<UnifExpr>) {
         self.expr = Some(f(self.expr.take().unwrap()));
     }
 
     /// Returns the expression currently under focus, taking it out.
-    fn take_expr(&mut self) -> UnifExpr {
+    pub(crate) fn take_expr(&mut self) -> UnifExpr {
         unwrap_rc(self.expr.take().unwrap())
+    }
+
+    /// Returns whether the zipper is at a hole.
+    pub fn at_hole(&self) -> bool {
+        match **self.expr.as_ref().unwrap() {
+            UnifExpr::UnifVar(_, _) => true,
+            _ => false,
+        }
+    }
+
+    /// Returns whether the zipper is at a leaf.
+    pub fn at_leaf(&self) -> bool {
+        match **self.expr.as_ref().unwrap() {
+            UnifExpr::Const(_, _)
+            | UnifExpr::GlobalVar(_, _)
+            | UnifExpr::LocalVar(_, _)
+            | UnifExpr::Type(_)
+            | UnifExpr::UnifVar(_, _) => true,
+            _ => false,
+        }
     }
 
     /// Returns whether the zipper is at the top of the expression tree.
@@ -47,9 +72,7 @@ impl Zipper {
 
     /// Fully zips up the zipper, returning the expression.
     pub(crate) fn into_expr(mut self) -> UnifExpr {
-        while !self.at_top() {
-            self.go_up();
-        }
+        self.go_to_top();
         self.take_expr()
     }
 
@@ -140,63 +163,6 @@ impl Zipper {
             panic!("go_to_pi_return on non-pi expression {}", expr)
         }
     }
-
-    /// Goes to the "next" position. This tries to descend, then to go right, then to ascend.
-    pub fn go_to_next(&mut self) -> bool {
-        unimplemented!()
-    }
-
-    /// Goes "right," returning whether this was successful. If `false` is returned, the position
-    /// will be unchanged.
-    pub fn go_right(&mut self) -> bool {
-        if self.at_top() {
-            return false;
-        }
-
-        match self.path[self.path.len() - 1] {
-            ZipperPathNode::CallArgs(_, _, ref args) => {
-                let (l, r) = args.both_lens();
-                self.go_up();
-                if r == 0 {
-                    self.go_right()
-                } else {
-                    self.go_to_call_arg(l + 1);
-                    true
-                }
-            }
-            ZipperPathNode::CallFunc(_, ref args) => {
-                let niliadic = args.is_empty();
-                self.go_up();
-                if niliadic {
-                    self.go_right()
-                } else {
-                    self.go_to_call_arg(0);
-                    true
-                }
-            }
-            ZipperPathNode::LamExpr(_, _, _, _, _, ref body) => unimplemented!(),
-            ZipperPathNode::LamTy(_, _, _, _, _, ref body) => {
-                let n = body.left().len();
-                self.go_up();
-                self.go_to_lam_expr(n);
-                true
-            }
-            ZipperPathNode::PiArg(_, _, ref args, ref body, _) => {
-                let (l, r) = args.both_lens();
-                self.go_up();
-                if r == 0 {
-                    self.go_to_pi_return();
-                } else {
-                    self.go_to_pi_arg(l + 1);
-                }
-                true
-            }
-            ZipperPathNode::PiRet(_, _, _) => {
-                self.go_up();
-                self.go_right()
-            }
-        }
-    }
 }
 
 impl Display for Zipper {
@@ -215,7 +181,7 @@ impl Display for Zipper {
 /// A node in the path to the root of an AST expression tree, for use in a zipper.
 #[derive(Derivative)]
 #[derivative(Debug)]
-enum ZipperPathNode {
+pub(crate) enum ZipperPathNode {
     /// The argument position of a call expression.
     CallArgs(
         #[derivative(Debug = "ignore")] Location,
@@ -271,7 +237,13 @@ impl ZipperPathNode {
             ZipperPathNode::CallFunc(_, args) => unimplemented!(),
             ZipperPathNode::LamExpr(_, args, name, ty, effs, body) => unimplemented!(),
             ZipperPathNode::LamTy(_, args, name, body_expr, effs, body) => unimplemented!(),
-            ZipperPathNode::PiArg(_, name, args, body, effs) => unimplemented!(),
+            ZipperPathNode::PiArg(_, name, args, _, _) => {
+                write!(fmt, "(pi (")?;
+                for arg in args.left() {
+                    write!(fmt, "({} {}) ", arg.0, arg.1)?;
+                }
+                write!(fmt, "({} ", name)
+            }
             ZipperPathNode::PiRet(_, args, effs) => unimplemented!(),
         }
     }
@@ -283,7 +255,17 @@ impl ZipperPathNode {
             ZipperPathNode::CallFunc(_, args) => unimplemented!(),
             ZipperPathNode::LamExpr(_, args, name, ty, effs, body) => unimplemented!(),
             ZipperPathNode::LamTy(_, args, name, body_expr, effs, body) => unimplemented!(),
-            ZipperPathNode::PiArg(_, name, args, body, effs) => unimplemented!(),
+            ZipperPathNode::PiArg(_, _, args, body, effs) => {
+                write!(fmt, ")")?;
+                for arg in args.right() {
+                    write!(fmt, " ({} {})", arg.0, arg.1)?;
+                }
+                write!(fmt, ") {}", body)?;
+                if !effs.is_none() {
+                    write!(fmt, " {}", effs)?;
+                }
+                write!(fmt, ")")
+            }
             ZipperPathNode::PiRet(_, args, effs) => unimplemented!(),
         }
     }

@@ -1,3 +1,6 @@
+//! The main abstract syntax tree of Stahl.
+#![deny(missing_docs)]
+
 #[macro_use]
 extern crate derivative;
 
@@ -180,6 +183,7 @@ impl Display for Expr {
 }
 
 /// A literal value. Cons and nil are excluded, as they are converted to function calls.
+#[allow(missing_docs)]
 #[derive(Clone, Derivative, Eq, Ord, PartialEq, PartialOrd)]
 #[derivative(Debug)]
 pub enum Literal {

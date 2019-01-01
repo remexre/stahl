@@ -1,4 +1,8 @@
-extern crate failure;
+//! A common error type for Stahl.
+//!
+//! This may be generic enough to split out for more errors; just about whenever Location is
+//! relevant, this is probably the error type to use.
+#![deny(missing_docs)]
 
 use failure::{err_msg, Error as FailureError};
 use log::warn;

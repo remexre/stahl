@@ -1,3 +1,6 @@
+//! Some utilities used throughout the Stahl compiler.
+#![deny(missing_docs)]
+
 use owning_ref::ArcRef;
 use std::{
     fmt::{Debug, Display, Formatter, Result as FmtResult},

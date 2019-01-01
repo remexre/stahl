@@ -1,3 +1,6 @@
+//! The Stahl interpreter.
+#![deny(missing_docs)]
+
 use stahl_ast::Expr;
 use stahl_context::ModContext;
 

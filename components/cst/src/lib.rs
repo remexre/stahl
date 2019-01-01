@@ -1,3 +1,6 @@
+//! The concrete syntax of Stahl.
+#![deny(missing_docs)]
+
 #[macro_use]
 extern crate derivative;
 #[macro_use]

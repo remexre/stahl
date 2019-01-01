@@ -75,6 +75,8 @@ fn build_the(loc: Location, mut def_ctx: DefContext) -> Result<()> {
     let ty = def_ctx.type_zipper();
     ty.intros_pi(loc.clone(), vec!["T".into(), "x".into()]);
     ty.fill(Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())));
+    ty.go_to_leftmost_hole();
+    ty.fill(Rc::new(UnifExpr::Type(loc.clone())));
 
     let expr = def_ctx.expr_zipper();
     expr.intros(loc.clone(), vec!["T".into(), "x".into()]);

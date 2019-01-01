@@ -1,6 +1,7 @@
 //! The context of the compiler and interpreter.
 //!
 //! This also contains elaboration logic.
+#![deny(missing_docs)]
 
 #[macro_use]
 extern crate derivative;
@@ -23,6 +24,7 @@ use std::{
     ops::{Deref, DerefMut},
     rc::Rc,
     sync::Arc,
+    thread::panicking,
 };
 
 /// The context in which compilation and interpretation occur.
@@ -241,8 +243,6 @@ impl DefContext<'_, '_> {
         let mut ty = Rc::new(self.type_zipper.take().unwrap().into_expr());
         let mut expr = Rc::new(self.expr_zipper.take().unwrap().into_expr());
         unify_ty_expr(&mut ty, &mut expr)?;
-        println!("expr = {:#?}", expr);
-        println!("  ty = {:#?}", ty);
 
         let expr = Box::new(reify(&expr)?);
         let ty = Box::new(reify(&ty)?);
@@ -261,10 +261,11 @@ impl DefContext<'_, '_> {
 
 impl Drop for DefContext<'_, '_> {
     fn drop(&mut self) {
-        if self.loc.is_some()
-            || self.name.is_some()
-            || self.type_zipper.is_some()
-            || self.expr_zipper.is_some()
+        if !panicking()
+            && (self.loc.is_some()
+                || self.name.is_some()
+                || self.type_zipper.is_some()
+                || self.expr_zipper.is_some())
         {
             panic!("Dropping a DefContext that has not called .finish() or .discard()");
         }

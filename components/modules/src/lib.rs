@@ -1,4 +1,5 @@
 //! The Stahl module system.
+#![deny(missing_docs)]
 
 #[macro_use]
 extern crate stahl_errors;

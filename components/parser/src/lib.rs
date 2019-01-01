@@ -1,3 +1,6 @@
+//! The Stahl parser.
+#![deny(missing_docs)]
+
 #[macro_use]
 extern crate derivative;
 #[macro_use]
@@ -21,12 +24,13 @@ use stahl_util::{SharedPath, SharedString};
 use std::{fs::File, io::Read, str::FromStr};
 
 /// An acyclic value.
+#[allow(missing_docs)]
 #[derive(Clone, Derivative, Eq)]
 #[derivative(PartialEq = "feature_allow_slow_enum")]
 pub enum Value {
     Cons(
         #[derivative(PartialEq = "ignore")] Location,
-        // TODO: See if there's a performance gain from converting these to Arcs.
+        // TODO: See if there's a performance gain from converting these to Arcs/Rcs.
         Box<Value>,
         Box<Value>,
     ),
