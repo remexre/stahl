@@ -24,12 +24,8 @@ impl Zipper {
     /// focused expression, for the type of each new argument.
     pub fn intros_pi(&mut self, loc: Location, vars: Vec<SharedString>) {
         self.modify_expr(|expr| {
-            Rc::new(UnifExpr::Pi(
-                loc.clone(),
-                vars.into_iter().map(|v| (v, hole(loc.clone()))).collect(),
-                expr,
-                UnifEffs::any(),
-            ))
+            let vars = vars.into_iter().map(|v| (v, hole(loc.clone()))).collect();
+            Rc::new(UnifExpr::Pi(loc, vars, expr, UnifEffs::any()))
         });
         self.go_to_pi_return();
     }

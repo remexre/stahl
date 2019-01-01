@@ -47,8 +47,8 @@ impl Context {
         minor: u16,
         patch: u32,
     ) -> Result<LibContext> {
-        let key = (name.clone(), major, minor, patch);
         let lib_name = SharedString::from(format!("{}-{}-{}-{}", name, major, minor, patch));
+        let key = (name, major, minor, patch);
         if self.libs.contains_key(&key) {
             raise!("Library {} already exists", lib_name)
         }
@@ -189,13 +189,13 @@ impl<'lib> ModContext<'lib> {
 
     /// Resolves the name of a definition the module context, returning its type.
     pub fn resolve(&self, name: SharedString) -> Result<(FQName, Rc<UnifExpr>)> {
-        self.module
-            .resolve(name.clone())
-            .ok_or_else(|| err!("No definition for {} exists", name))
-            .and_then(|(name, decl)| match decl {
+        match self.module.resolve(name.clone()) {
+            Some((name, decl)) => match decl {
                 Decl::Def(_, _, ty, _) => Ok((name, Rc::new(ty.into()))),
                 Decl::DefEff(_, _, _, _) => raise!("{} is an effect, not a value!", name),
-            })
+            },
+            None => raise!("No definition for {} exists", name),
+        }
     }
 }
 

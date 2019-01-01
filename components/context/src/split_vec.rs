@@ -28,7 +28,7 @@ impl<T> SplitVec<T> {
     pub fn reunify(mut self, elem: T) -> Vec<T> {
         let vec = unsafe {
             write(&mut self.vec[self.idx], elem);
-            read(&mut self.vec)
+            read(&mut self.vec as *mut _)
         };
         forget(self);
         vec

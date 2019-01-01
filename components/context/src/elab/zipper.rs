@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use crate::{
     elab::{UnifEffs, UnifExpr},
     split_vec::SplitVec,
