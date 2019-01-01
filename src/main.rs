@@ -9,6 +9,7 @@ extern crate stderrlog;
 #[macro_use]
 extern crate structopt;
 
+mod builtins;
 mod options;
 mod repl;
 mod script;

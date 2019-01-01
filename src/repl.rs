@@ -1,3 +1,5 @@
+use crate::builtins::create_compiler_intrinsics_lib;
+use maplit::{hashmap, hashset};
 use rustyline::{
     config::{Config, EditMode},
     Editor,
@@ -27,14 +29,16 @@ pub fn run() -> Result<()> {
     }
 
     let mut ctx = Context::new();
+    create_compiler_intrinsics_lib(&mut ctx);
+
     let mut lib_ctx = ctx.create_lib(SharedString::from("#repl#"), 0, 0, 0)?;
-    let mut mod_ctx =
-        lib_ctx.create_mod(SharedString::from(""), vec![], vec![].into_iter().collect())?;
+    let mut mod_ctx = lib_ctx.create_mod("".into(), hashset! {}, hashmap! {})?;
+
     let loc = Location::new().name("the built-in definition of `the'".into());
-    let def_ctx = mod_ctx.create_def(loc.clone(), "the".into())?;
-    build_the(loc, def_ctx)?;
+    build_the(loc.clone(), mod_ctx.create_def(loc, "the".into())?)?;
+
     while let Ok(line) = rl.readline("\u{03bb}> ") {
-        if let Err(e) = run_line(&mut mod_ctx, line) {
+        if let Err(e) = run_line(&mut mod_ctx, &line) {
             error!("{}", e);
         }
     }
@@ -53,12 +57,11 @@ pub fn run() -> Result<()> {
     Ok(())
 }
 
-fn run_line(mod_ctx: &mut ModContext, line: String) -> Result<()> {
+fn run_line(mod_ctx: &mut ModContext, line: &str) -> Result<()> {
     let loc = Location::new().name("the REPL".into());
 
     let exprs = parse_str_from(&line, loc.clone())?;
     for expr in exprs {
-        println!("{}", expr);
         let expr = CstExpr::from_value_unnamed(&expr, "the REPL")?;
         let (expr, ty) = mod_ctx.elab(&expr, &CstExpr::Hole(loc.clone()))?;
         println!("expr = {}", expr);

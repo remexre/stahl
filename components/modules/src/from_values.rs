@@ -3,7 +3,7 @@ use stahl_cst::Decl;
 use stahl_errors::{Location, Result};
 use stahl_parser::Value;
 use stahl_util::SharedString;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 impl Module {
     /// Parses a module from values.
@@ -12,8 +12,8 @@ impl Module {
         loc: Location,
     ) -> Result<(
         SharedString,
-        Vec<SharedString>,
-        HashMap<SharedString, HashMap<SharedString, Vec<SharedString>>>,
+        HashSet<SharedString>,
+        HashMap<SharedString, HashMap<SharedString, HashSet<SharedString>>>,
         Vec<Decl>,
     )> {
         let mut vals = vals.drain(..);
@@ -48,13 +48,13 @@ impl Module {
     }
 }
 
-fn parse_module_form(val: &Value) -> Option<(SharedString, Vec<SharedString>)> {
+fn parse_module_form(val: &Value) -> Option<(SharedString, HashSet<SharedString>)> {
     if let Value::Cons(_, h, t) = val {
         if let (&Value::Symbol(_, ref module), &Value::Cons(_, ref h, ref t)) = (&**h, &**t) {
             if module != "module" {
                 None
             } else if let Value::Symbol(_, ref name) = **h {
-                let exps = t.as_sym_list()?;
+                let exps = t.as_sym_list()?.into_iter().collect();
                 Some((name.clone(), exps))
             } else {
                 None
@@ -69,7 +69,7 @@ fn parse_module_form(val: &Value) -> Option<(SharedString, Vec<SharedString>)> {
 
 fn parse_import_form(
     val: &Value,
-) -> Result<Option<(SharedString, HashMap<SharedString, Vec<SharedString>>)>> {
+) -> Result<Option<(SharedString, HashMap<SharedString, HashSet<SharedString>>)>> {
     if let Value::Cons(_, h, t) = val {
         if let (&Value::Symbol(_, ref import), &Value::Cons(_, ref h, ref t)) = (&**h, &**t) {
             if import != "import" {
@@ -100,7 +100,7 @@ fn parse_import_form(
     }
 }
 
-fn parse_imp_clause(val: &Value) -> Result<(SharedString, Vec<SharedString>)> {
+fn parse_imp_clause(val: &Value) -> Result<(SharedString, HashSet<SharedString>)> {
     let mut syms = val.as_sym_list().ok_or_else(
         || err!(@val.loc(), "Module clause {} of import form must be a list of symbols", val),
     )?;
@@ -110,5 +110,6 @@ fn parse_imp_clause(val: &Value) -> Result<(SharedString, Vec<SharedString>)> {
     }
 
     let impmod = syms.remove(0);
+    let syms = syms.into_iter().collect();
     Ok((impmod, syms))
 }

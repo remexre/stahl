@@ -162,7 +162,7 @@ where
 }
 
 /// The location at which an error occurred.
-#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Location {
     /// The name of the location.
     pub name: Option<SharedString>,
@@ -258,7 +258,7 @@ impl From<Position> for Location {
 }
 
 /// The point or span at which an error occurred.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Position {
     /// A single point in a file.
     Point(usize),

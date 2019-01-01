@@ -32,3 +32,4 @@ stahl_parser = { path = "components/parser" }
 stahl_util = { path = "components/util" }
 stderrlog = "0.4.1"
 structopt = "0.2.14"
+maplit = "1.0.1"

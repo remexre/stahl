@@ -6,15 +6,22 @@ extern crate derivative;
 
 use stahl_errors::Location;
 use stahl_util::{fmt_iter, fmt_string, SharedString};
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::{
+    collections::HashSet,
+    fmt::{Display, Formatter, Result as FmtResult},
+};
 
 /// A fully-qualified name.
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct FQName(pub SharedString, pub SharedString, pub SharedString);
 
 impl Display for FQName {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        write!(fmt, "{}/{}/{}", self.0, self.1, self.2)
+        if self.1 == "" {
+            write!(fmt, "{}/{}", self.0, self.2)
+        } else {
+            write!(fmt, "{}/{}/{}", self.0, self.1, self.2)
+        }
     }
 }
 
@@ -26,16 +33,16 @@ pub enum Decl {
     Def(
         #[derivative(Debug = "ignore")] Location,
         SharedString,
-        Box<Expr>,
-        Box<Expr>,
+        Expr,
+        Expr,
     ),
 
     /// A effect declaration.
     DefEff(
         #[derivative(Debug = "ignore")] Location,
         SharedString,
-        Box<Expr>,
-        Option<Box<Expr>>,
+        Expr,
+        Option<Expr>,
     ),
 }
 
@@ -67,9 +74,9 @@ impl Display for Decl {
     }
 }
 
-/// A set of effects, possibly an extensible one.
-#[derive(Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Effects(pub Vec<FQName>);
+/// A set of effects.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct Effects(pub HashSet<FQName>);
 
 impl Display for Effects {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
@@ -80,14 +87,14 @@ impl Display for Effects {
 }
 
 /// An expression.
-#[derive(Clone, Derivative, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Derivative, Eq, PartialEq)]
 #[derivative(Debug)]
 pub enum Expr {
     /// A call to a function with a given number of arguments.
     Call(
         #[derivative(Debug = "ignore")] Location,
         Box<Expr>,
-        Vec<Box<Expr>>,
+        Vec<Expr>,
     ),
 
     /// A constant.
@@ -116,6 +123,10 @@ pub enum Expr {
 
     /// The type of types.
     Type(#[derivative(Debug = "ignore")] Location),
+
+    /// The type of the type of types. This is a compiler builtin, and cannot legally be produced
+    /// via elaboration.
+    TypeOfTypeOfTypes(#[derivative(Debug = "ignore")] Location),
 }
 
 impl Expr {
@@ -128,7 +139,8 @@ impl Expr {
             | Expr::Lam(loc, _, _)
             | Expr::LocalVar(loc, _)
             | Expr::Pi(loc, _, _, _)
-            | Expr::Type(loc) => loc.clone(),
+            | Expr::Type(loc)
+            | Expr::TypeOfTypeOfTypes(loc) => loc.clone(),
         }
     }
 }
@@ -178,13 +190,14 @@ impl Display for Expr {
                 write!(fmt, ")")
             }
             Expr::Type(_) => write!(fmt, "#TYPE#"),
+            Expr::TypeOfTypeOfTypes(_) => write!(fmt, "#TYPE-OF-TYPE-OF-TYPES#"),
         }
     }
 }
 
 /// A literal value. Cons and nil are excluded, as they are converted to function calls.
 #[allow(missing_docs)]
-#[derive(Clone, Derivative, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Derivative, Eq, Hash, PartialEq)]
 #[derivative(Debug)]
 pub enum Literal {
     Int(#[derivative(Debug = "ignore")] Location, isize),

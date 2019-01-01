@@ -14,13 +14,13 @@ mod split_vec;
 use crate::elab::{reify, unify_ty_expr};
 pub use crate::elab::{UnifExpr, Zipper};
 use owning_ref::OwningRefMut;
-use stahl_ast::Decl;
+use stahl_ast::{Decl, FQName};
 use stahl_cst::{Decl as CstDecl, Expr as CstExpr};
 use stahl_errors::{Location, Result};
 use stahl_modules::{Library, Module};
 use stahl_util::{genint, SharedString};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
     rc::Rc,
     sync::Arc,
@@ -48,14 +48,9 @@ impl Context {
         patch: u32,
     ) -> Result<LibContext> {
         let key = (name.clone(), major, minor, patch);
+        let lib_name = SharedString::from(format!("{}-{}-{}-{}", name, major, minor, patch));
         if self.libs.contains_key(&key) {
-            raise!(
-                "Library {}-{}-{}-{} already exists",
-                name,
-                major,
-                minor,
-                patch
-            )
+            raise!("Library {} already exists", lib_name)
         }
         self.libs.insert(
             key.clone(),
@@ -64,7 +59,11 @@ impl Context {
             },
         );
         let library = OwningRefMut::new(self).map_mut(|ctx| ctx.libs.get_mut(&key).unwrap());
-        Ok(LibContext { key, library })
+        Ok(LibContext {
+            key,
+            library,
+            name: lib_name,
+        })
     }
 }
 
@@ -72,6 +71,7 @@ impl Context {
 #[derive(Debug)]
 pub struct LibContext<'a> {
     key: (SharedString, u16, u16, u32),
+    name: SharedString,
     library: OwningRefMut<&'a mut Context, Library>,
 }
 
@@ -80,12 +80,14 @@ impl LibContext<'_> {
     pub fn create_mod(
         &mut self,
         name: SharedString,
-        exports: Vec<SharedString>,
-        imports: HashMap<SharedString, HashMap<SharedString, Vec<SharedString>>>,
+        exports: HashSet<SharedString>,
+        imports: HashMap<SharedString, HashMap<SharedString, HashSet<SharedString>>>,
     ) -> Result<ModContext> {
         self.insert_mod(
-            name,
+            name.clone(),
             Module {
+                lib_name: self.name.clone(),
+                mod_name: name,
                 exports,
                 imports,
                 decls: Vec::new(),
@@ -96,14 +98,7 @@ impl LibContext<'_> {
     /// Inserts the given module, creating an entry for it in the context.
     pub fn insert_mod(&mut self, name: SharedString, module: Module) -> Result<ModContext> {
         if self.library.mods.contains_key(&name) {
-            raise!(
-                "Module {}-{}-{}-{}/{} already exists",
-                self.key.0,
-                self.key.1,
-                self.key.2,
-                self.key.3,
-                name
-            )
+            raise!("Module {}/{} already exists", self.name, name)
         }
 
         // TODO: Process imports, etc.
@@ -111,7 +106,7 @@ impl LibContext<'_> {
         let module =
             OwningRefMut::new(&mut *self.library).map_mut(|lib| lib.mods.get_mut(&name).unwrap());
         Ok(ModContext {
-            lib_name: self.key.clone(),
+            lib_name: self.name.clone(),
             mod_name: name,
             module,
         })
@@ -120,10 +115,10 @@ impl LibContext<'_> {
 
 /// A single module's portion of the context.
 #[derive(Debug)]
-pub struct ModContext<'a> {
-    lib_name: (SharedString, u16, u16, u32),
+pub struct ModContext<'lib> {
+    lib_name: SharedString,
     mod_name: SharedString,
-    module: OwningRefMut<&'a mut Library, Module>,
+    module: OwningRefMut<&'lib mut Library, Module>,
 }
 
 impl<'lib> ModContext<'lib> {
@@ -133,11 +128,8 @@ impl<'lib> ModContext<'lib> {
         if self.module.decls.iter().any(|decl| decl.name() == name) {
             raise!(
                 @decl.loc(),
-                "Module {}-{}-{}-{}/{} already declares {}",
-                self.lib_name.0,
-                self.lib_name.1,
-                self.lib_name.2,
-                self.lib_name.3,
+                "Module {}/{} already declares {}",
+                self.lib_name,
                 self.mod_name,
                 name
             )
@@ -195,9 +187,15 @@ impl<'lib> ModContext<'lib> {
         })
     }
 
-    /// Resolves a name in the module context.
-    pub fn resolve(&self, name: &str) -> Result<&CstDecl> {
-        todo!("resolve {}", name)
+    /// Resolves the name of a definition the module context, returning its type.
+    pub fn resolve(&self, name: SharedString) -> Result<(FQName, Rc<UnifExpr>)> {
+        self.module
+            .resolve(name.clone())
+            .ok_or_else(|| err!("No definition for {} exists", name))
+            .and_then(|(name, decl)| match decl {
+                Decl::Def(_, _, ty, _) => Ok((name, Rc::new(ty.into()))),
+                Decl::DefEff(_, _, _, _) => raise!("{} is an effect, not a value!", name),
+            })
     }
 }
 
@@ -244,8 +242,8 @@ impl DefContext<'_, '_> {
         let mut expr = Rc::new(self.expr_zipper.take().unwrap().into_expr());
         unify_ty_expr(&mut ty, &mut expr)?;
 
-        let expr = Box::new(reify(&expr)?);
-        let ty = Box::new(reify(&ty)?);
+        let expr = reify(&expr)?;
+        let ty = reify(&ty)?;
         self.mod_ctx.add(Decl::Def(loc, name, ty, expr))
     }
 

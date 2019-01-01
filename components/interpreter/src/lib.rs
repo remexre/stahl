@@ -20,13 +20,12 @@ impl<'a> Interpreter<'a> {
     /// Returns whether the given expression is normal.
     pub fn is_normal(&self, expr: &Expr) -> bool {
         match expr {
-            Expr::Call(_, func, args) => false, // TODO
-            Expr::Const(_, val) => true,
+            Expr::Call(_, func, args) => false,     // TODO
             Expr::GlobalVar(_, name) => false,      // TODO
             Expr::Lam(_, args, body) => false,      // TODO
             Expr::LocalVar(_, name) => false,       // TODO
             Expr::Pi(_, args, body, effs) => false, // TODO
-            Expr::Type(_) => true,
+            Expr::Const(_, _) | Expr::Type(_) | Expr::TypeOfTypeOfTypes(_) => true,
         }
     }
 }

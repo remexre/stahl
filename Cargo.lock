@@ -361,6 +361,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "maplit"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "memchr"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -742,6 +747,7 @@ version = "0.1.0"
 dependencies = [
  "dirs 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "maplit 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustyline 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "stahl_ast 0.1.0",
  "stahl_context 0.1.0",
@@ -811,6 +817,7 @@ dependencies = [
 name = "stahl_modules"
 version = "0.1.0"
 dependencies = [
+ "maplit 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "stahl_ast 0.1.0",
  "stahl_cst 0.1.0",
  "stahl_errors 0.1.0",
@@ -1142,6 +1149,7 @@ dependencies = [
 "checksum lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a374c89b9db55895453a74c1e38861d9deec0b01b405a82516e9d5de4820dea1"
 "checksum libc 0.2.44 (registry+https://github.com/rust-lang/crates.io-index)" = "10923947f84a519a45c8fefb7dd1b3e8c08747993381adee176d7a82b4195311"
 "checksum log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c84ec4b527950aa83a329754b01dbe3f58361d1c5efacd1f6d68c494d08a17c6"
+"checksum maplit 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "08cbb6b4fef96b6d77bfc40ec491b1690c779e77b05cd9f07f787ed376fd4c43"
 "checksum memchr 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0a3eb002f0535929f1199681417029ebea04aadc0c7a4224b46be99c7f5d6a16"
 "checksum new_debug_unreachable 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0cdc457076c78ab54d5e0d6fa7c47981757f1e34dc39ff92787f217dede586c4"
 "checksum nix 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d37e713a259ff641624b6cb20e3b12b2952313ba36b6823c0f16e6cfd9e5de17"

@@ -125,8 +125,8 @@ impl ModContext<'_> {
                         Rc::new(UnifExpr::LocalVar(loc.clone(), name.clone())),
                         None, // TODO Look up the type
                     )
-                } else if self.resolve(name).is_ok() {
-                    todo!(@loc.clone(), "global variables")
+                } else if let Ok((name, ty)) = self.resolve(name.clone()) {
+                    (Rc::new(UnifExpr::GlobalVar(loc.clone(), name)), Some(ty))
                 } else {
                     raise!(@loc.clone(), "Undefined variable: {}", name)
                 }
@@ -237,6 +237,7 @@ impl Constraint {
                     constraints.push(Constraint::EffEq(loc.clone(), leffs.clone(), reffs.clone()));
                     Ok(())
                 }
+                (&UnifExpr::TypeOfTypeOfTypes(_), &UnifExpr::TypeOfTypeOfTypes(_)) => Ok(()),
                 _ => todo!(@loc.clone(), "Solve constraint {}", self),
             },
         }
@@ -335,6 +336,12 @@ impl Display for UnifEffs {
     }
 }
 
+impl From<Effects> for UnifEffs {
+    fn from(effs: Effects) -> UnifEffs {
+        UnifEffs(effs.0, None)
+    }
+}
+
 /// An expression during unification. This is similar to the AST expression, but has an additional
 /// constructor for unification variables.
 #[derive(Clone, Derivative)]
@@ -375,6 +382,10 @@ pub enum UnifExpr {
 
     /// The type of types.
     Type(#[derivative(Debug = "ignore")] Location),
+
+    /// The type of the type of types. If this is still present at the end of elaboration, an error
+    /// will result.
+    TypeOfTypeOfTypes(#[derivative(Debug = "ignore")] Location),
 
     /// A unification variable.
     UnifVar(#[derivative(Debug = "ignore")] Location, usize),
@@ -438,7 +449,10 @@ impl UnifExpr {
                 .map(|i| env[i].1.clone())
                 .ok_or_else(|| err!(@loc.clone(), "Undefined local variable: {}", name))?,
             UnifExpr::Pi(loc, _, _, _) => Rc::new(UnifExpr::Type(loc.clone())),
-            UnifExpr::Type(loc) => todo!(@loc.clone(), "the type of type is undefined"),
+            UnifExpr::Type(loc) => Rc::new(UnifExpr::TypeOfTypeOfTypes(loc.clone())),
+            UnifExpr::TypeOfTypeOfTypes(_) => {
+                raise!("The type of type of types shouldn't be typechecked")
+            }
             UnifExpr::UnifVar(loc, _) => hole(loc.clone()),
             _ => todo!(@self.loc(), "collect over {}", self),
         };
@@ -463,7 +477,8 @@ impl UnifExpr {
             | UnifExpr::GlobalVar(_, _)
             | UnifExpr::Lam(_, _, _)
             | UnifExpr::LocalVar(_, _)
-            | UnifExpr::Type(_) => Vec::new(),
+            | UnifExpr::Type(_)
+            | UnifExpr::TypeOfTypeOfTypes(_) => Vec::new(),
             UnifExpr::UnifVar(_, _) => {
                 warn!("A unification variable should not be having its effects computed...");
                 Vec::new()
@@ -480,6 +495,7 @@ impl UnifExpr {
             | UnifExpr::LocalVar(loc, _)
             | UnifExpr::Pi(loc, _, _, _)
             | UnifExpr::Type(loc)
+            | UnifExpr::TypeOfTypeOfTypes(loc)
             | UnifExpr::UnifVar(loc, _) => loc.clone(),
         }
     }
@@ -581,14 +597,51 @@ impl Display for UnifExpr {
                 write!(fmt, ")")
             }
             UnifExpr::Type(_) => write!(fmt, "#TYPE#"),
+            UnifExpr::TypeOfTypeOfTypes(_) => write!(fmt, "#TYPE-OF-TYPE-OF-TYPES#"),
             UnifExpr::UnifVar(_, n) => write!(fmt, "#VAR:{}#", n),
+        }
+    }
+}
+
+impl From<&Expr> for UnifExpr {
+    fn from(expr: &Expr) -> UnifExpr {
+        match expr {
+            Expr::Call(loc, func, args) => UnifExpr::Call(
+                loc.clone(),
+                Rc::new((&**func).into()),
+                args.iter().map(|_| unimplemented!()).collect(),
+            ),
+            Expr::Const(loc, lit) => UnifExpr::Const(loc.clone(), lit.clone()),
+            Expr::GlobalVar(loc, name) => UnifExpr::GlobalVar(loc.clone(), name.clone()),
+            Expr::Lam(loc, args, body) => UnifExpr::Lam(
+                loc.clone(),
+                args.clone(),
+                body.iter().map(|_| unimplemented!()).collect(),
+            ),
+            Expr::LocalVar(loc, name) => UnifExpr::LocalVar(loc.clone(), name.clone()),
+            Expr::Pi(loc, args, body, effs) => UnifExpr::Pi(
+                loc.clone(),
+                args.iter()
+                    .map(|(name, ty)| (name.clone(), Rc::new((&**ty).into())))
+                    .collect(),
+                Rc::new((&**body).into()),
+                effs.clone().into(),
+            ),
+            Expr::Type(loc) => UnifExpr::Type(loc.clone()),
+            Expr::TypeOfTypeOfTypes(loc) => UnifExpr::TypeOfTypeOfTypes(loc.clone()),
         }
     }
 }
 
 pub fn unify_ty_expr(ty: &mut Rc<UnifExpr>, expr: &mut Rc<UnifExpr>) -> Result<()> {
     let mut constraints = Vec::new();
-    ty.collect_constraints(&mut constraints, hole(ty.loc()), &mut Vec::new())?;
+    if let Err(err) = ty.collect_constraints(&mut constraints, hole(ty.loc()), &mut Vec::new()) {
+        if let (UnifExpr::Type(_), UnifExpr::TypeOfTypeOfTypes(_)) = (&**expr, &**ty) {
+            // Ignore the error; this is special-cased as legal.
+        } else {
+            return Err(err);
+        }
+    }
     expr.collect_constraints(&mut constraints, ty.clone(), &mut Vec::new())?;
 
     debug!("Unifying a declaration:");
@@ -623,6 +676,16 @@ fn unify(target: &mut Rc<UnifExpr>, mut constraints: Vec<Constraint>) -> Result<
 pub fn reify(expr: &UnifExpr) -> Result<Expr> {
     debug!("About to reify {}", expr);
     match expr {
+        UnifExpr::Call(loc, func, args) => {
+            let func = reify(func).chain(|| err!(@expr.loc(), "in {}", expr))?;
+            let args = args
+                .iter()
+                .map(|arg| reify(arg))
+                .collect::<Result<_>>()
+                .chain(|| err!(@expr.loc(), "in {}", expr))?;
+            Ok(Expr::Call(loc.clone(), Box::new(func), args))
+        }
+        UnifExpr::GlobalVar(loc, name) => Ok(Expr::GlobalVar(loc.clone(), name.clone())),
         UnifExpr::Lam(loc, args, body) => {
             let body = body
                 .iter()
@@ -652,6 +715,9 @@ pub fn reify(expr: &UnifExpr) -> Result<Expr> {
             Ok(Expr::Pi(loc.clone(), args, Box::new(body), effs))
         }
         UnifExpr::Type(loc) => Ok(Expr::Type(loc.clone())),
+        UnifExpr::TypeOfTypeOfTypes(loc) => {
+            raise!(@expr.loc(), "{} cannot be reified; it's only available from Module::intrinsics", expr)
+        }
         UnifExpr::UnifVar(loc, _) => raise!(@loc.clone(), "Cannot reify a hole!"),
         expr => todo!(@expr.loc(), "reify({:?})", expr),
     }
