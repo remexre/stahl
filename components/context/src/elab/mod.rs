@@ -38,7 +38,7 @@ impl ModContext<'_> {
     fn elab_with_locals(
         &mut self,
         expr: &CstExpr,
-        chk_ty: Option<&Rc<UnifExpr>>,
+        _chk_ty: Option<&Rc<UnifExpr>>,
         constraints: &mut Vec<Constraint>,
         locals: &mut Vec<SharedString>,
     ) -> Result<(Rc<UnifExpr>, Rc<UnifExpr>)> {
@@ -173,7 +173,7 @@ impl Constraint {
         constraints: &mut Vec<Constraint>,
     ) -> Result<()> {
         match self {
-            Constraint::EffEq(loc, l, r) => match (l.1, r.1) {
+            Constraint::EffEq(_loc, l, r) => match (l.1, r.1) {
                 (Some(l_tail), Some(r_tail)) => {
                     if l.0 == r.0 {
                         UnifExpr::merge_effs(
@@ -186,8 +186,8 @@ impl Constraint {
                         unimplemented!()
                     }
                 }
-                (Some(l_tail), None) => unimplemented!(),
-                (None, Some(r_tail)) => unimplemented!(),
+                (Some(_l_tail), None) => unimplemented!(),
+                (None, Some(_r_tail)) => unimplemented!(),
                 (None, None) => unimplemented!(),
             },
             Constraint::EffSuperset(loc, l, r) => {
@@ -402,9 +402,9 @@ impl UnifExpr {
         env: &mut Vec<(SharedString, Rc<UnifExpr>)>,
     ) -> Result<()> {
         let inf_ty = match self {
-            UnifExpr::Call(loc, func, args) => {
-                let ty_args = args.iter().map(|arg| hole(loc.clone())).collect::<Vec<_>>();
-                let ret_ty = hole(loc.clone());
+            UnifExpr::Call(loc, _func, args) => {
+                let _ty_args = args.iter().map(|_arg| hole(loc.clone())).collect::<Vec<_>>();
+                let _ret_ty = hole(loc.clone());
                 unimplemented!()
             }
             UnifExpr::Const(loc, val) => {
@@ -468,7 +468,7 @@ impl UnifExpr {
                 .flat_map(|arg| arg.gather_effects())
                 .chain(func.gather_effects())
                 .collect(),
-            UnifExpr::Pi(_, args, body, effs) => args
+            UnifExpr::Pi(_, args, body, _effs) => args
                 .iter()
                 .flat_map(|(_, arg)| arg.gather_effects())
                 .chain(body.gather_effects())
@@ -532,7 +532,7 @@ impl UnifExpr {
                 UnifExpr::subst_expr(func, var, with)
             }
             UnifExpr::Lam(_, _, ref mut body) => {
-                for (_, ty, expr, effs) in body {
+                for (_, ty, expr, _effs) in body {
                     UnifExpr::subst_expr(ty, var, with.clone());
                     UnifExpr::subst_expr(expr, var, with.clone());
                 }
@@ -569,7 +569,7 @@ impl Display for UnifExpr {
                 write!(fmt, "(fn (")?;
                 fmt_iter(fmt, args)?;
                 write!(fmt, ")")?;
-                for (name, ty, expr, effs) in body {
+                for (name, ty, expr, _effs) in body {
                     let name = match name {
                         Some(name) => &*name,
                         None => "_",
@@ -715,7 +715,7 @@ pub fn reify(expr: &UnifExpr) -> Result<Expr> {
             Ok(Expr::Pi(loc.clone(), args, Box::new(body), effs))
         }
         UnifExpr::Type(loc) => Ok(Expr::Type(loc.clone())),
-        UnifExpr::TypeOfTypeOfTypes(loc) => {
+        UnifExpr::TypeOfTypeOfTypes(_loc) => {
             raise!(@expr.loc(), "{} cannot be reified; it's only available from Module::intrinsics", expr)
         }
         UnifExpr::UnifVar(loc, _) => raise!(@loc.clone(), "Cannot reify a hole!"),

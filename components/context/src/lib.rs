@@ -151,11 +151,11 @@ impl<'lib> ModContext<'lib> {
     pub fn add_def(
         &mut self,
         loc: Location,
-        name: SharedString,
+        _name: SharedString,
         ty: Arc<CstExpr>,
         expr: Arc<CstExpr>,
     ) -> Result<()> {
-        let (expr, ty) = self.elab(&expr, &ty)?;
+        let (_expr, _ty) = self.elab(&expr, &ty)?;
         todo!(@loc)
     }
 
@@ -165,7 +165,7 @@ impl<'lib> ModContext<'lib> {
         loc: Location,
         name: SharedString,
         arg: Arc<CstExpr>,
-        ret: Option<Arc<CstExpr>>,
+        _ret: Option<Arc<CstExpr>>,
     ) -> Result<()> {
         todo!(@loc, "{} {}", name, arg)
     }

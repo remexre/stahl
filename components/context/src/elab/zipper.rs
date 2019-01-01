@@ -235,10 +235,10 @@ impl ZipperPathNode {
     /// Writes the part of the node to the left of the hole.
     fn display_left(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
-            ZipperPathNode::CallArgs(_, func, args) => unimplemented!(),
-            ZipperPathNode::CallFunc(_, args) => unimplemented!(),
-            ZipperPathNode::LamExpr(_, args, name, ty, effs, body) => unimplemented!(),
-            ZipperPathNode::LamTy(_, args, name, body_expr, effs, body) => unimplemented!(),
+            ZipperPathNode::CallArgs(_, _func, _args) => unimplemented!(),
+            ZipperPathNode::CallFunc(_, _args) => unimplemented!(),
+            ZipperPathNode::LamExpr(_, _args, _name, _ty, _effs, _body) => unimplemented!(),
+            ZipperPathNode::LamTy(_, _args, _name, _body_expr, _effs, _body) => unimplemented!(),
             ZipperPathNode::PiArg(_, name, args, _, _) => {
                 write!(fmt, "(pi (")?;
                 for arg in args.left() {
@@ -246,17 +246,17 @@ impl ZipperPathNode {
                 }
                 write!(fmt, "({} ", name)
             }
-            ZipperPathNode::PiRet(_, args, effs) => unimplemented!(),
+            ZipperPathNode::PiRet(_, _args, _effs) => unimplemented!(),
         }
     }
 
     /// Writes the part of the node to the right of the hole.
     fn display_right(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
-            ZipperPathNode::CallArgs(_, func, args) => unimplemented!(),
-            ZipperPathNode::CallFunc(_, args) => unimplemented!(),
-            ZipperPathNode::LamExpr(_, args, name, ty, effs, body) => unimplemented!(),
-            ZipperPathNode::LamTy(_, args, name, body_expr, effs, body) => unimplemented!(),
+            ZipperPathNode::CallArgs(_, _func, _args) => unimplemented!(),
+            ZipperPathNode::CallFunc(_, _args) => unimplemented!(),
+            ZipperPathNode::LamExpr(_, _args, _name, _ty, _effs, _body) => unimplemented!(),
+            ZipperPathNode::LamTy(_, _args, _name, _body_expr, _effs, _body) => unimplemented!(),
             ZipperPathNode::PiArg(_, _, args, body, effs) => {
                 write!(fmt, ")")?;
                 for arg in args.right() {
@@ -268,7 +268,7 @@ impl ZipperPathNode {
                 }
                 write!(fmt, ")")
             }
-            ZipperPathNode::PiRet(_, args, effs) => unimplemented!(),
+            ZipperPathNode::PiRet(_, _args, _effs) => unimplemented!(),
         }
     }
 

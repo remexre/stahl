@@ -22,7 +22,7 @@ impl Zipper {
                     true
                 }
             }
-            ZipperPathNode::CallFunc(_, ref args) => {
+            ZipperPathNode::CallFunc(_, ref _args) => {
                 self.go_up();
                 self.go_left()
             }
@@ -32,8 +32,8 @@ impl Zipper {
                 self.go_to_lam_ty(n);
                 true
             }
-            ZipperPathNode::LamTy(_, _, _, _, _, ref body) => unimplemented!(),
-            ZipperPathNode::PiArg(_, _, ref args, ref body, _) => {
+            ZipperPathNode::LamTy(_, _, _, _, _, ref _body) => unimplemented!(),
+            ZipperPathNode::PiArg(_, _, ref args, ref _body, _) => {
                 let l = args.left().len();
                 self.go_up();
                 if l == 0 {
@@ -75,14 +75,14 @@ impl Zipper {
                     true
                 }
             }
-            ZipperPathNode::LamExpr(_, _, _, _, _, ref body) => unimplemented!(),
+            ZipperPathNode::LamExpr(_, _, _, _, _, ref _body) => unimplemented!(),
             ZipperPathNode::LamTy(_, _, _, _, _, ref body) => {
                 let n = body.left().len();
                 self.go_up();
                 self.go_to_lam_expr(n);
                 true
             }
-            ZipperPathNode::PiArg(_, _, ref args, ref body, _) => {
+            ZipperPathNode::PiArg(_, _, ref args, ref _body, _) => {
                 let (l, r) = args.both_lens();
                 self.go_up();
                 if r == 0 {
