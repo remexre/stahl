@@ -189,14 +189,14 @@ impl UnifEffs {
 }
 
 impl UnifExpr {
-    fn alpha(target: &mut Rc<UnifExpr>, from: &str, to: UnifExpr) {
+    fn beta(target: &mut Rc<UnifExpr>, from: &str, to: UnifExpr) {
         let target = Rc::make_mut(target);
         match target {
             UnifExpr::Call(_, ref mut func, ref mut args) => {
                 for arg in args {
-                    UnifExpr::alpha(arg, from, to.clone());
+                    UnifExpr::beta(arg, from, to.clone());
                 }
-                UnifExpr::alpha(func, from, to);
+                UnifExpr::beta(func, from, to);
             }
             UnifExpr::Lam(_, ref args, ref mut body) => {
                 for arg in args {
@@ -210,8 +210,8 @@ impl UnifExpr {
                             return;
                         }
                     }
-                    UnifExpr::alpha(ty, from, to.clone());
-                    UnifExpr::alpha(expr, from, to.clone());
+                    UnifExpr::beta(ty, from, to.clone());
+                    UnifExpr::beta(expr, from, to.clone());
                 }
             }
             UnifExpr::LocalVar(_, name) => {
@@ -224,9 +224,9 @@ impl UnifExpr {
                     if name == from {
                         return;
                     }
-                    UnifExpr::alpha(ty, from, to.clone());
+                    UnifExpr::beta(ty, from, to.clone());
                 }
-                UnifExpr::alpha(body, from, to.clone());
+                UnifExpr::beta(body, from, to.clone());
             }
             UnifExpr::Const(_, _)
             | UnifExpr::GlobalVar(_, _)
