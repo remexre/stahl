@@ -110,9 +110,9 @@ impl Zipper {
             }
             UnifExpr::Const(_, _)
             | UnifExpr::GlobalVar(_, _)
+            | UnifExpr::Intrinsic(_, _)
             | UnifExpr::LocalVar(_, _)
             | UnifExpr::Type(_)
-            | UnifExpr::TypeOfTypeOfTypes(_)
             | UnifExpr::UnifVar(_, _) => false,
         }
     }

@@ -6,9 +6,7 @@ extern crate stahl_errors;
 
 mod from_values;
 
-use maplit::{hashmap, hashset};
-use stahl_ast::{Decl, Expr, FQName, LibName};
-use stahl_errors::Location;
+use stahl_ast::{Decl, FQName, LibName};
 use stahl_util::SharedString;
 use std::collections::{HashMap, HashSet};
 
@@ -45,48 +43,27 @@ pub struct Module {
 }
 
 impl Module {
-    /// Creates a module containing the compiler builtins.
-    pub fn builtins(lib_name: LibName, mod_name: SharedString) -> Module {
-        let loc = Location::new().name("compiler builtin".into());
-
-        let type_name = SharedString::from("type");
-        let type_type = Expr::TypeOfTypeOfTypes(loc.clone());
-        let type_expr = Expr::Type(loc.clone());
-
-        Module {
-            lib_name,
-            mod_name,
-            exports: hashset! {type_name.clone()},
-            imports: hashmap! {},
-            decls: vec![Decl::Def(loc, type_name, type_type, type_expr)],
-        }
-    }
-
-    /// Resolves a name inside this module. This may be a local name (a string that does not
-    /// contain `/`, or is literally just `/`), or a global name (a string with more than one
-    /// character that contains `/`).
+    /// Resolves a local name inside this module.
     pub fn resolve(&self, name: SharedString) -> Option<FQName> {
-        if name != "/" && name.contains('/') {
-            unimplemented!("Convert {} to a FQName", name)
-        } else {
-            // Check declarations in the module.
-            for decl in &self.decls {
-                if decl.name() == name {
-                    return Some(FQName(self.lib_name.clone(), self.mod_name.clone(), name));
-                }
-            }
+        assert!(name == "/" || !name.contains('/'));
 
-            for (lib_name, mods) in &self.imports {
-                for (mod_name, names) in mods {
-                    for n in names {
-                        if n == &name {
-                            return Some(FQName(lib_name.clone(), mod_name.clone(), name));
-                        }
+        // Check declarations in the module.
+        for decl in &self.decls {
+            if decl.name() == name {
+                return Some(FQName(self.lib_name.clone(), self.mod_name.clone(), name));
+            }
+        }
+
+        for (lib_name, mods) in &self.imports {
+            for (mod_name, names) in mods {
+                for n in names {
+                    if n == &name {
+                        return Some(FQName(lib_name.clone(), mod_name.clone(), name));
                     }
                 }
             }
-
-            None
         }
+
+        None
     }
 }

@@ -12,7 +12,7 @@ mod elab;
 mod types;
 mod zipper;
 
-use crate::elab::{reify, unify_ty_expr};
+use crate::elab::reify;
 pub use crate::{types::UnifExpr, zipper::Zipper};
 use stahl_ast::{Decl, FQName, LibName};
 use stahl_cst::{Decl as CstDecl, Expr as CstExpr};
@@ -267,23 +267,45 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
         }
     }
 
+    /// Returns the decl referred to by the given global name.
+    pub fn get_decl(&self, name: FQName) -> Option<&Decl> {
+        if self.module.lib_name == name.0 {
+            if self.module.mod_name == name.1 {
+                for decl in &self.module.decls {
+                    if decl.name() == name.2 {
+                        return Some(decl);
+                    }
+                }
+                None
+            } else {
+                unimplemented!()
+            }
+        } else {
+            self.library.context.get_decl(name).ok()
+        }
+    }
+
     /// Resolves the name of a definition the module context, returning its declaration.
     pub fn resolve(&self, name: SharedString) -> Result<(FQName, &Decl)> {
-        match self.module.resolve(name.clone()) {
-            Some(name) => {
-                if name.0 == self.module.lib_name && name.1 == self.module.mod_name {
-                    match self.decls.iter().find(|decl| decl.name() == name.2) {
-                        Some(decl) => Ok((name, decl)),
-                        None => panic!("resolve() lied about {} being local", name),
+        if name == "/" || !name.contains('/') {
+            match self.module.resolve(name.clone()) {
+                Some(name) => {
+                    if name.0 == self.module.lib_name && name.1 == self.module.mod_name {
+                        match self.decls.iter().find(|decl| decl.name() == name.2) {
+                            Some(decl) => Ok((name, decl)),
+                            None => panic!("resolve() lied about {} being local", name),
+                        }
+                    } else {
+                        self.library
+                            .context
+                            .get_decl(name.clone())
+                            .map(|decl| (name, decl))
                     }
-                } else {
-                    self.library
-                        .context
-                        .get_decl(name.clone())
-                        .map(|decl| (name, decl))
                 }
+                None => raise!("No definition for {} exists", name),
             }
-            None => raise!("No definition for {} exists", name),
+        } else {
+            unimplemented!()
         }
     }
 }
@@ -327,7 +349,7 @@ impl<'m, 'l: 'm, 'c: 'l> DefContext<'m, 'l, 'c> {
 
         let mut ty = Rc::new(self.type_zipper.take().into_expr());
         let mut expr = Rc::new(self.expr_zipper.take().into_expr());
-        unify_ty_expr(&mut ty, &mut expr)?;
+        self.module.unify_ty_expr(&mut ty, &mut expr)?;
 
         let expr = reify(&expr)?;
         let ty = reify(&ty)?;

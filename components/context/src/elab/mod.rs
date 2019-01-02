@@ -6,19 +6,19 @@ use crate::{
     ModContext,
 };
 use log::debug;
-use stahl_ast::{Decl, Effects, Expr, Literal};
+use stahl_ast::{Decl, Effects, Expr, Intrinsic, Literal};
 use stahl_cst::{Expr as CstExpr, Value};
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_util::{genint, SharedString};
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc};
 
 impl ModContext<'_, '_> {
     /// Elaborates a CST expression into an AST expression.
-    pub fn elab(&mut self, cst_expr: &CstExpr, ty: &CstExpr) -> Result<(Expr, Expr)> {
+    pub fn elab(&mut self, cst_expr: &CstExpr, ty: &CstExpr) -> Result<(Arc<Expr>, Arc<Expr>)> {
         let mut ty = self.cst_to_unif(ty, &mut Vec::new())?;
         let mut expr = self.cst_to_unif(cst_expr, &mut Vec::new())?;
 
-        unify_ty_expr(&mut ty, &mut expr)?;
+        self.unify_ty_expr(&mut ty, &mut expr)?;
 
         let expr = reify(&*expr).chain(|| err!(@cst_expr.loc(), "When elaborating {}", expr))?;
         let chk_ty =
@@ -118,19 +118,18 @@ impl ModContext<'_, '_> {
         };
         Ok(Rc::new(expr))
     }
-}
 
-impl UnifExpr {
     /// Collects constraints over the AST, assigning types to expressions as it goes. env is a
     /// vector with the condition that on an `Ok(_)` return, it must be the same as when it was
-    /// passed in; this is for efficiency reasons.
+    /// passed in; it is implemented this way for efficiency reasons.
     fn collect_constraints(
         &self,
+        expr: &UnifExpr,
         constraints: &mut Vec<Constraint>,
         chk_ty: Rc<UnifExpr>,
         env: &mut Vec<(SharedString, Rc<UnifExpr>)>,
     ) -> Result<()> {
-        let inf_ty = match self {
+        let inf_ty = match expr {
             UnifExpr::Call(loc, func, args) => {
                 let call_id = genint();
                 let old_env_len = env.len();
@@ -139,7 +138,7 @@ impl UnifExpr {
                     .map(|n| {
                         let arg = &args[n];
                         let ty = hole(loc.clone());
-                        arg.collect_constraints(constraints, ty.clone(), env)?;
+                        self.collect_constraints(arg, constraints, ty.clone(), env)?;
                         let name = SharedString::from(format!("#ARG:{}:{}#", call_id, n));
                         env.push((name.clone(), ty.clone()));
                         Ok((name, ty))
@@ -147,7 +146,8 @@ impl UnifExpr {
                     .collect::<Result<Vec<_>>>()?;
 
                 let ret_ty = hole(loc.clone());
-                func.collect_constraints(
+                self.collect_constraints(
+                    func,
                     constraints,
                     Rc::new(UnifExpr::Pi(
                         loc.clone(),
@@ -161,13 +161,23 @@ impl UnifExpr {
 
                 ret_ty
             }
-            UnifExpr::Const(loc, val) => {
-                todo!(@loc.clone(), "the type of {} is... I need lang items", val)
-            }
-            UnifExpr::GlobalVar(loc, name) => {
-                // constraints.push(Constraint::ExprEq(loc.clone(), chk_ty, unimplemented!()));
-                chk_ty.clone()
-            }
+            UnifExpr::Const(loc, val) => match val {
+                Literal::Int(loc, _) => {
+                    Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum))
+                }
+                _ => todo!(@loc.clone(), "the type of {} is... I need lang items", val),
+            },
+            UnifExpr::GlobalVar(loc, name) => match self.get_decl(name.clone()) {
+                Some(Decl::Def(_, _, ty, _)) => Rc::new((&**ty).into()),
+                Some(Decl::DefEff(_, _, _, _)) => {
+                    raise!(@loc.clone(), "{} is an effect, not a value", name)
+                }
+                None => raise!(
+                    @loc.clone(),
+                    "Undefined variable {} (although this should've been caught earlier?)",
+                    name
+                ),
+            },
             UnifExpr::Lam(loc, args, body) => {
                 let arg_tys = args
                     .iter()
@@ -186,7 +196,7 @@ impl UnifExpr {
                             lam_effs.clone(),
                             effs.clone(),
                         ));
-                        expr.collect_constraints(constraints, ty.clone(), env)?;
+                        self.collect_constraints(expr, constraints, ty.clone(), env)?;
                         Ok(ty.clone())
                     })
                     .collect::<Result<Vec<_>>>()?;
@@ -206,20 +216,62 @@ impl UnifExpr {
                 .map(|i| env[i].1.clone())
                 .ok_or_else(|| err!(@loc.clone(), "Undefined local variable: {}", name))?,
             UnifExpr::Pi(loc, _, _, _) => Rc::new(UnifExpr::Type(loc.clone())),
-            UnifExpr::Type(loc) => Rc::new(UnifExpr::TypeOfTypeOfTypes(loc.clone())),
-            UnifExpr::TypeOfTypeOfTypes(_) => {
-                raise!("The type of type of types shouldn't be typechecked")
-            }
+            UnifExpr::Type(loc) => Rc::new(UnifExpr::Intrinsic(
+                loc.clone(),
+                Intrinsic::TypeOfTypeOfTypes,
+            )),
+            UnifExpr::Intrinsic(loc, i) => match *i {
+                Intrinsic::Fixnum => Rc::new(UnifExpr::Type(loc.clone())),
+                Intrinsic::TypeOfTypeOfTypes => {
+                    raise!("The type of type of types shouldn't be typechecked")
+                }
+            },
             UnifExpr::UnifVar(loc, _) => hole(loc.clone()),
-            _ => todo!(@self.loc(), "collect over {}", self),
         };
 
-        constraints.push(Constraint::ExprEq(self.loc(), inf_ty, chk_ty));
+        constraints.push(Constraint::ExprEq(expr.loc(), inf_ty, chk_ty));
+        Ok(())
+    }
+
+    /// Unifies a (top-level) expression with its type.
+    pub fn unify_ty_expr(&self, ty: &mut Rc<UnifExpr>, expr: &mut Rc<UnifExpr>) -> Result<()> {
+        let mut constraints = Vec::new();
+        if let Err(err) =
+            self.collect_constraints(ty, &mut constraints, hole(ty.loc()), &mut Vec::new())
+        {
+            if let (UnifExpr::Type(_), UnifExpr::Intrinsic(_, Intrinsic::TypeOfTypeOfTypes)) =
+                (&**expr, &**ty)
+            {
+                // Ignore the error; this is special-cased as legal.
+            } else {
+                return Err(err);
+            }
+        }
+        self.collect_constraints(expr, &mut constraints, ty.clone(), &mut Vec::new())?;
+
+        debug!("Unifying a declaration:");
+        debug!("  ty = {}", ty);
+        debug!("expr = {}", expr);
+        let mut first = true;
+        for c in &constraints {
+            let s = if first {
+                first = false;
+                '['
+            } else {
+                ','
+            };
+            debug!("{} {}", s, c);
+        }
+        debug!("]");
+
+        unify(expr, constraints.clone())?;
+        unify(ty, constraints)?;
+
         Ok(())
     }
 }
 
-pub fn reify(expr: &UnifExpr) -> Result<Expr> {
+pub fn reify(expr: &UnifExpr) -> Result<Arc<Expr>> {
     debug!("About to reify {}", expr);
     match expr {
         UnifExpr::Call(loc, func, args) => {
@@ -229,10 +281,11 @@ pub fn reify(expr: &UnifExpr) -> Result<Expr> {
                 .map(|arg| reify(arg))
                 .collect::<Result<_>>()
                 .chain(|| err!(@expr.loc(), "in {}", expr))?;
-            Ok(Expr::Call(loc.clone(), Box::new(func), args))
+            Ok(Arc::new(Expr::Call(loc.clone(), func, args)))
         }
-        UnifExpr::Const(loc, lit) => Ok(Expr::Const(loc.clone(), lit.clone())),
-        UnifExpr::GlobalVar(loc, name) => Ok(Expr::GlobalVar(loc.clone(), name.clone())),
+        UnifExpr::Const(loc, lit) => Ok(Arc::new(Expr::Const(loc.clone(), lit.clone()))),
+        UnifExpr::GlobalVar(loc, name) => Ok(Arc::new(Expr::GlobalVar(loc.clone(), name.clone()))),
+        UnifExpr::Intrinsic(loc, i) => Ok(Arc::new(Expr::Intrinsic(loc.clone(), *i))),
         UnifExpr::Lam(loc, args, body) => {
             let body = body
                 .iter()
@@ -241,64 +294,29 @@ pub fn reify(expr: &UnifExpr) -> Result<Expr> {
                     let ty =
                         reify(ty).chain(|| err!(@ty.loc(), "in {} (the type of {})", ty, expr))?;
                     let expr = reify(expr).chain(|| err!(@expr.loc(), "in {}", expr))?;
-                    Ok((def_name.clone(), Box::new(ty), Box::new(expr), effs))
+                    Ok((def_name.clone(), ty, expr, effs))
                 })
                 .collect::<Result<_>>()
                 .chain(|| err!(@expr.loc(), "in {}", expr))?;
-            Ok(Expr::Lam(loc.clone(), args.clone(), body))
+            Ok(Arc::new(Expr::Lam(loc.clone(), args.clone(), body)))
         }
-        UnifExpr::LocalVar(loc, name) => Ok(Expr::LocalVar(loc.clone(), name.clone())),
+        UnifExpr::LocalVar(loc, name) => Ok(Arc::new(Expr::LocalVar(loc.clone(), name.clone()))),
         UnifExpr::Pi(loc, args, body, effs) => {
             let args = args
                 .iter()
                 .map(|(name, ty)| {
                     let ty = reify(ty)?;
-                    Ok((name.clone(), Box::new(ty)))
+                    Ok((name.clone(), ty))
                 })
                 .collect::<Result<_>>()
                 .chain(|| err!(@expr.loc(), "in {}", expr))?;
             let body = reify(body).chain(|| err!(@expr.loc(), "in {}", expr))?;
             let effs = Effects(effs.0.iter().cloned().collect());
-            Ok(Expr::Pi(loc.clone(), args, Box::new(body), effs))
+            Ok(Arc::new(Expr::Pi(loc.clone(), args, body, effs)))
         }
-        UnifExpr::Type(loc) => Ok(Expr::Type(loc.clone())),
-        UnifExpr::TypeOfTypeOfTypes(_loc) => {
-            raise!(@expr.loc(), "{} cannot be reified; it's only available from Module::intrinsics", expr)
-        }
+        UnifExpr::Type(loc) => Ok(Arc::new(Expr::Type(loc.clone()))),
         UnifExpr::UnifVar(loc, _) => raise!(@loc.clone(), "Cannot reify a hole!"),
     }
-}
-/// Unifies a (top-level) expression with its type.
-pub fn unify_ty_expr(ty: &mut Rc<UnifExpr>, expr: &mut Rc<UnifExpr>) -> Result<()> {
-    let mut constraints = Vec::new();
-    if let Err(err) = ty.collect_constraints(&mut constraints, hole(ty.loc()), &mut Vec::new()) {
-        if let (UnifExpr::Type(_), UnifExpr::TypeOfTypeOfTypes(_)) = (&**expr, &**ty) {
-            // Ignore the error; this is special-cased as legal.
-        } else {
-            return Err(err);
-        }
-    }
-    expr.collect_constraints(&mut constraints, ty.clone(), &mut Vec::new())?;
-
-    debug!("Unifying a declaration:");
-    debug!("  ty = {}", ty);
-    debug!("expr = {}", expr);
-    let mut first = true;
-    for c in &constraints {
-        let s = if first {
-            first = false;
-            '['
-        } else {
-            ','
-        };
-        debug!("{} {}", s, c);
-    }
-    debug!("]");
-
-    unify(expr, constraints.clone())?;
-    unify(ty, constraints)?;
-
-    Ok(())
 }
 
 /// Returns a new hole at the current location.

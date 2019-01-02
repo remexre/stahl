@@ -32,7 +32,7 @@ impl Constraint {
         constraints: &mut Vec<Constraint>,
     ) -> Result<()> {
         match self {
-            Constraint::EffEq(_loc, l, r) => match (l.1, r.1) {
+            Constraint::EffEq(loc, l, r) => match (l.1, r.1) {
                 (Some(l_tail), Some(r_tail)) => {
                     if l.0 == r.0 {
                         UnifExpr::merge_effs(
@@ -42,12 +42,42 @@ impl Constraint {
                         );
                         Ok(())
                     } else {
-                        unimplemented!()
+                        todo!(@loc.clone(), "EffEq({}, {})", l, r)
                     }
                 }
-                (Some(_l_tail), None) => unimplemented!(),
-                (None, Some(_r_tail)) => unimplemented!(),
-                (None, None) => unimplemented!(),
+                (Some(l_tail), None) => {
+                    let l_not_r = l.0.difference(&r.0).collect::<HashSet<_>>();
+                    let r_not_l = r.0.difference(&l.0).collect::<HashSet<_>>();
+                    if l_not_r.len() == 0 && r_not_l.len() == 0 {
+                        let new_effs = Rc::new(UnifEffs(HashSet::new(), None));
+                        for c in constraints {
+                            c.subst_effs(l_tail, new_effs.clone());
+                        }
+                        UnifExpr::subst_effs(target, l_tail, new_effs);
+                        Ok(())
+                    } else {
+                        println!("{:?}", l_not_r);
+                        println!("{:?}", r_not_l);
+                        todo!(@loc.clone(), "EffEq({}, {})", l, r)
+                    }
+                }
+                (None, Some(r_tail)) => {
+                    let l_not_r = l.0.difference(&r.0).collect::<HashSet<_>>();
+                    let r_not_l = r.0.difference(&l.0).collect::<HashSet<_>>();
+                    if l_not_r.len() == 0 && r_not_l.len() == 0 {
+                        let new_effs = Rc::new(UnifEffs(HashSet::new(), None));
+                        for c in constraints {
+                            c.subst_effs(r_tail, new_effs.clone());
+                        }
+                        UnifExpr::subst_effs(target, r_tail, new_effs);
+                        Ok(())
+                    } else {
+                        println!("{:?}", l_not_r);
+                        println!("{:?}", r_not_l);
+                        todo!(@loc.clone(), "EffEq({}, {})", l, r)
+                    }
+                }
+                (None, None) => todo!(@loc.clone(), "EffEq({}, {})", l, r),
             },
             Constraint::EffSuperset(loc, l, r) => {
                 if let Some(l_tail) = l.1 {
@@ -72,12 +102,19 @@ impl Constraint {
                     }
                     Ok(())
                 }
+                (&UnifExpr::Intrinsic(_, li), &UnifExpr::Intrinsic(_, ri)) => {
+                    if li == ri {
+                        Ok(())
+                    } else {
+                        raise!(@loc.clone(), "Cannot unify #{}# with #{}#", li, ri);
+                    }
+                }
                 (
                     &UnifExpr::Pi(_, ref largs, ref lbody, ref leffs),
                     &UnifExpr::Pi(_, ref rargs, ref rbody, ref reffs),
                 ) => {
                     if largs.len() != rargs.len() {
-                        todo!(@loc.clone())
+                        todo!(@loc.clone(), "Invalid argument count: {} vs {}", l, r);
                     }
 
                     // TODO: I think alpha-renaming might be required here...
@@ -96,7 +133,6 @@ impl Constraint {
                     constraints.push(Constraint::EffEq(loc.clone(), leffs.clone(), reffs.clone()));
                     Ok(())
                 }
-                (&UnifExpr::TypeOfTypeOfTypes(_), &UnifExpr::TypeOfTypeOfTypes(_)) => Ok(()),
                 _ => todo!(@loc.clone(), "Solve constraint {}", self),
             },
         }
@@ -153,7 +189,54 @@ impl UnifEffs {
 }
 
 impl UnifExpr {
-    fn merge_effs(target: &mut Rc<Self>, var: usize, with: UnifEffs) {
+    fn alpha(target: &mut Rc<UnifExpr>, from: &str, to: UnifExpr) {
+        let target = Rc::make_mut(target);
+        match target {
+            UnifExpr::Call(_, ref mut func, ref mut args) => {
+                for arg in args {
+                    UnifExpr::alpha(arg, from, to.clone());
+                }
+                UnifExpr::alpha(func, from, to);
+            }
+            UnifExpr::Lam(_, ref args, ref mut body) => {
+                for arg in args {
+                    if arg == from {
+                        return;
+                    }
+                }
+                for (ref name, ref mut ty, ref mut expr, _) in body {
+                    if let Some(name) = name {
+                        if name == from {
+                            return;
+                        }
+                    }
+                    UnifExpr::alpha(ty, from, to.clone());
+                    UnifExpr::alpha(expr, from, to.clone());
+                }
+            }
+            UnifExpr::LocalVar(_, name) => {
+                if name == from {
+                    *target = to;
+                }
+            }
+            UnifExpr::Pi(_, ref mut args, ref mut body, _) => {
+                for (name, ref mut ty) in args {
+                    if name == from {
+                        return;
+                    }
+                    UnifExpr::alpha(ty, from, to.clone());
+                }
+                UnifExpr::alpha(body, from, to.clone());
+            }
+            UnifExpr::Const(_, _)
+            | UnifExpr::GlobalVar(_, _)
+            | UnifExpr::Intrinsic(_, _)
+            | UnifExpr::Type(_)
+            | UnifExpr::UnifVar(_, _) => {}
+        }
+    }
+
+    fn merge_effs(target: &mut Rc<UnifExpr>, var: usize, with: UnifEffs) {
         match *Rc::make_mut(target) {
             UnifExpr::Call(_, ref mut func, ref mut args) => {
                 args.iter_mut()
@@ -177,7 +260,7 @@ impl UnifExpr {
         }
     }
 
-    fn subst_expr(target: &mut Rc<Self>, var: usize, with: Rc<UnifExpr>) {
+    fn subst_expr(target: &mut Rc<UnifExpr>, var: usize, with: Rc<UnifExpr>) {
         match *Rc::make_mut(target) {
             UnifExpr::Call(_, ref mut func, ref mut args) => {
                 args.iter_mut()
@@ -200,8 +283,28 @@ impl UnifExpr {
         }
     }
 
-    fn subst_effs(target: &mut Rc<Self>, var: usize, with: Rc<UnifEffs>) {
-        unimplemented!("{}.subst_effs({}, {})", target, var, with)
+    fn subst_effs(target: &mut Rc<UnifExpr>, var: usize, with: Rc<UnifEffs>) {
+        match *Rc::make_mut(target) {
+            UnifExpr::Call(_, ref mut func, ref mut args) => {
+                args.iter_mut()
+                    .for_each(|arg| UnifExpr::subst_effs(arg, var, with.clone()));
+                UnifExpr::subst_effs(func, var, with)
+            }
+            UnifExpr::Lam(_, _, ref mut body) => {
+                for (_, ty, expr, effs) in body {
+                    UnifExpr::subst_effs(ty, var, with.clone());
+                    UnifExpr::subst_effs(expr, var, with.clone());
+                    effs.subst_effs(var, with.clone());
+                }
+            }
+            UnifExpr::Pi(_, ref mut args, ref mut body, ref mut effs) => {
+                args.iter_mut()
+                    .for_each(|(_, arg)| UnifExpr::subst_effs(arg, var, with.clone()));
+                UnifExpr::subst_effs(body, var, with.clone());
+                effs.subst_effs(var, with);
+            }
+            _ => {} // Other constructors cannot contain effects.
+        }
     }
 }
 

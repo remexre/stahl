@@ -1,4 +1,4 @@
-use stahl_ast::{Effects, Expr, FQName, Literal};
+use stahl_ast::{Effects, Expr, FQName, Intrinsic, Literal};
 use stahl_errors::Location;
 use stahl_util::{fmt_iter, genint, SharedString};
 use std::{
@@ -77,6 +77,9 @@ pub enum UnifExpr {
     /// A global variable.
     GlobalVar(#[derivative(Debug = "ignore")] Location, FQName),
 
+    /// A compiler intrinsic.
+    Intrinsic(#[derivative(Debug = "ignore")] Location, Intrinsic),
+
     /// A lambda.
     Lam(
         #[derivative(Debug = "ignore")] Location,
@@ -98,10 +101,6 @@ pub enum UnifExpr {
     /// The type of types.
     Type(#[derivative(Debug = "ignore")] Location),
 
-    /// The type of the type of types. If this is still present at the end of elaboration, an error
-    /// will result.
-    TypeOfTypeOfTypes(#[derivative(Debug = "ignore")] Location),
-
     /// A unification variable.
     UnifVar(#[derivative(Debug = "ignore")] Location, usize),
 }
@@ -113,11 +112,11 @@ impl UnifExpr {
             UnifExpr::Call(loc, _, _)
             | UnifExpr::Const(loc, _)
             | UnifExpr::GlobalVar(loc, _)
+            | UnifExpr::Intrinsic(loc, _)
             | UnifExpr::Lam(loc, _, _)
             | UnifExpr::LocalVar(loc, _)
             | UnifExpr::Pi(loc, _, _, _)
             | UnifExpr::Type(loc)
-            | UnifExpr::TypeOfTypeOfTypes(loc)
             | UnifExpr::UnifVar(loc, _) => loc.clone(),
         }
     }
@@ -136,6 +135,7 @@ impl Display for UnifExpr {
                 Literal::Symbol(_, _) => write!(fmt, "'{}", val),
             },
             UnifExpr::GlobalVar(_, name) => write!(fmt, "{}", name,),
+            UnifExpr::Intrinsic(_, i) => write!(fmt, "#{}#", i),
             UnifExpr::Lam(_, args, body) => {
                 write!(fmt, "(fn (")?;
                 fmt_iter(fmt, args)?;
@@ -168,7 +168,6 @@ impl Display for UnifExpr {
                 write!(fmt, ")")
             }
             UnifExpr::Type(_) => write!(fmt, "#TYPE#"),
-            UnifExpr::TypeOfTypeOfTypes(_) => write!(fmt, "#TYPE-OF-TYPE-OF-TYPES#"),
             UnifExpr::UnifVar(_, n) => write!(fmt, "#VAR:{}#", n),
         }
     }
@@ -184,6 +183,7 @@ impl From<&Expr> for UnifExpr {
             ),
             Expr::Const(loc, lit) => UnifExpr::Const(loc.clone(), lit.clone()),
             Expr::GlobalVar(loc, name) => UnifExpr::GlobalVar(loc.clone(), name.clone()),
+            Expr::Intrinsic(loc, i) => UnifExpr::Intrinsic(loc.clone(), *i),
             Expr::Lam(loc, args, body) => UnifExpr::Lam(
                 loc.clone(),
                 args.clone(),
@@ -199,7 +199,6 @@ impl From<&Expr> for UnifExpr {
                 effs.clone().into(),
             ),
             Expr::Type(loc) => UnifExpr::Type(loc.clone()),
-            Expr::TypeOfTypeOfTypes(loc) => UnifExpr::TypeOfTypeOfTypes(loc.clone()),
         }
     }
 }

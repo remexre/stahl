@@ -3,12 +3,16 @@
 
 #[macro_use]
 extern crate derivative;
+#[macro_use]
+extern crate stahl_errors;
 
-use stahl_errors::Location;
+use stahl_errors::{raise, Error, Location, Result};
 use stahl_util::{fmt_iter, fmt_string, SharedString};
 use std::{
     collections::HashSet,
     fmt::{Display, Formatter, Result as FmtResult},
+    str::FromStr,
+    sync::Arc,
 };
 
 /// A fully-qualified name.
@@ -25,6 +29,32 @@ impl Display for FQName {
     }
 }
 
+impl FromStr for FQName {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<FQName> {
+        if s == "/" || !s.contains('/') {
+            raise!("{} is not a fully qualified name", s);
+        }
+
+        let first = s.find('/').unwrap();
+        let last = s.rfind('/').unwrap();
+
+        let lib_name = s[..first].parse()?;
+        let mod_name = if first == last {
+            ""
+        } else {
+            &s[first + 1..last]
+        };
+        let decl_name = &s[last + 1..];
+
+        if decl_name == "" {
+            raise!("{} is not a fully qualified name", s);
+        }
+
+        Ok(FQName(lib_name, mod_name.into(), decl_name.into()))
+    }
+}
+
 /// The name of a library, including the version number.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct LibName(pub SharedString, pub u16, pub u16, pub u32);
@@ -32,6 +62,14 @@ pub struct LibName(pub SharedString, pub u16, pub u16, pub u32);
 impl Display for LibName {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         write!(fmt, "{}-{}-{}-{}", self.0, self.1, self.2, self.3,)
+    }
+}
+
+impl FromStr for LibName {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<LibName> {
+        let chunks = s.rsplitn(4, '-').collect::<Vec<_>>();
+        unimplemented!("{:?}", chunks)
     }
 }
 
@@ -43,16 +81,16 @@ pub enum Decl {
     Def(
         #[derivative(Debug = "ignore")] Location,
         SharedString,
-        Expr,
-        Expr,
+        Arc<Expr>,
+        Arc<Expr>,
     ),
 
     /// A effect declaration.
     DefEff(
         #[derivative(Debug = "ignore")] Location,
         SharedString,
-        Expr,
-        Option<Expr>,
+        Arc<Expr>,
+        Option<Arc<Expr>>,
     ),
 }
 
@@ -96,6 +134,27 @@ impl Display for Effects {
     }
 }
 
+/// A compiler intrinsic.
+#[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum Intrinsic {
+    /// The type of machine-sized integers.
+    Fixnum,
+
+    /// The type of the type of types. This is a compiler builtin, and cannot legally be produced
+    /// via elaboration.
+    TypeOfTypeOfTypes,
+}
+
+impl Display for Intrinsic {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        let s = match self {
+            Intrinsic::Fixnum => "FIXNUM",
+            Intrinsic::TypeOfTypeOfTypes => "TYPE-OF-TYPE-OF-TYPES",
+        };
+        fmt.write_str(s)
+    }
+}
+
 /// An expression.
 #[derive(Clone, Derivative, Eq, PartialEq)]
 #[derivative(Debug)]
@@ -103,8 +162,8 @@ pub enum Expr {
     /// A call to a function with a given number of arguments.
     Call(
         #[derivative(Debug = "ignore")] Location,
-        Box<Expr>,
-        Vec<Expr>,
+        Arc<Expr>,
+        Vec<Arc<Expr>>,
     ),
 
     /// A constant.
@@ -113,11 +172,14 @@ pub enum Expr {
     /// A global variable.
     GlobalVar(#[derivative(Debug = "ignore")] Location, FQName),
 
+    /// A compiler intrinsic.
+    Intrinsic(#[derivative(Debug = "ignore")] Location, Intrinsic),
+
     /// A lambda.
     Lam(
         #[derivative(Debug = "ignore")] Location,
         Vec<SharedString>,
-        Vec<(Option<SharedString>, Box<Expr>, Box<Expr>, Effects)>,
+        Vec<(Option<SharedString>, Arc<Expr>, Arc<Expr>, Effects)>,
     ),
 
     /// A local variable.
@@ -126,17 +188,13 @@ pub enum Expr {
     /// A pi type with effects.
     Pi(
         #[derivative(Debug = "ignore")] Location,
-        Vec<(SharedString, Box<Expr>)>,
-        Box<Expr>,
+        Vec<(SharedString, Arc<Expr>)>,
+        Arc<Expr>,
         Effects,
     ),
 
     /// The type of types.
     Type(#[derivative(Debug = "ignore")] Location),
-
-    /// The type of the type of types. This is a compiler builtin, and cannot legally be produced
-    /// via elaboration.
-    TypeOfTypeOfTypes(#[derivative(Debug = "ignore")] Location),
 }
 
 impl Expr {
@@ -146,11 +204,11 @@ impl Expr {
             Expr::Call(loc, _, _)
             | Expr::Const(loc, _)
             | Expr::GlobalVar(loc, _)
+            | Expr::Intrinsic(loc, _)
             | Expr::Lam(loc, _, _)
             | Expr::LocalVar(loc, _)
             | Expr::Pi(loc, _, _, _)
-            | Expr::Type(loc)
-            | Expr::TypeOfTypeOfTypes(loc) => loc.clone(),
+            | Expr::Type(loc) => loc.clone(),
         }
     }
 }
@@ -168,6 +226,7 @@ impl Display for Expr {
                 Literal::Symbol(_, _) => write!(fmt, "'{}", val),
             },
             Expr::GlobalVar(_, name) => write!(fmt, "{}", name),
+            Expr::Intrinsic(_, i) => write!(fmt, "#{}#", i),
             Expr::Lam(_, args, body) => {
                 write!(fmt, "(fn (")?;
                 fmt_iter(fmt, args)?;
@@ -200,7 +259,6 @@ impl Display for Expr {
                 write!(fmt, ")")
             }
             Expr::Type(_) => write!(fmt, "#TYPE#"),
-            Expr::TypeOfTypeOfTypes(_) => write!(fmt, "#TYPE-OF-TYPE-OF-TYPES#"),
         }
     }
 }

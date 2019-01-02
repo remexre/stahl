@@ -3,6 +3,7 @@
 
 use stahl_ast::Expr;
 use stahl_context::ModContext;
+use std::sync::Arc;
 
 /// An interpreter for Stahl. Note that this is a "slow" interpreter, i.e. one that operates
 /// directly on the AST, rather than compiling to a more efficient intermediate representation.
@@ -25,7 +26,12 @@ impl<'a, 'l, 'c> Interpreter<'a, 'l, 'c> {
             Expr::Lam(_, _args, _body) => false,       // TODO
             Expr::LocalVar(_, _name) => false,         // TODO
             Expr::Pi(_, _args, _body, _effs) => false, // TODO
-            Expr::Const(_, _) | Expr::Type(_) | Expr::TypeOfTypeOfTypes(_) => true,
+            Expr::Const(_, _) | Expr::Intrinsic(_, _) | Expr::Type(_) => true,
         }
+    }
+
+    /// Performs a single reduction on the expression.
+    pub fn reduce(&self, expr: Arc<Expr>) -> Arc<Expr> {
+        unimplemented!()
     }
 }

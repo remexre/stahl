@@ -5,7 +5,6 @@ name = "stahl_modules"
 version = "0.1.0"
 
 [dependencies]
-maplit = "1.0.1"
 stahl_ast = { path = "../ast" }
 stahl_cst = { path = "../cst" }
 stahl_errors = { path = "../errors" }

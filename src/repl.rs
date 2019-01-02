@@ -30,7 +30,6 @@ pub fn run() -> Result<()> {
 
     let mut ctx = Context::new();
     create_compiler_builtins_lib(&mut ctx);
-    println!("{:?}", ctx);
 
     let mut lib_ctx = ctx.create_lib(
         LibName("#repl#".into(), 0, 0, 0),
@@ -43,7 +42,10 @@ pub fn run() -> Result<()> {
         hashset! {},
         hashmap! {
             "#compiler-builtins#".into() => hashmap! {
-                "".into() => hashset!{"type".into() }
+                "".into() => hashset!{
+                    "fixnum".into(),
+                    "type".into(),
+                }
             }
         },
     )?;
