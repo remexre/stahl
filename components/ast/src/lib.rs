@@ -22,9 +22,9 @@ pub struct FQName(pub LibName, pub SharedString, pub SharedString);
 impl Display for FQName {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         if self.1 == "" {
-            write!(fmt, "{}/{}", self.0, self.2)
+            write!(fmt, "{}:{}", self.0, self.2)
         } else {
-            write!(fmt, "{}/{}/{}", self.0, self.1, self.2)
+            write!(fmt, "{}:{}:{}", self.0, self.1, self.2)
         }
     }
 }
@@ -32,12 +32,12 @@ impl Display for FQName {
 impl FromStr for FQName {
     type Err = Error;
     fn from_str(s: &str) -> Result<FQName> {
-        if s == "/" || !s.contains('/') {
+        if !s.contains(':') {
             raise!("{} is not a fully qualified name", s);
         }
 
-        let first = s.find('/').unwrap();
-        let last = s.rfind('/').unwrap();
+        let first = s.find(':').unwrap();
+        let last = s.rfind(':').unwrap();
 
         let lib_name = s[..first].parse()?;
         let mod_name = if first == last {

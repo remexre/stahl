@@ -72,7 +72,7 @@ fn the_fixnum_1() {
             loc.clone(),
             Rc::new(UnifExpr::GlobalVar(
                 loc.clone(),
-                "#compiler-builtins#-0-0-0/the".parse().unwrap(),
+                "#compiler-builtins#-0-0-0:the".parse().unwrap(),
             )),
             vec![
                 Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),

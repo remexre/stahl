@@ -45,7 +45,7 @@ pub struct Module {
 impl Module {
     /// Resolves a local name inside this module.
     pub fn resolve(&self, name: SharedString) -> Option<FQName> {
-        assert!(name == "/" || !name.contains('/'));
+        assert!(!name.contains(':'));
 
         // Check declarations in the module.
         for decl in &self.decls {

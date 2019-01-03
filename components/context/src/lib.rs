@@ -80,7 +80,7 @@ impl Context {
             if name.1 == "" {
                 err!("No module {} exists", name.0)
             } else {
-                err!("No module {}/{} exists", name.0, name.1)
+                err!("No module {}:{} exists", name.0, name.1)
             }
         })?;
 
@@ -88,7 +88,7 @@ impl Context {
             if name.1 == "" {
                 raise!("{} does not export {}", name.0, name.2)
             } else {
-                raise!("{}/{} does not export {}", name.0, name.1, name.2)
+                raise!("{}:{} does not export {}", name.0, name.1, name.2)
             }
         }
 
@@ -176,7 +176,7 @@ impl<'c> LibContext<'c> {
     pub fn insert_mod(&mut self, module: Module) -> Result<()> {
         if self.library.mods.contains_key(&module.mod_name) {
             raise!(
-                "Module {}/{} already exists",
+                "Module {}:{} already exists",
                 self.library.name,
                 module.mod_name
             )
@@ -222,7 +222,7 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
         if self.module.decls.iter().any(|decl| decl.name() == name) {
             raise!(
                 @decl.loc(),
-                "Module {}/{} already declares {}",
+                "Module {}:{} already declares {}",
                 self.library.library.name,
                 self.module.mod_name,
                 name
@@ -301,7 +301,7 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
 
     /// Resolves the name of a definition the module context, returning its declaration.
     pub fn resolve(&self, name: SharedString) -> Result<(FQName, &Decl)> {
-        if name == "/" || !name.contains('/') {
+        if !name.contains(':') {
             match self.module.resolve(name.clone()) {
                 Some(name) => {
                     if name.0 == self.module.lib_name && name.1 == self.module.mod_name {
