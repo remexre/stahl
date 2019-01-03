@@ -117,11 +117,32 @@ impl Constraint {
                         Ok(())
                     }
                     (
+                        &UnifExpr::Call(_, ref lfunc, ref largs),
+                        &UnifExpr::Call(_, ref rfunc, ref rargs),
+                    ) => {
+                        if largs.len() != rargs.len() {
+                            raise!(@loc.clone(), "Invalid argument count: {} vs {}", l, r);
+                        }
+                        constraints.push(Constraint::ExprEq(
+                            loc.clone(),
+                            lfunc.clone(),
+                            rfunc.clone(),
+                        ));
+                        for i in 0..largs.len() {
+                            constraints.push(Constraint::ExprEq(
+                                loc.clone(),
+                                largs[i].clone(),
+                                rargs[i].clone(),
+                            ));
+                        }
+                        Ok(())
+                    }
+                    (
                         &UnifExpr::Pi(_, ref largs, ref lbody, ref leffs),
                         &UnifExpr::Pi(_, ref rargs, ref rbody, ref reffs),
                     ) => {
                         if largs.len() != rargs.len() {
-                            todo!(@loc.clone(), "Invalid argument count: {} vs {}", l, r);
+                            raise!(@loc.clone(), "Invalid argument count: {} vs {}", l, r);
                         }
 
                         // TODO: I think alpha-renaming might be required here...
@@ -144,7 +165,7 @@ impl Constraint {
                         ));
                         Ok(())
                     }
-                    _ => todo!(@loc.clone(), "Solve constraint {}", self),
+                    _ => raise!(@loc.clone(), "Cannot unify {} with {}", l, r),
                 }
             }
         }

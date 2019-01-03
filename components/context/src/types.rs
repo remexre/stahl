@@ -189,7 +189,7 @@ impl From<&Expr> for UnifExpr {
             Expr::Call(loc, func, args) => UnifExpr::Call(
                 loc.clone(),
                 Rc::new((&**func).into()),
-                args.iter().map(|_| unimplemented!()).collect(),
+                args.iter().map(|arg| Rc::new((&**arg).into())).collect(),
             ),
             Expr::Const(loc, lit) => UnifExpr::Const(loc.clone(), lit.clone()),
             Expr::GlobalVar(loc, name) => UnifExpr::GlobalVar(loc.clone(), name.clone()),

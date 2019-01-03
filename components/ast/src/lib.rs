@@ -145,11 +145,18 @@ impl Display for Effects {
 /// A compiler intrinsic.
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Intrinsic {
+    /// The propositional equality type. This is defined as an intrinsic largely so it can be used
+    /// for optimization.
+    Eq,
+
     /// The type of machine-sized integers.
     Fixnum,
 
     /// Addition on fixnums.
     FixnumAdd,
+
+    /// The reflexive principle; the sole constructor of the Eq type.
+    Refl,
 
     /// The type of strings.
     String,
@@ -167,8 +174,10 @@ pub enum Intrinsic {
 impl Display for Intrinsic {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         let s = match self {
+            Intrinsic::Eq => "EQ",
             Intrinsic::Fixnum => "FIXNUM",
             Intrinsic::FixnumAdd => "FIXNUM-ADD",
+            Intrinsic::Refl => "REFL",
             Intrinsic::String => "STRING",
             Intrinsic::Symbol => "SYMBOL",
             Intrinsic::Type => "TYPE",
@@ -283,12 +292,21 @@ impl Display for Expr {
 
 /// A literal value. Cons and nil are excluded, as they are converted to function calls.
 #[allow(missing_docs)]
-#[derive(Clone, Derivative, Eq, Hash, PartialEq)]
-#[derivative(Debug)]
+#[derive(Clone, Derivative, Eq, Hash)]
+#[derivative(Debug, PartialEq = "feature_allow_slow_enum")]
 pub enum Literal {
-    Int(#[derivative(Debug = "ignore")] Location, isize),
-    String(#[derivative(Debug = "ignore")] Location, SharedString),
-    Symbol(#[derivative(Debug = "ignore")] Location, SharedString),
+    Int(
+        #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
+        isize,
+    ),
+    String(
+        #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
+        SharedString,
+    ),
+    Symbol(
+        #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
+        SharedString,
+    ),
 }
 
 impl Display for Literal {

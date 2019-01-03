@@ -28,6 +28,7 @@ impl ModContext<'_, '_> {
     pub fn normalize(&self, expr: &mut Rc<UnifExpr>, env: &mut NormalizeEnv) {
         loop {
             if expr.is_normal(env) {
+                debug!("Fully normalized: {}", expr);
                 break;
             }
             match self.normalize_step((**expr).clone(), env) {
@@ -63,11 +64,15 @@ impl ModContext<'_, '_> {
                         let mut body = body.clone();
                         let mut last = body.pop().expect("An empty lambda slipped in").2;
 
-                        assert_eq!(body.len(), 0); // TODO
+                        assert_eq!(body.len(), 0); // TODO handle lambdas with bodies
 
                         self.normalize(&mut last, env);
                         env.ext.truncate(old_env_len);
                         Ok(unwrap_rc(last))
+                    }
+                    UnifExpr::Intrinsic(_, Intrinsic::Eq)
+                    | UnifExpr::Intrinsic(_, Intrinsic::Refl) => {
+                        Ok(UnifExpr::Call(loc, func, call_args))
                     }
                     UnifExpr::Intrinsic(_, Intrinsic::FixnumAdd) => match &*call_args {
                         [l, r] => match (&**l, &**r) {
@@ -115,7 +120,17 @@ impl UnifExpr {
     /// Checks if an expression is normal under an evaluation context.
     pub fn is_normal(&self, env: &mut NormalizeEnv) -> bool {
         match self {
-            UnifExpr::Call(_, _, _) => false,
+            UnifExpr::Call(_, func, args) => {
+                if args.iter().all(|arg| arg.is_normal(env)) {
+                    match **func {
+                        UnifExpr::Intrinsic(_, Intrinsic::Eq)
+                        | UnifExpr::Intrinsic(_, Intrinsic::Refl) => true,
+                        _ => false,
+                    }
+                } else {
+                    false
+                }
+            }
             UnifExpr::Const(_, _) => true,
             UnifExpr::GlobalVar(_, _) => false,
             UnifExpr::LocalVar(_, name) => env.get(name).is_none(),

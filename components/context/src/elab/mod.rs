@@ -138,10 +138,10 @@ impl ModContext<'_, '_> {
                 base: env,
                 ext: Vec::new(),
             };
-            self.normalize(chk_ty, &mut env)
+            self.normalize(chk_ty, &mut env);
         });
 
-        let inf_ty = match expr {
+        let mut inf_ty = match expr {
             UnifExpr::Call(loc, func, args) => match &*self.tyck(func, constraints, None, env)? {
                 UnifExpr::Pi(_, arg_tys, body, _) => {
                     if args.len() != arg_tys.len() {
@@ -189,6 +189,25 @@ impl ModContext<'_, '_> {
                 None => raise!(@loc.clone(), "Undefined variable {}", name),
             },
             UnifExpr::Intrinsic(loc, i) => match *i {
+                Intrinsic::Eq => Rc::new(UnifExpr::Pi(
+                    loc.clone(),
+                    vec![
+                        (
+                            "T".into(),
+                            Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type)),
+                        ),
+                        (
+                            "x".into(),
+                            Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())),
+                        ),
+                        (
+                            "y".into(),
+                            Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())),
+                        ),
+                    ],
+                    Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type)),
+                    UnifEffs::any(),
+                )),
                 Intrinsic::Fixnum | Intrinsic::String | Intrinsic::Symbol => {
                     Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type))
                 }
@@ -196,15 +215,38 @@ impl ModContext<'_, '_> {
                     loc.clone(),
                     vec![
                         (
-                            "#ARG:0#".into(),
+                            "x".into(),
                             Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
                         ),
                         (
-                            "#ARG:1#".into(),
+                            "y".into(),
                             Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
                         ),
                     ],
                     Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
+                    UnifEffs::any(),
+                )),
+                Intrinsic::Refl => Rc::new(UnifExpr::Pi(
+                    loc.clone(),
+                    vec![
+                        (
+                            "T".into(),
+                            Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type)),
+                        ),
+                        (
+                            "x".into(),
+                            Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())),
+                        ),
+                    ],
+                    Rc::new(UnifExpr::Call(
+                        loc.clone(),
+                        Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Eq)),
+                        vec![
+                            Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())),
+                            Rc::new(UnifExpr::LocalVar(loc.clone(), "x".into())),
+                            Rc::new(UnifExpr::LocalVar(loc.clone(), "x".into())),
+                        ],
+                    )),
                     UnifEffs::any(),
                 )),
                 Intrinsic::Type => Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::TypeOfType)),
@@ -254,6 +296,13 @@ impl ModContext<'_, '_> {
             }
             UnifExpr::UnifVar(loc, _) => UnifExpr::hole(loc.clone()),
         };
+        self.normalize(
+            &mut inf_ty,
+            &mut NormalizeEnv {
+                base: env,
+                ext: Vec::new(),
+            },
+        );
 
         if let Some(chk_ty) = chk_ty {
             constraints.push(Constraint::ExprEq(expr.loc(), inf_ty.clone(), chk_ty));
