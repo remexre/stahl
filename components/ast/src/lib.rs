@@ -148,6 +148,9 @@ pub enum Intrinsic {
     /// The type of machine-sized integers.
     Fixnum,
 
+    /// Addition on fixnums.
+    FixnumAdd,
+
     /// The type of strings.
     String,
 
@@ -165,6 +168,7 @@ impl Display for Intrinsic {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         let s = match self {
             Intrinsic::Fixnum => "FIXNUM",
+            Intrinsic::FixnumAdd => "FIXNUM-ADD",
             Intrinsic::String => "STRING",
             Intrinsic::Symbol => "SYMBOL",
             Intrinsic::Type => "TYPE",

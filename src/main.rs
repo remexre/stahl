@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate log;
 extern crate rustyline;
-#[macro_use]
 extern crate stahl_errors;
 extern crate stahl_modules;
 extern crate stahl_parser;
@@ -31,10 +30,8 @@ fn main() {
 }
 
 fn run(command: Command) -> Result<()> {
-    #[allow(unreachable_patterns)]
     match command {
         Command::Repl => repl::run(),
         Command::Script { main } => script::run(main),
-        _ => raise!("TODO {:?}", command),
     }
 }

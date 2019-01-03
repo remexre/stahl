@@ -53,6 +53,7 @@ impl ModContext<'_, '_> {
             CstExpr::Const(loc, Value::Symbol(loc2, s)) => {
                 UnifExpr::Const(loc.clone(), Literal::Symbol(loc2.clone(), s.clone()))
             }
+            CstExpr::Const(_, _) => todo!(@expr.loc(), "{:?}", expr),
             CstExpr::Hole(loc) => return Ok(UnifExpr::hole(loc.clone())),
             CstExpr::Lam(loc, args, body) => {
                 let old_len = locals.len();
@@ -118,7 +119,6 @@ impl ModContext<'_, '_> {
                     }
                 }
             }
-            _ => todo!(@expr.loc(), "{:?}", expr),
         };
         Ok(Rc::new(expr))
     }
@@ -162,7 +162,7 @@ impl ModContext<'_, '_> {
                             }
                             UnifExpr::beta(arg_ty, &name, arg.clone())
                         }
-                        UnifExpr::beta(&mut body, &name, ty)
+                        UnifExpr::beta(&mut body, &name, arg.clone());
                     }
                     env.truncate(old_env_len);
 
@@ -170,11 +170,16 @@ impl ModContext<'_, '_> {
                 }
                 ty => raise!(@loc.clone(), "The target of a call must be a function, not {}", ty),
             },
-            UnifExpr::Const(loc, val) => match val {
+            UnifExpr::Const(_, val) => match val {
                 Literal::Int(loc, _) => {
                     Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum))
                 }
-                _ => todo!(@loc.clone(), "the type of {} is... I need lang items", val),
+                Literal::String(loc, _) => {
+                    Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::String))
+                }
+                Literal::Symbol(loc, _) => {
+                    Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Symbol))
+                }
             },
             UnifExpr::GlobalVar(loc, name) => match self.get_decl(name.clone()) {
                 Some(Decl::Def(_, _, ty, _)) => Rc::new((&**ty).into()),
@@ -187,6 +192,21 @@ impl ModContext<'_, '_> {
                 Intrinsic::Fixnum | Intrinsic::String | Intrinsic::Symbol => {
                     Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type))
                 }
+                Intrinsic::FixnumAdd => Rc::new(UnifExpr::Pi(
+                    loc.clone(),
+                    vec![
+                        (
+                            "#ARG:0#".into(),
+                            Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
+                        ),
+                        (
+                            "#ARG:1#".into(),
+                            Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
+                        ),
+                    ],
+                    Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
+                    UnifEffs::any(),
+                )),
                 Intrinsic::Type => Rc::new(UnifExpr::Intrinsic(
                     loc.clone(),
                     Intrinsic::TypeOfTypeOfTypes,
@@ -247,17 +267,7 @@ impl ModContext<'_, '_> {
     /// Unifies a (top-level) expression with its type.
     pub fn unify_ty_expr(&self, ty: &mut Rc<UnifExpr>, expr: &mut Rc<UnifExpr>) -> Result<()> {
         let mut constraints = Vec::new();
-        if let Err(err) = self.tyck(ty, &mut constraints, None, &mut Vec::new()) {
-            if let (
-                UnifExpr::Intrinsic(_, Intrinsic::Type),
-                UnifExpr::Intrinsic(_, Intrinsic::TypeOfTypeOfTypes),
-            ) = (&**expr, &**ty)
-            {
-                // Ignore the error; this is special-cased as legal.
-            } else {
-                return Err(err);
-            }
-        }
+        self.tyck(ty, &mut constraints, None, &mut Vec::new())?;
         self.tyck(expr, &mut constraints, Some(ty.clone()), &mut Vec::new())?;
 
         debug!("Unifying a declaration:");

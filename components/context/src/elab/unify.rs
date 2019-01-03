@@ -79,21 +79,24 @@ impl Constraint {
                 }
                 (None, None) => todo!(@loc.clone(), "EffEq({}, {})", l, r),
             },
-            Constraint::EffSuperset(loc, l, r) => {
-                if let Some(l_tail) = l.1 {
+            Constraint::EffSuperset(loc, l, r) => match (l.1, r.1) {
+                (Some(l_tail), _) => {
                     UnifExpr::merge_effs(target, l_tail, r.clone());
                     Ok(())
-                } else if l.1.is_none() && r.1.is_none() {
+                }
+                (None, Some(_)) => {
+                    constraints.push(Constraint::EffEq(loc.clone(), l.clone(), r.clone()));
+                    Ok(())
+                }
+                (None, None) => {
                     let r_not_l = r.0.difference(&l.0).collect::<HashSet<_>>();
                     if r_not_l.len() > 0 {
                         raise!(@loc.clone(), "Effects not found: {:?}", r_not_l);
                     } else {
                         Ok(())
                     }
-                } else {
-                    todo!(@loc.clone(), "Solve constraint {}", self)
                 }
-            }
+            },
             Constraint::ExprEq(loc, l, r) => {
                 if l == r {
                     return Ok(());
@@ -278,7 +281,6 @@ pub fn unify(target: &mut Rc<UnifExpr>, mut constraints: Vec<Constraint>) -> Res
     while let Some(c) = constraints.pop() {
         trace!("Solving {}", c);
         c.solve(target, &mut constraints)?;
-        trace!("{}", target);
     }
     Ok(())
 }

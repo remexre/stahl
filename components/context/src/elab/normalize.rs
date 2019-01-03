@@ -1,6 +1,6 @@
 use crate::{types::UnifExpr, ModContext};
 use log::debug;
-use stahl_ast::Decl;
+use stahl_ast::{Decl, Intrinsic, Literal};
 use stahl_errors::Result;
 use stahl_util::{unwrap_rc, SharedString};
 use std::rc::Rc;
@@ -69,10 +69,19 @@ impl ModContext<'_, '_> {
                         env.ext.truncate(old_env_len);
                         Ok(unwrap_rc(last))
                     }
+                    UnifExpr::Intrinsic(_, Intrinsic::FixnumAdd) => match &*call_args {
+                        [l, r] => match (&**l, &**r) {
+                            (
+                                UnifExpr::Const(_, Literal::Int(_, l)),
+                                UnifExpr::Const(_, Literal::Int(_, r)),
+                            ) => Ok(UnifExpr::Const(loc.clone(), Literal::Int(loc, l + r))),
+                            _ => raise!(@loc.clone(), "Type error in call to +"),
+                        },
+                        _ => raise!(@loc.clone(), "Invalid argn in call to +"),
+                    },
                     _ => raise!(@loc.clone(), "{} is not callable", func),
                 }
             }
-            UnifExpr::Const(loc, lit) => Ok(UnifExpr::Const(loc, lit)),
             UnifExpr::GlobalVar(loc, name) => match self.get_decl(name.clone()) {
                 Some(Decl::Def(_, _, _, expr)) => Ok((&**expr).into()),
                 Some(Decl::DefEff(_, _, _, _)) => {
@@ -96,7 +105,7 @@ impl ModContext<'_, '_> {
             }
             expr => {
                 // raise!(@expr.loc(), "{} is already normal!", expr)
-                unimplemented!("{} is already normal!", expr)
+                panic!("{} is already normal!", expr)
             }
         }
     }

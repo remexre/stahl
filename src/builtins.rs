@@ -12,6 +12,24 @@ pub fn create_compiler_builtins_lib(ctx: &mut Context) -> HashSet<SharedString> 
     let mod_name = SharedString::from("");
     let loc = Location::new().name("compiler builtin".into());
 
+    let add_name = SharedString::from("+");
+    let add_type = Arc::new(Expr::Pi(
+        loc.clone(),
+        vec![
+            (
+                "#ARG:0#".into(),
+                Arc::new(Expr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
+            ),
+            (
+                "#ARG:1#".into(),
+                Arc::new(Expr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
+            ),
+        ],
+        Arc::new(Expr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
+        Effects::default(),
+    ));
+    let add_expr = Arc::new(Expr::Intrinsic(loc.clone(), Intrinsic::FixnumAdd));
+
     let fixnum_name = SharedString::from("fixnum");
     let fixnum_type = Arc::new(Expr::Intrinsic(loc.clone(), Intrinsic::Type));
     let fixnum_expr = Arc::new(Expr::Intrinsic(loc.clone(), Intrinsic::Fixnum));
@@ -69,7 +87,8 @@ pub fn create_compiler_builtins_lib(ctx: &mut Context) -> HashSet<SharedString> 
     let type_expr = Arc::new(Expr::Intrinsic(loc.clone(), Intrinsic::Type));
 
     let exports = hashset! {
-        fixnum_name.clone(), the_name.clone(), the_type_name.clone(), type_name.clone()
+        add_name.clone(), fixnum_name.clone(), the_name.clone(), the_type_name.clone(),
+        type_name.clone()
     };
 
     let mut lib_ctx = ctx.create_lib(lib_name.clone(), hashmap! {});
@@ -80,6 +99,7 @@ pub fn create_compiler_builtins_lib(ctx: &mut Context) -> HashSet<SharedString> 
             exports: exports.clone(),
             imports: hashmap! {},
             decls: vec![
+                Decl::Def(loc.clone(), add_name, add_type, add_expr),
                 Decl::Def(loc.clone(), fixnum_name, fixnum_type, fixnum_expr),
                 Decl::Def(loc.clone(), the_name, the_type, the_expr),
                 Decl::Def(loc.clone(), the_type_name, the_type_type, the_type_expr),
