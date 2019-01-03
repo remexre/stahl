@@ -129,14 +129,6 @@ impl ModContext<'_, '_> {
         chk_ty: Option<Rc<UnifExpr>>,
         env: &mut Vec<(SharedString, Rc<UnifExpr>)>,
     ) -> Result<Rc<UnifExpr>> {
-        println!(
-            "tyck {} <- {}",
-            expr,
-            chk_ty
-                .as_ref()
-                .map(|ty| ty.to_string())
-                .unwrap_or_else(String::new)
-        );
         let inf_ty = match expr {
             UnifExpr::Call(loc, func, args) => match &*self.tyck(func, constraints, None, env)? {
                 UnifExpr::Pi(_, arg_tys, body, _) => {
