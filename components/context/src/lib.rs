@@ -188,6 +188,19 @@ impl<'c> LibContext<'c> {
     }
 }
 
+impl Deref for LibContext<'_> {
+    type Target = Library;
+    fn deref(&self) -> &Library {
+        &*self.library
+    }
+}
+
+impl DerefMut for LibContext<'_> {
+    fn deref_mut(&mut self) -> &mut Library {
+        &mut *self.library
+    }
+}
+
 impl Drop for LibContext<'_> {
     fn drop(&mut self) {
         if !(panicking() || self.context.taken() || self.library.taken()) {
@@ -284,16 +297,18 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
     /// Returns the decl referred to by the given global name.
     pub fn get_decl(&self, name: FQName) -> Option<&Decl> {
         if self.module.lib_name == name.0 {
-            if self.module.mod_name == name.1 {
-                for decl in &self.module.decls {
-                    if decl.name() == name.2 {
-                        return Some(decl);
-                    }
-                }
-                None
+            let module = if self.module.mod_name == name.1 {
+                &self.module
             } else {
-                unimplemented!()
+                self.library.mods.get(&name.1)?
+            };
+
+            for decl in &module.decls {
+                if decl.name() == name.2 {
+                    return Some(decl);
+                }
             }
+            None
         } else {
             self.library.context.get_decl(name).ok()
         }
@@ -319,7 +334,11 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                 None => raise!("No definition for {} exists", name),
             }
         } else {
-            unimplemented!()
+            let name = name.parse::<FQName>()?;
+            match self.get_decl(name.clone()) {
+                Some(decl) => Ok((name, decl)),
+                None => raise!("No definition for {} exists", name),
+            }
         }
     }
 }
