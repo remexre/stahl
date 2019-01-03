@@ -29,7 +29,7 @@ pub fn run() -> Result<()> {
 
     let mut ctx = Context::new();
     create_compiler_builtins_lib(&mut ctx);
-    let compiler_builtins = LibName("#compiler-builtins#".into(), 0, 0, 0);
+    let compiler_builtins = LibName("compiler-builtins".into(), 0, 0, 0);
     let builtin_exports = ctx
         .get_module(compiler_builtins.clone(), "".into())
         .unwrap()
@@ -38,12 +38,12 @@ pub fn run() -> Result<()> {
 
     let mut lib_ctx = ctx.create_lib(
         LibName("#repl#".into(), 0, 0, 0),
-        hashmap! { "#compiler-builtins#".into() => compiler_builtins },
+        hashmap! { "compiler-builtins".into() => compiler_builtins },
     );
     let mut mod_ctx = lib_ctx.create_mod(
         "".into(),
         hashset! {},
-        hashmap! { "#compiler-builtins#".into() => hashmap! { "".into() => builtin_exports } },
+        hashmap! { "compiler-builtins".into() => hashmap! { "".into() => builtin_exports } },
     )?;
 
     while let Ok(line) = rl.readline("\u{03bb}> ") {

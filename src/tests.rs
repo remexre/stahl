@@ -11,9 +11,9 @@ fn with_context(f: impl FnOnce(&mut ModContext)) {
     create_compiler_builtins_lib(&mut ctx);
 
     let mut lib_ctx = ctx.create_lib(
-        LibName("#test#".into(), 0, 0, 0),
+        LibName("test".into(), 0, 0, 0),
         hashmap! {
-            "#compiler-builtins#".into() => LibName("#compiler-builtins#".into(), 0, 0, 0)
+            "compiler-builtins".into() => LibName("compiler-builtins".into(), 0, 0, 0)
         },
     );
 
@@ -22,7 +22,7 @@ fn with_context(f: impl FnOnce(&mut ModContext)) {
             "".into(),
             hashset! {},
             hashmap! {
-                "#compiler-builtins#".into() => hashmap! {
+                "compiler-builtins".into() => hashmap! {
                     "".into() => hashset!{
                         "fixnum".into(),
                         "type".into(),
@@ -72,7 +72,7 @@ fn the_fixnum_1() {
             loc.clone(),
             Rc::new(UnifExpr::GlobalVar(
                 loc.clone(),
-                "#compiler-builtins#-0-0-0:the".parse().unwrap(),
+                "compiler-builtins-0-0-0:the".parse().unwrap(),
             )),
             vec![
                 Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
