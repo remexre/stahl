@@ -110,9 +110,6 @@ pub enum UnifExpr {
         UnifEffs,
     ),
 
-    /// The type of types.
-    Type(#[derivative(Debug = "ignore", PartialEq = "ignore")] Location),
-
     /// A unification variable.
     UnifVar(
         #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
@@ -131,7 +128,6 @@ impl UnifExpr {
             | UnifExpr::Lam(loc, _, _)
             | UnifExpr::LocalVar(loc, _)
             | UnifExpr::Pi(loc, _, _, _)
-            | UnifExpr::Type(loc)
             | UnifExpr::UnifVar(loc, _) => loc.clone(),
         }
     }
@@ -182,7 +178,6 @@ impl Display for UnifExpr {
                 }
                 write!(fmt, ")")
             }
-            UnifExpr::Type(_) => write!(fmt, "#TYPE#"),
             UnifExpr::UnifVar(_, n) => write!(fmt, "#VAR:{}#", n),
         }
     }
@@ -202,7 +197,16 @@ impl From<&Expr> for UnifExpr {
             Expr::Lam(loc, args, body) => UnifExpr::Lam(
                 loc.clone(),
                 args.clone(),
-                body.iter().map(|_| unimplemented!()).collect(),
+                body.iter()
+                    .map(|(name, ty, expr, effs)| {
+                        (
+                            name.clone(),
+                            Rc::new((&**ty).into()),
+                            Rc::new((&**expr).into()),
+                            effs.clone().into(),
+                        )
+                    })
+                    .collect(),
             ),
             Expr::LocalVar(loc, name) => UnifExpr::LocalVar(loc.clone(), name.clone()),
             Expr::Pi(loc, args, body, effs) => UnifExpr::Pi(
@@ -213,7 +217,6 @@ impl From<&Expr> for UnifExpr {
                 Rc::new((&**body).into()),
                 effs.clone().into(),
             ),
-            Expr::Type(loc) => UnifExpr::Type(loc.clone()),
         }
     }
 }

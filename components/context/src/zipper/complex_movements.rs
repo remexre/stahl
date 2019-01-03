@@ -112,7 +112,6 @@ impl Zipper {
             | UnifExpr::GlobalVar(_, _)
             | UnifExpr::Intrinsic(_, _)
             | UnifExpr::LocalVar(_, _)
-            | UnifExpr::Type(_)
             | UnifExpr::UnifVar(_, _) => false,
         }
     }

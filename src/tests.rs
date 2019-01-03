@@ -1,7 +1,7 @@
 use crate::builtins::create_compiler_builtins_lib;
 use maplit::{hashmap, hashset};
 use stahl_ast::{Intrinsic, LibName, Literal};
-use stahl_context::{Context, ModContext, UnifEffs, UnifExpr};
+use stahl_context::{Context, ModContext, UnifExpr};
 use stahl_errors::Location;
 use std::rc::Rc;
 
@@ -38,7 +38,7 @@ fn with_context(f: impl FnOnce(&mut ModContext)) {
 }
 
 #[test]
-fn the() {
+fn build_the() {
     with_context(|mod_ctx| {
         let loc = Location::new().name("the definition of `the'".into());
         let mut def_ctx = mod_ctx.create_def(loc.clone(), "the".into());
@@ -46,11 +46,12 @@ fn the() {
         let ty = def_ctx.type_zipper();
         ty.intros_pi(loc.clone(), vec!["T".into(), "x".into()]);
         ty.go_to_leftmost_hole();
-        ty.fill(Rc::new(UnifExpr::Type(loc.clone())));
+        ty.fill(Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type)));
         ty.go_to_leftmost_hole();
         ty.fill(Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())));
         ty.go_to_leftmost_hole();
         ty.fill(Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())));
+        assert!(!ty.go_to_leftmost_hole());
 
         let expr = def_ctx.expr_zipper();
         expr.intros(loc.clone(), vec!["T".into(), "x".into()]);
@@ -65,38 +66,13 @@ fn the_fixnum_1() {
     with_context(|mod_ctx| {
         let loc = Location::new();
 
-        let mut def_ctx = mod_ctx.create_def(loc.clone(), "the".into());
-        def_ctx.type_zipper().fill(Rc::new(UnifExpr::Pi(
-            loc.clone(),
-            vec![
-                ("T".into(), Rc::new(UnifExpr::Type(loc.clone()))),
-                (
-                    "x".into(),
-                    Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())),
-                ),
-            ],
-            Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())),
-            UnifEffs::none(),
-        )));
-        def_ctx.expr_zipper().fill(Rc::new(UnifExpr::Lam(
-            loc.clone(),
-            vec!["T".into(), "x".into()],
-            vec![(
-                None,
-                Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())),
-                Rc::new(UnifExpr::LocalVar(loc.clone(), "x".into())),
-                UnifEffs::none(),
-            )],
-        )));
-        def_ctx.finish().unwrap();
-
         let mut def_ctx = mod_ctx.create_def(loc.clone(), "one".into());
         def_ctx.type_zipper().fill(UnifExpr::hole(loc.clone()));
         def_ctx.expr_zipper().fill(Rc::new(UnifExpr::Call(
             loc.clone(),
             Rc::new(UnifExpr::GlobalVar(
                 loc.clone(),
-                "#test#-0-0-0/the".parse().unwrap(),
+                "#compiler-builtins#-0-0-0/the".parse().unwrap(),
             )),
             vec![
                 Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),

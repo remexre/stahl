@@ -1,7 +1,11 @@
+mod normalize;
 mod unify;
 
 use crate::{
-    elab::unify::{unify, Constraint},
+    elab::{
+        normalize::NormalizeEnv,
+        unify::{unify, Constraint},
+    },
     types::{UnifEffs, UnifExpr},
     ModContext,
 };
@@ -126,9 +130,17 @@ impl ModContext<'_, '_> {
         &self,
         expr: &UnifExpr,
         constraints: &mut Vec<Constraint>,
-        chk_ty: Option<Rc<UnifExpr>>,
-        env: &mut Vec<(SharedString, Rc<UnifExpr>)>,
+        mut chk_ty: Option<Rc<UnifExpr>>,
+        env: &mut Vec<(SharedString, Rc<UnifExpr>, Option<Rc<UnifExpr>>)>,
     ) -> Result<Rc<UnifExpr>> {
+        chk_ty.as_mut().map(|chk_ty| {
+            let mut env = NormalizeEnv {
+                base: env,
+                ext: Vec::new(),
+            };
+            self.normalize(chk_ty, &mut env)
+        });
+
         let inf_ty = match expr {
             UnifExpr::Call(loc, func, args) => match &*self.tyck(func, constraints, None, env)? {
                 UnifExpr::Pi(_, arg_tys, body, _) => {
@@ -143,7 +155,7 @@ impl ModContext<'_, '_> {
                     for arg in args {
                         let (name, ty) = arg_tys.remove(0);
                         let ty = self.tyck(arg, constraints, Some(ty), env)?;
-                        env.push((name.clone(), ty.clone()));
+                        env.push((name.clone(), ty.clone(), Some(arg.clone())));
                         for (n, arg_ty) in &mut arg_tys {
                             if *n == name {
                                 break;
@@ -169,11 +181,19 @@ impl ModContext<'_, '_> {
                 Some(Decl::DefEff(_, _, _, _)) => {
                     raise!(@loc.clone(), "{} is an effect, not a value", name)
                 }
-                None => raise!(
-                    @loc.clone(),
-                    "Undefined variable {} (although this should've been caught earlier?)",
-                    name
-                ),
+                None => raise!(@loc.clone(), "Undefined variable {}", name),
+            },
+            UnifExpr::Intrinsic(loc, i) => match *i {
+                Intrinsic::Fixnum | Intrinsic::String | Intrinsic::Symbol => {
+                    Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type))
+                }
+                Intrinsic::Type => Rc::new(UnifExpr::Intrinsic(
+                    loc.clone(),
+                    Intrinsic::TypeOfTypeOfTypes,
+                )),
+                Intrinsic::TypeOfTypeOfTypes => {
+                    raise!(@loc.clone(), "The type of type of types shouldn't be typechecked")
+                }
             },
             UnifExpr::Lam(loc, args, body) => {
                 let arg_tys = args
@@ -182,7 +202,7 @@ impl ModContext<'_, '_> {
                     .collect::<Vec<_>>();
 
                 let old_env_len = env.len();
-                env.extend(arg_tys.clone());
+                env.extend(arg_tys.iter().cloned().map(|(n, t)| (n, t, None)));
 
                 let lam_effs = UnifEffs::any();
                 let mut body_tys = body
@@ -212,19 +232,9 @@ impl ModContext<'_, '_> {
                 .find(|&i| env[i].0 == name)
                 .map(|i| env[i].1.clone())
                 .ok_or_else(|| err!(@loc.clone(), "Undefined local variable: {}", name))?,
-            UnifExpr::Pi(loc, _, _, _) => Rc::new(UnifExpr::Type(loc.clone())),
-            UnifExpr::Type(loc) => Rc::new(UnifExpr::Intrinsic(
-                loc.clone(),
-                Intrinsic::TypeOfTypeOfTypes,
-            )),
-            UnifExpr::Intrinsic(loc, i) => match *i {
-                Intrinsic::Fixnum | Intrinsic::String | Intrinsic::Symbol => {
-                    Rc::new(UnifExpr::Type(loc.clone()))
-                }
-                Intrinsic::TypeOfTypeOfTypes => {
-                    raise!("The type of type of types shouldn't be typechecked")
-                }
-            },
+            UnifExpr::Pi(loc, _, _, _) => {
+                Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type))
+            }
             UnifExpr::UnifVar(loc, _) => UnifExpr::hole(loc.clone()),
         };
 
@@ -238,8 +248,10 @@ impl ModContext<'_, '_> {
     pub fn unify_ty_expr(&self, ty: &mut Rc<UnifExpr>, expr: &mut Rc<UnifExpr>) -> Result<()> {
         let mut constraints = Vec::new();
         if let Err(err) = self.tyck(ty, &mut constraints, None, &mut Vec::new()) {
-            if let (UnifExpr::Type(_), UnifExpr::Intrinsic(_, Intrinsic::TypeOfTypeOfTypes)) =
-                (&**expr, &**ty)
+            if let (
+                UnifExpr::Intrinsic(_, Intrinsic::Type),
+                UnifExpr::Intrinsic(_, Intrinsic::TypeOfTypeOfTypes),
+            ) = (&**expr, &**ty)
             {
                 // Ignore the error; this is special-cased as legal.
             } else {
@@ -265,6 +277,9 @@ impl ModContext<'_, '_> {
 
         unify(expr, constraints.clone())?;
         unify(ty, constraints)?;
+
+        self.normalize(expr, &mut NormalizeEnv::default());
+        self.normalize(ty, &mut NormalizeEnv::default());
 
         Ok(())
     }
@@ -313,7 +328,6 @@ pub fn reify(expr: &UnifExpr) -> Result<Arc<Expr>> {
             let effs = Effects(effs.0.iter().cloned().collect());
             Ok(Arc::new(Expr::Pi(loc.clone(), args, body, effs)))
         }
-        UnifExpr::Type(loc) => Ok(Arc::new(Expr::Type(loc.clone()))),
         UnifExpr::UnifVar(loc, _) => raise!(@loc.clone(), "Cannot reify a hole!"),
     }
 }
@@ -360,7 +374,6 @@ impl UnifExpr {
             UnifExpr::Const(_, _)
             | UnifExpr::GlobalVar(_, _)
             | UnifExpr::Intrinsic(_, _)
-            | UnifExpr::Type(_)
             | UnifExpr::UnifVar(_, _) => {}
         }
     }

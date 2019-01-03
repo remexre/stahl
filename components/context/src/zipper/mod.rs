@@ -60,8 +60,8 @@ impl Zipper {
         match **self.expr.as_ref().unwrap() {
             UnifExpr::Const(_, _)
             | UnifExpr::GlobalVar(_, _)
+            | UnifExpr::Intrinsic(_, _)
             | UnifExpr::LocalVar(_, _)
-            | UnifExpr::Type(_)
             | UnifExpr::UnifVar(_, _) => true,
             _ => false,
         }

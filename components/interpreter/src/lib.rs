@@ -26,12 +26,12 @@ impl<'a, 'l, 'c> Interpreter<'a, 'l, 'c> {
             Expr::Lam(_, _args, _body) => false,       // TODO
             Expr::LocalVar(_, _name) => false,         // TODO
             Expr::Pi(_, _args, _body, _effs) => false, // TODO
-            Expr::Const(_, _) | Expr::Intrinsic(_, _) | Expr::Type(_) => true,
+            Expr::Const(_, _) | Expr::Intrinsic(_, _) => true,
         }
     }
 
     /// Performs a single reduction on the expression.
-    pub fn reduce(&self, expr: Arc<Expr>) -> Arc<Expr> {
+    pub fn reduce(&self, _expr: Arc<Expr>) -> Arc<Expr> {
         unimplemented!()
     }
 }

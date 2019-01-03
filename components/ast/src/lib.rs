@@ -154,8 +154,10 @@ pub enum Intrinsic {
     /// The type of symbols.
     Symbol,
 
-    /// The type of the type of types. This is a compiler builtin, and cannot legally be produced
-    /// via elaboration.
+    /// The type of types.
+    Type,
+
+    /// The type of the type of types.
     TypeOfTypeOfTypes,
 }
 
@@ -165,6 +167,7 @@ impl Display for Intrinsic {
             Intrinsic::Fixnum => "FIXNUM",
             Intrinsic::String => "STRING",
             Intrinsic::Symbol => "SYMBOL",
+            Intrinsic::Type => "TYPE",
             Intrinsic::TypeOfTypeOfTypes => "TYPE-OF-TYPE-OF-TYPES",
         };
         fmt.write_str(s)
@@ -208,9 +211,6 @@ pub enum Expr {
         Arc<Expr>,
         Effects,
     ),
-
-    /// The type of types.
-    Type(#[derivative(Debug = "ignore")] Location),
 }
 
 impl Expr {
@@ -223,8 +223,7 @@ impl Expr {
             | Expr::Intrinsic(loc, _)
             | Expr::Lam(loc, _, _)
             | Expr::LocalVar(loc, _)
-            | Expr::Pi(loc, _, _, _)
-            | Expr::Type(loc) => loc.clone(),
+            | Expr::Pi(loc, _, _, _) => loc.clone(),
         }
     }
 }
@@ -274,7 +273,6 @@ impl Display for Expr {
                 }
                 write!(fmt, ")")
             }
-            Expr::Type(_) => write!(fmt, "#TYPE#"),
         }
     }
 }
