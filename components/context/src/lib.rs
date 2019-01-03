@@ -100,6 +100,17 @@ impl Context {
 
         unimplemented!("TODO: Check imports of module")
     }
+
+    /// Returns the module given by the given library name and module name.
+    pub fn get_module(&self, lib_name: LibName, mod_name: SharedString) -> Result<&Module> {
+        let lib = self
+            .libs
+            .get(&lib_name)
+            .ok_or_else(|| err!("No library exists named {}", lib_name))?;
+        lib.mods
+            .get(&mod_name)
+            .ok_or_else(|| err!("No module exists named {}", mod_name))
+    }
 }
 
 /// A single library's portion of the context.

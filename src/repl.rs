@@ -28,13 +28,17 @@ pub fn run() -> Result<()> {
     }
 
     let mut ctx = Context::new();
-    let builtin_exports = create_compiler_builtins_lib(&mut ctx);
+    create_compiler_builtins_lib(&mut ctx);
+    let compiler_builtins = LibName("#compiler-builtins#".into(), 0, 0, 0);
+    let builtin_exports = ctx
+        .get_module(compiler_builtins.clone(), "".into())
+        .unwrap()
+        .exports
+        .clone();
 
     let mut lib_ctx = ctx.create_lib(
         LibName("#repl#".into(), 0, 0, 0),
-        hashmap! {
-            "#compiler-builtins#".into() => LibName("#compiler-builtins#".into(), 0, 0, 0)
-        },
+        hashmap! { "#compiler-builtins#".into() => compiler_builtins },
     );
     let mut mod_ctx = lib_ctx.create_mod(
         "".into(),
@@ -73,7 +77,7 @@ fn run_line(mod_ctx: &mut ModContext, line: &str) -> Result<()> {
         let expr = CstExpr::from_value_unnamed(&expr, "the REPL")?;
         let (expr, ty) = mod_ctx.elab(&expr, &CstExpr::Hole(loc.clone()))?;
         println!("expr = {}", expr);
-        println!("  ty = {}", ty);
+        println!("type = {}", ty);
 
         // let interp = Interpreter::new(&mut mod_ctx);
         // println!("{}", interp.is_normal(&expr));

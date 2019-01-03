@@ -21,6 +21,13 @@ pub type SharedPath = ArcRef<Path>;
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct SharedString(ArcRef<str>);
 
+impl SharedString {
+    /// Creates a string based on `genint`.
+    pub fn gensym() -> SharedString {
+        format!("#G:{}#", genint()).into()
+    }
+}
+
 impl Deref for SharedString {
     type Target = str;
     fn deref(&self) -> &str {

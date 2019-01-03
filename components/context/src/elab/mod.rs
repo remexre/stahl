@@ -207,12 +207,9 @@ impl ModContext<'_, '_> {
                     Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
                     UnifEffs::any(),
                 )),
-                Intrinsic::Type => Rc::new(UnifExpr::Intrinsic(
-                    loc.clone(),
-                    Intrinsic::TypeOfTypeOfTypes,
-                )),
-                Intrinsic::TypeOfTypeOfTypes => {
-                    raise!(@loc.clone(), "The type of type of types shouldn't be typechecked")
+                Intrinsic::Type => Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::TypeOfType)),
+                Intrinsic::TypeOfType => {
+                    raise!(@loc.clone(), "The type of type shouldn't be typechecked")
                 }
             },
             UnifExpr::Lam(loc, args, body) => {
@@ -271,8 +268,8 @@ impl ModContext<'_, '_> {
         self.tyck(expr, &mut constraints, Some(ty.clone()), &mut Vec::new())?;
 
         debug!("Unifying a declaration:");
-        debug!("  ty = {}", ty);
         debug!("expr = {}", expr);
+        debug!("type = {}", ty);
         let mut first = true;
         for c in &constraints {
             let s = if first {

@@ -161,7 +161,7 @@ pub enum Intrinsic {
     Type,
 
     /// The type of the type of types.
-    TypeOfTypeOfTypes,
+    TypeOfType,
 }
 
 impl Display for Intrinsic {
@@ -172,7 +172,7 @@ impl Display for Intrinsic {
             Intrinsic::String => "STRING",
             Intrinsic::Symbol => "SYMBOL",
             Intrinsic::Type => "TYPE",
-            Intrinsic::TypeOfTypeOfTypes => "TYPE-OF-TYPE-OF-TYPES",
+            Intrinsic::TypeOfType => "TYPE-OF-TYPE",
         };
         fmt.write_str(s)
     }
