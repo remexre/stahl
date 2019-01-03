@@ -1,7 +1,6 @@
 //! The most basic tactic functions that are not plain zipper traversals.
 
 use crate::{
-    elab::hole,
     types::{UnifEffs, UnifExpr},
     zipper::Zipper,
 };
@@ -17,7 +16,7 @@ impl Zipper {
             Rc::new(UnifExpr::Lam(
                 loc.clone(),
                 vars,
-                vec![(None, hole(loc), expr, UnifEffs::any())],
+                vec![(None, UnifExpr::hole(loc), expr, UnifEffs::any())],
             ))
         });
         self.go_to_lam_expr(0);
@@ -28,7 +27,10 @@ impl Zipper {
     /// focused expression, for the type of each new argument.
     pub fn intros_pi(&mut self, loc: Location, vars: Vec<SharedString>) {
         self.modify_expr(|expr| {
-            let vars = vars.into_iter().map(|v| (v, hole(loc.clone()))).collect();
+            let vars = vars
+                .into_iter()
+                .map(|v| (v, UnifExpr::hole(loc.clone())))
+                .collect();
             Rc::new(UnifExpr::Pi(loc, vars, expr, UnifEffs::any()))
         });
         self.go_to_pi_return();

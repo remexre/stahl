@@ -68,8 +68,16 @@ impl Display for LibName {
 impl FromStr for LibName {
     type Err = Error;
     fn from_str(s: &str) -> Result<LibName> {
-        let chunks = s.rsplitn(4, '-').collect::<Vec<_>>();
-        unimplemented!("{:?}", chunks)
+        let mut chunks = s.rsplitn(4, '-').collect::<Vec<_>>();
+        if chunks.len() != 4 {
+            unimplemented!("{:?}", chunks)
+        }
+
+        let name = chunks.pop().unwrap();
+        let major = chunks.pop().unwrap().parse()?;
+        let minor = chunks.pop().unwrap().parse()?;
+        let patch = chunks.pop().unwrap().parse()?;
+        Ok(LibName(name.into(), major, minor, patch))
     }
 }
 
@@ -140,6 +148,12 @@ pub enum Intrinsic {
     /// The type of machine-sized integers.
     Fixnum,
 
+    /// The type of strings.
+    String,
+
+    /// The type of symbols.
+    Symbol,
+
     /// The type of the type of types. This is a compiler builtin, and cannot legally be produced
     /// via elaboration.
     TypeOfTypeOfTypes,
@@ -149,6 +163,8 @@ impl Display for Intrinsic {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         let s = match self {
             Intrinsic::Fixnum => "FIXNUM",
+            Intrinsic::String => "STRING",
+            Intrinsic::Symbol => "SYMBOL",
             Intrinsic::TypeOfTypeOfTypes => "TYPE-OF-TYPE-OF-TYPES",
         };
         fmt.write_str(s)

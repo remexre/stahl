@@ -8,7 +8,7 @@ use std::{
 };
 
 /// A set of effects which can undergo unification.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UnifEffs(pub HashSet<FQName>, pub Option<usize>);
 
 impl UnifEffs {
@@ -60,11 +60,11 @@ impl From<Effects> for UnifEffs {
 /// An expression during unification. This is similar to the AST expression, but has an additional
 /// constructor for unification variables.
 #[derive(Clone, Derivative)]
-#[derivative(Debug)]
+#[derivative(Debug, PartialEq = "feature_allow_slow_enum")]
 pub enum UnifExpr {
     /// A function call.
     Call(
-        #[derivative(Debug = "ignore")] Location,
+        #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
         Rc<UnifExpr>,
         Vec<Rc<UnifExpr>>,
     ),
@@ -72,37 +72,52 @@ pub enum UnifExpr {
     /// A constant literal. Note that nil and conses are _not_ literals -- they're instead defined
     /// in library code via lang items, and correspondingly CST literals containing either are
     /// lowered appropriately.
-    Const(#[derivative(Debug = "ignore")] Location, Literal),
+    Const(
+        #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
+        Literal,
+    ),
 
     /// A global variable.
-    GlobalVar(#[derivative(Debug = "ignore")] Location, FQName),
+    GlobalVar(
+        #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
+        FQName,
+    ),
 
     /// A compiler intrinsic.
-    Intrinsic(#[derivative(Debug = "ignore")] Location, Intrinsic),
+    Intrinsic(
+        #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
+        Intrinsic,
+    ),
 
     /// A lambda.
     Lam(
-        #[derivative(Debug = "ignore")] Location,
+        #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
         Vec<SharedString>,
         Vec<(Option<SharedString>, Rc<UnifExpr>, Rc<UnifExpr>, UnifEffs)>,
     ),
 
     /// A local variable.
-    LocalVar(#[derivative(Debug = "ignore")] Location, SharedString),
+    LocalVar(
+        #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
+        SharedString,
+    ),
 
     /// A pi type.
     Pi(
-        #[derivative(Debug = "ignore")] Location,
+        #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
         Vec<(SharedString, Rc<UnifExpr>)>,
         Rc<UnifExpr>,
         UnifEffs,
     ),
 
     /// The type of types.
-    Type(#[derivative(Debug = "ignore")] Location),
+    Type(#[derivative(Debug = "ignore", PartialEq = "ignore")] Location),
 
     /// A unification variable.
-    UnifVar(#[derivative(Debug = "ignore")] Location, usize),
+    UnifVar(
+        #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
+        usize,
+    ),
 }
 
 impl UnifExpr {

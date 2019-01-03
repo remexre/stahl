@@ -49,7 +49,7 @@ impl ModContext<'_, '_> {
             CstExpr::Const(loc, Value::Symbol(loc2, s)) => {
                 UnifExpr::Const(loc.clone(), Literal::Symbol(loc2.clone(), s.clone()))
             }
-            CstExpr::Hole(loc) => return Ok(hole(loc.clone())),
+            CstExpr::Hole(loc) => return Ok(UnifExpr::hole(loc.clone())),
             CstExpr::Lam(loc, args, body) => {
                 let old_len = locals.len();
                 locals.extend(args.iter().cloned());
@@ -66,7 +66,7 @@ impl ModContext<'_, '_> {
                         };
                         let def_name = def_name.cloned();
                         let expr = self.cst_to_unif(expr, locals)?;
-                        let ty = chk_ty.unwrap_or_else(|| hole(expr.loc()));
+                        let ty = chk_ty.unwrap_or_else(|| UnifExpr::hole(expr.loc()));
 
                         if let Some(def_name) = def_name.clone() {
                             locals.push(def_name);
@@ -122,45 +122,50 @@ impl ModContext<'_, '_> {
     /// Collects constraints over the AST, assigning types to expressions as it goes. env is a
     /// vector with the condition that on an `Ok(_)` return, it must be the same as when it was
     /// passed in; it is implemented this way for efficiency reasons.
-    fn collect_constraints(
+    fn tyck(
         &self,
         expr: &UnifExpr,
         constraints: &mut Vec<Constraint>,
-        chk_ty: Rc<UnifExpr>,
+        chk_ty: Option<Rc<UnifExpr>>,
         env: &mut Vec<(SharedString, Rc<UnifExpr>)>,
-    ) -> Result<()> {
+    ) -> Result<Rc<UnifExpr>> {
+        println!(
+            "tyck {} <- {}",
+            expr,
+            chk_ty
+                .as_ref()
+                .map(|ty| ty.to_string())
+                .unwrap_or_else(String::new)
+        );
         let inf_ty = match expr {
-            UnifExpr::Call(loc, func, args) => {
-                let call_id = genint();
-                let old_env_len = env.len();
+            UnifExpr::Call(loc, func, args) => match &*self.tyck(func, constraints, None, env)? {
+                UnifExpr::Pi(_, arg_tys, body, _) => {
+                    if args.len() != arg_tys.len() {
+                        raise!(@loc.clone(), "{} takes {} arguments, but {} were provided", func,
+                            arg_tys.len(), args.len());
+                    }
 
-                let ty_args = (0..args.len())
-                    .map(|n| {
-                        let arg = &args[n];
-                        let ty = hole(loc.clone());
-                        self.collect_constraints(arg, constraints, ty.clone(), env)?;
-                        let name = SharedString::from(format!("#ARG:{}:{}#", call_id, n));
+                    let mut arg_tys = arg_tys.clone();
+                    let mut body = body.clone();
+                    let old_env_len = env.len();
+                    for arg in args {
+                        let (name, ty) = arg_tys.remove(0);
+                        let ty = self.tyck(arg, constraints, Some(ty), env)?;
                         env.push((name.clone(), ty.clone()));
-                        Ok((name, ty))
-                    })
-                    .collect::<Result<Vec<_>>>()?;
+                        for (n, arg_ty) in &mut arg_tys {
+                            if *n == name {
+                                break;
+                            }
+                            UnifExpr::beta(arg_ty, &name, arg.clone())
+                        }
+                        UnifExpr::beta(&mut body, &name, ty)
+                    }
+                    env.truncate(old_env_len);
 
-                let ret_ty = hole(loc.clone());
-                self.collect_constraints(
-                    func,
-                    constraints,
-                    Rc::new(UnifExpr::Pi(
-                        loc.clone(),
-                        ty_args,
-                        ret_ty.clone(),
-                        UnifEffs::any(),
-                    )),
-                    env,
-                )?;
-                env.truncate(old_env_len);
-
-                ret_ty
-            }
+                    body
+                }
+                ty => raise!(@loc.clone(), "The target of a call must be a function, not {}", ty),
+            },
             UnifExpr::Const(loc, val) => match val {
                 Literal::Int(loc, _) => {
                     Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum))
@@ -181,7 +186,7 @@ impl ModContext<'_, '_> {
             UnifExpr::Lam(loc, args, body) => {
                 let arg_tys = args
                     .iter()
-                    .map(|arg| (arg.clone(), hole(loc.clone())))
+                    .map(|arg| (arg.clone(), UnifExpr::hole(loc.clone())))
                     .collect::<Vec<_>>();
 
                 let old_env_len = env.len();
@@ -196,7 +201,7 @@ impl ModContext<'_, '_> {
                             lam_effs.clone(),
                             effs.clone(),
                         ));
-                        self.collect_constraints(expr, constraints, ty.clone(), env)?;
+                        self.tyck(expr, constraints, Some(ty.clone()), env)?;
                         Ok(ty.clone())
                     })
                     .collect::<Result<Vec<_>>>()?;
@@ -221,24 +226,26 @@ impl ModContext<'_, '_> {
                 Intrinsic::TypeOfTypeOfTypes,
             )),
             UnifExpr::Intrinsic(loc, i) => match *i {
-                Intrinsic::Fixnum => Rc::new(UnifExpr::Type(loc.clone())),
+                Intrinsic::Fixnum | Intrinsic::String | Intrinsic::Symbol => {
+                    Rc::new(UnifExpr::Type(loc.clone()))
+                }
                 Intrinsic::TypeOfTypeOfTypes => {
                     raise!("The type of type of types shouldn't be typechecked")
                 }
             },
-            UnifExpr::UnifVar(loc, _) => hole(loc.clone()),
+            UnifExpr::UnifVar(loc, _) => UnifExpr::hole(loc.clone()),
         };
 
-        constraints.push(Constraint::ExprEq(expr.loc(), inf_ty, chk_ty));
-        Ok(())
+        if let Some(chk_ty) = chk_ty {
+            constraints.push(Constraint::ExprEq(expr.loc(), inf_ty.clone(), chk_ty));
+        }
+        Ok(inf_ty)
     }
 
     /// Unifies a (top-level) expression with its type.
     pub fn unify_ty_expr(&self, ty: &mut Rc<UnifExpr>, expr: &mut Rc<UnifExpr>) -> Result<()> {
         let mut constraints = Vec::new();
-        if let Err(err) =
-            self.collect_constraints(ty, &mut constraints, hole(ty.loc()), &mut Vec::new())
-        {
+        if let Err(err) = self.tyck(ty, &mut constraints, None, &mut Vec::new()) {
             if let (UnifExpr::Type(_), UnifExpr::Intrinsic(_, Intrinsic::TypeOfTypeOfTypes)) =
                 (&**expr, &**ty)
             {
@@ -247,7 +254,7 @@ impl ModContext<'_, '_> {
                 return Err(err);
             }
         }
-        self.collect_constraints(expr, &mut constraints, ty.clone(), &mut Vec::new())?;
+        self.tyck(expr, &mut constraints, Some(ty.clone()), &mut Vec::new())?;
 
         debug!("Unifying a declaration:");
         debug!("  ty = {}", ty);
@@ -319,7 +326,55 @@ pub fn reify(expr: &UnifExpr) -> Result<Arc<Expr>> {
     }
 }
 
-/// Returns a new hole at the current location.
-pub(crate) fn hole(loc: Location) -> Rc<UnifExpr> {
-    Rc::new(UnifExpr::UnifVar(loc, genint()))
+impl UnifExpr {
+    fn beta(target: &mut Rc<UnifExpr>, from: &str, to: Rc<UnifExpr>) {
+        match *Rc::make_mut(target) {
+            UnifExpr::Call(_, ref mut func, ref mut args) => {
+                for arg in args {
+                    UnifExpr::beta(arg, from, to.clone());
+                }
+                UnifExpr::beta(func, from, to);
+            }
+            UnifExpr::Lam(_, ref args, ref mut body) => {
+                for arg in args {
+                    if arg == from {
+                        return;
+                    }
+                }
+                for (ref name, ref mut ty, ref mut expr, _) in body {
+                    if let Some(name) = name {
+                        if name == from {
+                            return;
+                        }
+                    }
+                    UnifExpr::beta(ty, from, to.clone());
+                    UnifExpr::beta(expr, from, to.clone());
+                }
+            }
+            UnifExpr::LocalVar(_, ref name) => {
+                if name == from {
+                    *target = to;
+                }
+            }
+            UnifExpr::Pi(_, ref mut args, ref mut body, _) => {
+                for (name, ref mut ty) in args {
+                    if name == from {
+                        return;
+                    }
+                    UnifExpr::beta(ty, from, to.clone());
+                }
+                UnifExpr::beta(body, from, to.clone());
+            }
+            UnifExpr::Const(_, _)
+            | UnifExpr::GlobalVar(_, _)
+            | UnifExpr::Intrinsic(_, _)
+            | UnifExpr::Type(_)
+            | UnifExpr::UnifVar(_, _) => {}
+        }
+    }
+
+    /// Returns a new hole at the given location.
+    pub fn hole(loc: Location) -> Rc<UnifExpr> {
+        Rc::new(UnifExpr::UnifVar(loc, genint()))
+    }
 }

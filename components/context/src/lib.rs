@@ -13,7 +13,10 @@ mod types;
 mod zipper;
 
 use crate::elab::reify;
-pub use crate::{types::UnifExpr, zipper::Zipper};
+pub use crate::{
+    types::{UnifEffs, UnifExpr},
+    zipper::Zipper,
+};
 use stahl_ast::{Decl, FQName, LibName};
 use stahl_cst::{Decl as CstDecl, Expr as CstExpr};
 use stahl_errors::{Location, Result};

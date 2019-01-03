@@ -13,6 +13,8 @@ mod builtins;
 mod options;
 mod repl;
 mod script;
+#[cfg(test)]
+mod tests;
 
 use crate::options::{Command, Options};
 use stahl_errors::Result;

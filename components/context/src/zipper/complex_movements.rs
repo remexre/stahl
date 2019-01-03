@@ -121,16 +121,16 @@ impl Zipper {
     /// is at the rightmost leaf.
     pub fn go_to_leftmost_hole(&mut self) -> bool {
         self.go_to_top();
-        loop {
-            while !self.at_leaf() {
-                self.go_down();
-            }
-
-            while !self.at_hole() {
-                unimplemented!("{}", self)
-            }
-            return true;
+        while !self.at_leaf() {
+            self.go_down();
         }
+
+        while !self.at_hole() {
+            if !self.go_right() {
+                return false;
+            }
+        }
+        true
     }
 
     /// Goes to the top.
