@@ -9,10 +9,12 @@ Goals
 -----
 
 -	[x] Typechecking for core language
+-	[ ] Modules
 -	[ ] ADTs
+-	[ ] CPDT arithmetic interpreter example
 -	[ ] Interfaces
 -	[ ] Typechecking with effects
--	[ ] Interpreter
+-	[ ] Full (and fast) Interpreter
 -	[ ] Compile to WebAssembly
 -	[ ] Elaborator scripts
 -	[ ] Elaborator reflection
