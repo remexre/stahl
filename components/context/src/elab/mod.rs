@@ -114,7 +114,9 @@ impl ModContext<'_, '_> {
                     match self.resolve(name.clone()) {
                         Ok((name, _)) => UnifExpr::GlobalVar(loc.clone(), name),
                         Err(err) => {
-                            return Err(err.chain(err!(@loc.clone(), "Undefined variable: {}", name)))
+                            return Err(
+                                err.chain(err!(@loc.clone(), "Undefined variable: {}", name))
+                            );
                         }
                     }
                 }
@@ -267,13 +269,16 @@ impl ModContext<'_, '_> {
                 let lam_effs = UnifEffs::any();
                 let mut body_tys = body
                     .iter()
-                    .map(|(_, ty, expr, effs)| {
+                    .map(|(name, ty, expr, effs)| {
                         constraints.push(Constraint::EffSuperset(
                             expr.loc(),
                             lam_effs.clone(),
                             effs.clone(),
                         ));
                         self.tyck(expr, constraints, Some(ty.clone()), env)?;
+                        if let Some(name) = name {
+                            env.push((name.clone(), ty.clone(), Some(expr.clone())));
+                        }
                         Ok(ty.clone())
                     })
                     .collect::<Result<Vec<_>>>()?;

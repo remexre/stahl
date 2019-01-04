@@ -159,7 +159,7 @@ impl Expr {
                             if name == "def" || name == "fn" || name == "pi" || name == "quote" {
                                 raise!(@loc.clone(), "{} is not a legal variable name", name)
                             } else {
-                                s
+                                name
                             }
                         } else {
                             raise!(@loc, "A def's name must be a symbol")

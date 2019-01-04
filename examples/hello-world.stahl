@@ -1,4 +1,5 @@
-(module main)
+(module main
+  main)
 
 ; (import std
 ;   (prelude println string))
@@ -6,7 +7,8 @@
   string
   (unsafe bogus))
 
-(def main (fn ()
-  (def msg string
-    "Hello, world!")
-  msg))
+(def main
+  (fn ()
+    (def msg string
+      "Hello, world!")
+    msg))

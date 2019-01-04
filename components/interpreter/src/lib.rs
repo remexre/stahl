@@ -81,7 +81,12 @@ impl<'c> Interpreter<'c> {
                         let mut body = body.clone();
                         let last = body.pop().expect("An empty lambda slipped in").2;
 
-                        assert_eq!(body.len(), 0); // TODO handle lambdas with bodies
+                        for (name, _, expr, _) in body {
+                            let value = self.eval(expr);
+                            if let Some(name) = name {
+                                self.env.push((name, value));
+                            }
+                        }
 
                         let val = self.eval(last);
                         self.env.truncate(old_env_len);
