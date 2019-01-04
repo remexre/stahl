@@ -1,4 +1,3 @@
-use crate::builtins::create_compiler_builtins_lib;
 use maplit::hashmap;
 use stahl_ast::{Expr, LibName};
 use stahl_context::Context;
@@ -10,7 +9,7 @@ use stahl_util::SharedPath;
 use std::{path::PathBuf, sync::Arc};
 
 /// Runs a file as a script.
-pub fn run(main: PathBuf, args: Vec<String>) -> Result<()> {
+pub fn run(mut ctx: Context, main: PathBuf, args: Vec<String>) -> Result<()> {
     let main = SharedPath::new(Arc::from(main));
     let vals = parse_file(main.clone())?;
     let (mod_name, exports, imports, decls) =
@@ -19,9 +18,6 @@ pub fn run(main: PathBuf, args: Vec<String>) -> Result<()> {
     if mod_name != "main" {
         raise!(@Location::new().path(main), "A script module must be named main");
     }
-
-    let mut ctx = Context::new();
-    create_compiler_builtins_lib(&mut ctx);
 
     ctx.with_lib(
         LibName("#script#".into(), 0, 0, 0),

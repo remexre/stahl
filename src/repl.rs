@@ -1,4 +1,3 @@
-use crate::builtins::create_compiler_builtins_lib;
 use maplit::{hashmap, hashset};
 use rustyline::{
     config::{Config, EditMode},
@@ -11,7 +10,7 @@ use stahl_errors::{Location, Result};
 use stahl_parser::parse_str_from;
 
 /// Runs the REPL.
-pub fn run() -> Result<()> {
+pub fn run(mut ctx: Context) -> Result<()> {
     let config = Config::builder()
         .auto_add_history(true)
         .edit_mode(EditMode::Emacs)
@@ -27,8 +26,6 @@ pub fn run() -> Result<()> {
         }
     }
 
-    let mut ctx = Context::new();
-    create_compiler_builtins_lib(&mut ctx);
     let compiler_builtins = LibName("compiler-builtins".into(), 0, 0, 0);
     let builtin_exports = ctx
         .get_module(compiler_builtins.clone(), "".into())

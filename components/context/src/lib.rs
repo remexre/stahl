@@ -1,6 +1,6 @@
 //! The context of the compiler and interpreter.
 //!
-//! This also contains elaboration logic.
+//! This should be your main interface to the compiler.
 #![deny(missing_docs)]
 
 #[macro_use]
@@ -8,6 +8,7 @@ extern crate derivative;
 #[macro_use]
 extern crate stahl_errors;
 
+mod builtins;
 mod elab;
 mod types;
 mod zipper;
@@ -25,20 +26,29 @@ use stahl_util::{genint, SharedString, Taker};
 use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
+    path::PathBuf,
     rc::Rc,
     thread::panicking,
 };
 
 /// The context in which compilation and interpretation occur.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Context {
     libs: HashMap<LibName, Library>,
+
+    /// The paths searched when looking for libraries.
+    pub search_paths: Vec<PathBuf>,
 }
 
 impl Context {
     /// Creates a new `Context`.
-    pub fn new() -> Context {
-        Context::default()
+    pub fn new(search_paths: Vec<PathBuf>) -> Context {
+        let mut ctx = Context {
+            libs: HashMap::new(),
+            search_paths,
+        };
+        builtins::add_to(&mut ctx);
+        ctx
     }
 
     /// Creates a context for the library with the given name and version.

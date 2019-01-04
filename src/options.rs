@@ -11,6 +11,14 @@ pub struct Options {
     #[structopt(short = "v", long = "verbose", parse(from_occurrences))]
     pub verbose: usize,
 
+    /// Additional search paths for packages.
+    #[structopt(short = "I", long = "include", parse(from_os_str))]
+    pub search_paths: Vec<PathBuf>,
+
+    /// Disables the built-in search paths.
+    #[structopt(long = "disable-built-in-includes")]
+    pub disable_built_in_search_paths: bool,
+
     /// The command.
     #[structopt(subcommand)]
     pub command: Option<Command>,
@@ -35,11 +43,6 @@ impl Options {
             ])
             .init()
             .unwrap();
-    }
-
-    /// Returns the command, filling in the default if none was present.
-    pub fn command(self) -> Command {
-        self.command.unwrap_or(Command::Repl)
     }
 }
 

@@ -1,6 +1,6 @@
+use crate::Context;
 use maplit::{hashmap, hashset};
 use stahl_ast::{Decl, Effects, Expr, Intrinsic, LibName};
-use stahl_context::Context;
 use stahl_errors::Location;
 use stahl_util::SharedString;
 use std::sync::Arc;
@@ -83,8 +83,8 @@ macro_rules! var {
     };
 }
 
-/// Creates the `#compiler-builtins#` library.
-pub fn create_compiler_builtins_lib(ctx: &mut Context) {
+/// Creates the `compiler-builtins` library and adds it to the given context.
+pub fn add_to(ctx: &mut Context) {
     let lib_name = LibName("compiler-builtins".into(), 0, 0, 0);
     let mut lib_ctx = ctx.create_lib(lib_name.clone(), hashmap! {});
 
