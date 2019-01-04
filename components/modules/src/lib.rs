@@ -5,9 +5,12 @@
 extern crate stahl_errors;
 
 mod from_values;
+mod load;
 
+use crate::load::load_lib_stahld;
 use stahl_ast::{Decl, FQName, LibName};
-use stahl_util::SharedString;
+use stahl_errors::Result;
+use stahl_util::{SharedPath, SharedString};
 use std::collections::{HashMap, HashSet};
 
 /// A library.
@@ -21,6 +24,22 @@ pub struct Library {
 
     /// The modules in the library.
     pub mods: HashMap<SharedString, Module>,
+
+    /// The path of the library, if any.
+    pub path: Option<SharedPath>,
+}
+
+impl Library {
+    /// Loads the `lib.stahld` file for a given `LibName`. Note that the `mods` field is
+    /// unpopulated.
+    pub fn load(name: LibName, search_paths: &[SharedPath]) -> Result<Library> {
+        load_lib_stahld(name.clone(), search_paths).map(|(path, dep_versions)| Library {
+            name,
+            dep_versions,
+            mods: HashMap::new(),
+            path: Some(path),
+        })
+    }
 }
 
 /// A module.

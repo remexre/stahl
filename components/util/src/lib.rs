@@ -8,14 +8,48 @@ use owning_ref::ArcRef;
 use std::{
     fmt::{Debug, Display, Formatter, Result as FmtResult},
     ops::{Deref, DerefMut},
-    path::Path,
+    path::{Path, PathBuf},
     rc::Rc,
-    sync::atomic::{AtomicUsize, Ordering},
-    sync::Arc,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
 };
 
 /// A path whose backing storage is shared (via a reference count).
-pub type SharedPath = ArcRef<Path>;
+#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct SharedPath(ArcRef<Path>);
+
+impl AsRef<Path> for SharedPath {
+    fn as_ref(&self) -> &Path {
+        self.0.as_ref()
+    }
+}
+
+impl Deref for SharedPath {
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        self.0.as_ref()
+    }
+}
+
+impl Debug for SharedPath {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        write!(fmt, "{:?}", self.0.as_ref())
+    }
+}
+
+impl Display for SharedPath {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        Display::fmt(&self.0.as_ref().display(), fmt)
+    }
+}
+
+impl From<PathBuf> for SharedPath {
+    fn from(path: PathBuf) -> SharedPath {
+        SharedPath(ArcRef::from(Arc::from(path.as_ref())))
+    }
+}
 
 /// A string whose backing storage is shared (via a reference count).
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]

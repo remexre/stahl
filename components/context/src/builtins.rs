@@ -86,7 +86,7 @@ macro_rules! var {
 /// Creates the `compiler-builtins` library and adds it to the given context.
 pub fn add_to(ctx: &mut Context) {
     let lib_name = LibName("compiler-builtins".into(), 0, 0, 0);
-    let mut lib_ctx = ctx.create_lib(lib_name.clone(), hashmap! {});
+    let mut lib_ctx = ctx.create_lib(lib_name.clone(), hashmap! {}, None);
 
     builtin!(lib_ctx, {
         def "+" : (arrow!((intr!(Fixnum), intr!(Fixnum)) => intr!(Fixnum))) = intr!(FixnumAdd);

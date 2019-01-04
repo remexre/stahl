@@ -36,6 +36,7 @@ pub fn run(mut ctx: Context) -> Result<()> {
     let mut lib_ctx = ctx.create_lib(
         LibName("#repl#".into(), 0, 0, 0),
         hashmap! { "compiler-builtins".into() => compiler_builtins },
+        None,
     );
     let mut mod_ctx = lib_ctx.create_mod(
         "".into(),

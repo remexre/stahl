@@ -22,11 +22,10 @@ use stahl_ast::{Decl, FQName, LibName};
 use stahl_cst::Decl as CstDecl;
 use stahl_errors::{Location, Result};
 use stahl_modules::{Library, Module};
-use stahl_util::{genint, SharedString, Taker};
+use stahl_util::{genint, SharedPath, SharedString, Taker};
 use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
-    path::PathBuf,
     rc::Rc,
     thread::panicking,
 };
@@ -37,15 +36,19 @@ pub struct Context {
     libs: HashMap<LibName, Library>,
 
     /// The paths searched when looking for libraries.
-    pub search_paths: Vec<PathBuf>,
+    pub search_paths: Vec<SharedPath>,
 }
 
 impl Context {
     /// Creates a new `Context`.
-    pub fn new(search_paths: Vec<PathBuf>) -> Context {
+    pub fn new<II, P>(search_paths: II) -> Context
+    where
+        II: IntoIterator<Item = P>,
+        P: Into<SharedPath>,
+    {
         let mut ctx = Context {
             libs: HashMap::new(),
-            search_paths,
+            search_paths: search_paths.into_iter().map(Into::into).collect(),
         };
         builtins::add_to(&mut ctx);
         ctx
@@ -56,6 +59,7 @@ impl Context {
         &mut self,
         name: LibName,
         dep_versions: HashMap<SharedString, LibName>,
+        path: Option<SharedPath>,
     ) -> LibContext {
         LibContext {
             context: self.into(),
@@ -63,9 +67,16 @@ impl Context {
                 name,
                 dep_versions,
                 mods: HashMap::new(),
+                path,
             }
             .into(),
         }
+    }
+
+    /// Loads the library with the given name from the search path.
+    pub fn load_lib(&mut self, name: LibName) -> Result<()> {
+        let mut lib = Library::load(name, &self.search_paths)?;
+        todo!("Load modules for {:?}", lib)
     }
 
     /// Runs the given closure with a `LibContext`, cleaning up afterwards.
@@ -73,12 +84,13 @@ impl Context {
         &'c mut self,
         name: LibName,
         dep_versions: HashMap<SharedString, LibName>,
+        path: Option<SharedPath>,
         f: F,
     ) -> Result<&'c mut Context>
     where
         F: FnOnce(&mut LibContext<'c>) -> Result<()>,
     {
-        let mut lib_ctx = self.create_lib(name, dep_versions);
+        let mut lib_ctx = self.create_lib(name, dep_versions, path);
         match f(&mut lib_ctx) {
             Ok(()) => lib_ctx.finish(),
             Err(err) => {

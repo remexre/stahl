@@ -70,7 +70,7 @@ impl FromStr for LibName {
     fn from_str(s: &str) -> Result<LibName> {
         let mut chunks = s.rsplitn(4, '-').collect::<Vec<_>>();
         if chunks.len() != 4 {
-            unimplemented!("{:?}", chunks)
+            raise!("Invalid library name; the correct format is NAME-MAJOR-MINOR-PATCH");
         }
 
         let name = chunks.pop().unwrap();

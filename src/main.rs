@@ -14,7 +14,7 @@ mod tests;
 use crate::options::{Command, Options};
 use stahl_context::Context;
 use stahl_errors::Result;
-use std::process::exit;
+use std::{env, process::exit};
 use structopt::StructOpt;
 
 fn main() {
@@ -23,7 +23,20 @@ fn main() {
 
     let mut search_paths = Vec::new();
     if !options.disable_built_in_search_paths {
-        // TODO: Built-in search paths?
+        if let Ok(mut path) = env::current_exe() {
+            // Yeah, gross side effects... pop returns false on failure.
+            let not_too_close_to_root = path.pop() && path.pop();
+            if not_too_close_to_root {
+                path.push("lib");
+                search_paths.push(path.into());
+            }
+        }
+
+        if let Some(path) = env::var_os("STAHL_PATH") {
+            for path in env::split_paths(&path) {
+                search_paths.push(path.into());
+            }
+        }
     }
     search_paths.extend(options.search_paths);
 

@@ -10,7 +10,7 @@ use std::{path::PathBuf, sync::Arc};
 
 /// Runs a file as a script.
 pub fn run(mut ctx: Context, main: PathBuf, args: Vec<String>) -> Result<()> {
-    let main = SharedPath::new(Arc::from(main));
+    let main = SharedPath::from(main);
     let vals = parse_file(main.clone())?;
     let (mod_name, exports, imports, decls) =
         Module::from_values(vals, Location::new().path(main.clone()))?;
@@ -20,13 +20,14 @@ pub fn run(mut ctx: Context, main: PathBuf, args: Vec<String>) -> Result<()> {
     }
 
     ctx.with_lib(
-        LibName("#script#".into(), 0, 0, 0),
+        LibName("main".into(), 0, 0, 0),
         hashmap! {
             "compiler-builtins".into() => LibName("compiler-builtins".into(), 0, 0, 0),
         },
+        None,
         |lib_ctx| {
             lib_ctx
-                .with_mod(mod_name, exports, imports, |mod_ctx| {
+                .with_mod("".into(), exports, imports, |mod_ctx| {
                     decls
                         .into_iter()
                         .map(|decl| mod_ctx.add_cst_decl(decl))
@@ -41,10 +42,7 @@ pub fn run(mut ctx: Context, main: PathBuf, args: Vec<String>) -> Result<()> {
     let loc = Location::new().name("the runtime".into());
     let call_to_main = Arc::new(Expr::Call(
         loc.clone(),
-        Arc::new(Expr::GlobalVar(
-            loc,
-            "#script#-0-0-0:main:main".parse().unwrap(),
-        )),
+        Arc::new(Expr::GlobalVar(loc, "main-0-0-0:main".parse().unwrap())),
         vec![],
     ));
 

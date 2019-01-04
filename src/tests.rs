@@ -2,17 +2,19 @@ use maplit::{hashmap, hashset};
 use stahl_ast::{Intrinsic, LibName, Literal};
 use stahl_context::{Context, ModContext, UnifExpr};
 use stahl_errors::Location;
+use stahl_util::SharedPath;
 use std::rc::Rc;
 
 /// Runs the given closure with a context for tests.
 fn with_context(f: impl FnOnce(&mut ModContext)) {
-    let mut ctx = Context::new(Vec::new());
+    let mut ctx = Context::new(Vec::<SharedPath>::new());
 
     let mut lib_ctx = ctx.create_lib(
         LibName("test".into(), 0, 0, 0),
         hashmap! {
             "compiler-builtins".into() => LibName("compiler-builtins".into(), 0, 0, 0)
         },
+        None,
     );
 
     let mut mod_ctx = lib_ctx
