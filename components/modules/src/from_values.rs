@@ -1,4 +1,5 @@
 use crate::Module;
+use maplit::hashset;
 use stahl_cst::Decl;
 use stahl_errors::{Location, Result};
 use stahl_parser::Value;
@@ -75,15 +76,12 @@ fn parse_import_form(
             if import != "import" {
                 Ok(None)
             } else if let Value::Symbol(_, ref name) = **h {
-                let mut imps = HashMap::new();
+                let mut imps = HashMap::<_, HashSet<_>>::new();
                 let (imp_vals, t) = t.clone().as_list();
                 if let Value::Nil(_) = t {
                     for imp_val in imp_vals {
                         let (impmod, impvals) = parse_imp_clause(&imp_val)?;
-                        if imps.contains_key(&impmod) {
-                            raise!(@val.loc(), "Duplicate module import in import form {}", val)
-                        }
-                        imps.insert(impmod, impvals);
+                        imps.entry(impmod).or_default().extend(impvals);
                     }
                     Ok(Some((name.clone(), imps)))
                 } else {
@@ -101,6 +99,10 @@ fn parse_import_form(
 }
 
 fn parse_imp_clause(val: &Value) -> Result<(SharedString, HashSet<SharedString>)> {
+    if let Value::Symbol(_, s) = val {
+        return Ok(("".into(), hashset! { s.clone() }));
+    }
+
     let mut syms = val.as_sym_list().ok_or_else(
         || err!(@val.loc(), "Module clause {} of import form must be a list of symbols", val),
     )?;

@@ -55,5 +55,9 @@ pub enum Command {
         /// The file being interpreted.
         #[structopt(name = "main_file", parse(from_os_str))]
         main: PathBuf,
+
+        /// The arguments to the script.
+        #[structopt(name = "args")]
+        args: Vec<String>,
     },
 }

@@ -8,9 +8,14 @@ A dependently typed Lisp with algebraic effects.
 Goals
 -----
 
--	[ ] Interpreter for macro-less, untyped language
--	[ ] Typechecking
+-	[x] Typechecking for core language
+-	[ ] ADTs
+-	[ ] Interfaces
+-	[ ] Typechecking with effects
+-	[ ] Interpreter
 -	[ ] Compile to WebAssembly
+-	[ ] Elaborator scripts
+-	[ ] Elaborator reflection
 -	[ ] Macro support
 -	[ ] Web framework (with heavy "cheating" as a runtime)
 -	[ ] Compile to native code

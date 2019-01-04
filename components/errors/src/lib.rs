@@ -139,7 +139,7 @@ impl Display for Error {
             if first {
                 first = false
             } else {
-                write!(fmt, "\n cause: ")?;
+                write!(fmt, "\nCAUSE - ")?;
             }
             write!(fmt, "{}: {}", e.loc, e.err)?;
             err = e.cause.as_ref().map(|e| &**e);

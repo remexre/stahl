@@ -822,6 +822,7 @@ dependencies = [
 name = "stahl_modules"
 version = "0.1.0"
 dependencies = [
+ "maplit 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "stahl_ast 0.1.0",
  "stahl_cst 0.1.0",
  "stahl_errors 0.1.0",

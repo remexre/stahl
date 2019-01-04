@@ -186,7 +186,8 @@ impl ModContext<'_, '_> {
                 Some(Decl::DefEff(_, _, _, _)) => {
                     raise!(@loc.clone(), "{} is an effect, not a value", name)
                 }
-                None => raise!(@loc.clone(), "Undefined variable {}", name),
+                Some(Decl::DefTy(_, _, _, _)) => unimplemented!(),
+                None => raise!(@loc.clone(), "Undefined global variable {}", name),
             },
             UnifExpr::Intrinsic(loc, i) => match *i {
                 Intrinsic::Eq => Rc::new(UnifExpr::Pi(

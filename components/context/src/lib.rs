@@ -18,7 +18,7 @@ pub use crate::{
     zipper::Zipper,
 };
 use stahl_ast::{Decl, FQName, LibName};
-use stahl_cst::{Decl as CstDecl, Expr as CstExpr};
+use stahl_cst::Decl as CstDecl;
 use stahl_errors::{Location, Result};
 use stahl_modules::{Library, Module};
 use stahl_util::{genint, SharedString, Taker};
@@ -26,7 +26,6 @@ use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
     rc::Rc,
-    sync::Arc,
     thread::panicking,
 };
 
@@ -56,6 +55,26 @@ impl Context {
                 mods: HashMap::new(),
             }
             .into(),
+        }
+    }
+
+    /// Runs the given closure with a `LibContext`, cleaning up afterwards.
+    pub fn with_lib<'c, F>(
+        &'c mut self,
+        name: LibName,
+        dep_versions: HashMap<SharedString, LibName>,
+        f: F,
+    ) -> Result<&'c mut Context>
+    where
+        F: FnOnce(&mut LibContext<'c>) -> Result<()>,
+    {
+        let mut lib_ctx = self.create_lib(name, dep_versions);
+        match f(&mut lib_ctx) {
+            Ok(()) => lib_ctx.finish(),
+            Err(err) => {
+                lib_ctx.discard();
+                Err(err)
+            }
         }
     }
 
@@ -150,7 +169,7 @@ impl<'c> LibContext<'c> {
                     Ok((name.clone(), lib_imports))
                 } else {
                     raise!(
-                        "Library {} has no dependency on {}",
+                        "Library {} has no dependency on {}, so it can't import from it",
                         self.library.name,
                         lib_name
                     )
@@ -170,6 +189,27 @@ impl<'c> LibContext<'c> {
             }
             .into(),
         })
+    }
+
+    /// Runs the given closure with a `ModContext`, cleaning up afterwards.
+    pub fn with_mod<'l, F>(
+        &'l mut self,
+        name: SharedString,
+        exports: HashSet<SharedString>,
+        imports: HashMap<SharedString, HashMap<SharedString, HashSet<SharedString>>>,
+        f: F,
+    ) -> Result<&'l mut LibContext<'c>>
+    where
+        F: FnOnce(&mut ModContext<'l, 'c>) -> Result<()>,
+    {
+        let mut mod_ctx = self.create_mod(name, exports, imports)?;
+        match f(&mut mod_ctx) {
+            Ok(()) => mod_ctx.finish(),
+            Err(err) => {
+                mod_ctx.discard();
+                Err(err)
+            }
+        }
     }
 
     /// Inserts the given module, creating an entry for it in the context.
@@ -249,35 +289,16 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
     /// Adds a new CST declaration.
     pub fn add_cst_decl(&mut self, decl: CstDecl) -> Result<()> {
         match decl {
-            CstDecl::Def(loc, name, ty, expr) => self.add_def(loc, name, ty, expr),
-            CstDecl::DefEff(loc, name, arg, ret) => self.add_defeff(loc, name, arg, ret),
+            CstDecl::Def(loc, name, ty, expr) => {
+                let (expr, ty) = self.elab(&expr, &ty)?;
+                self.add(Decl::Def(loc, name, ty, expr))
+            }
+            CstDecl::DefEff(loc, _name, _arg, _ret) => todo!(@loc),
+            CstDecl::DefTy(loc, _name, _ty_args, _ctors) => todo!(@loc),
         }
     }
 
-    /// Adds a value definition to the module context.
-    pub fn add_def(
-        &mut self,
-        loc: Location,
-        _name: SharedString,
-        ty: Arc<CstExpr>,
-        expr: Arc<CstExpr>,
-    ) -> Result<()> {
-        let (_expr, _ty) = self.elab(&expr, &ty)?;
-        todo!(@loc)
-    }
-
-    /// Adds an effect definition to the module context.
-    pub fn add_defeff(
-        &mut self,
-        loc: Location,
-        name: SharedString,
-        arg: Arc<CstExpr>,
-        _ret: Option<Arc<CstExpr>>,
-    ) -> Result<()> {
-        todo!(@loc, "{} {}", name, arg)
-    }
-
-    /// Begins creating a def with a known (wildcard-free) type.
+    /// Begins creating a def.
     pub fn create_def<'m>(
         &'m mut self,
         loc: Location,
@@ -291,6 +312,26 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
             name: name.into(),
             type_zipper: type_zipper.into(),
             expr_zipper: expr_zipper.into(),
+        }
+    }
+
+    /// Runs the given closure with a `DefContext`, cleaning up afterwards.
+    pub fn with_def<'m, F>(
+        &'m mut self,
+        loc: Location,
+        name: SharedString,
+        f: F,
+    ) -> Result<&'m mut ModContext<'l, 'c>>
+    where
+        F: FnOnce(&mut DefContext<'m, 'l, 'c>) -> Result<()>,
+    {
+        let mut def_ctx = self.create_def(loc, name);
+        match f(&mut def_ctx) {
+            Ok(()) => def_ctx.finish(),
+            Err(err) => {
+                def_ctx.discard();
+                Err(err)
+            }
         }
     }
 

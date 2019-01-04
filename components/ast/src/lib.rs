@@ -100,20 +100,32 @@ pub enum Decl {
         Arc<Expr>,
         Option<Arc<Expr>>,
     ),
+
+    /// A type definition.
+    DefTy(
+        #[derivative(Debug = "ignore")] Location,
+        SharedString,
+        Vec<Arc<Expr>>,
+        Vec<(SharedString, Vec<Arc<Expr>>, Vec<Arc<Expr>>)>,
+    ),
 }
 
 impl Decl {
     /// Returns the location at which the declaration is.
     pub fn loc(&self) -> Location {
         match self {
-            Decl::Def(loc, _, _, _) | Decl::DefEff(loc, _, _, _) => loc.clone(),
+            Decl::Def(loc, _, _, _) | Decl::DefEff(loc, _, _, _) | Decl::DefTy(loc, _, _, _) => {
+                loc.clone()
+            }
         }
     }
 
     /// Returns the name of the declaration.
     pub fn name(&self) -> SharedString {
         match self {
-            Decl::Def(_, name, _, _) | Decl::DefEff(_, name, _, _) => name.clone(),
+            Decl::Def(_, name, _, _) | Decl::DefEff(_, name, _, _) | Decl::DefTy(_, name, _, _) => {
+                name.clone()
+            }
         }
     }
 }
@@ -125,6 +137,9 @@ impl Display for Decl {
             Decl::DefEff(_, name, expr, None) => write!(fmt, "(defeff {} {})", name, expr),
             Decl::DefEff(_, name, expr, Some(ret)) => {
                 write!(fmt, "(defeff {} {} {})", name, expr, ret)
+            }
+            Decl::DefTy(_, name, ty_args, ctors) => {
+                unimplemented!();
             }
         }
     }

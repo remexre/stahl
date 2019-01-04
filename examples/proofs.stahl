@@ -1,0 +1,9 @@
+(module main
+  main)
+
+(import compiler-builtins
+  + fixnum prop-eq refl)
+
+(def main (pi () (prop-eq fixnum (+ 1 3) (+ 2 2)))
+  (fn ()
+    (refl _ _)))

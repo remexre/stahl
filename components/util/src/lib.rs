@@ -173,6 +173,11 @@ pub fn genint() -> usize {
     N.fetch_add(1, Ordering::SeqCst)
 }
 
+/// Takes a value from an Arc if the reference is unique, otherwise clones it out.
+pub fn unwrap_arc<T: Clone>(arc: Arc<T>) -> T {
+    Arc::try_unwrap(arc).unwrap_or_else(|arc| (*arc).clone())
+}
+
 /// Takes a value from an Rc if the reference is unique, otherwise clones it out.
 pub fn unwrap_rc<T: Clone>(rc: Rc<T>) -> T {
     // TODO: Have some sort of functionality for determinining if this is ever actually able to

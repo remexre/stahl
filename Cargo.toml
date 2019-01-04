@@ -21,10 +21,11 @@ version = "0.1.0"
 [dependencies]
 dirs = "1.0.4"
 log = "0.4.6"
+maplit = "1.0.1"
 rustyline = "3.0.0"
 stahl_ast = { path = "components/ast" }
-stahl_cst = { path = "components/cst" }
 stahl_context = { path = "components/context" }
+stahl_cst = { path = "components/cst" }
 stahl_errors = { path = "components/errors" }
 stahl_interpreter = { path = "components/interpreter" }
 stahl_modules = { path = "components/modules" }
@@ -32,4 +33,3 @@ stahl_parser = { path = "components/parser" }
 stahl_util = { path = "components/util" }
 stderrlog = "0.4.1"
 structopt = "0.2.14"
-maplit = "1.0.1"
