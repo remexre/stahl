@@ -5,6 +5,7 @@ extern crate stahl_errors;
 #[macro_use]
 extern crate structopt;
 
+mod interpret;
 mod options;
 mod repl;
 mod script;
@@ -14,6 +15,7 @@ mod tests;
 use crate::options::{Command, Options};
 use stahl_context::Context;
 use stahl_errors::Result;
+use stahl_util::SharedPath;
 use std::{env, process::exit};
 use structopt::StructOpt;
 
@@ -38,7 +40,9 @@ fn main() {
             }
         }
     }
-    search_paths.extend(options.search_paths);
+    if let Some(arg_paths) = options.search_paths {
+        search_paths.extend(env::split_paths(&arg_paths).map(SharedPath::from));
+    }
 
     let ctx = Context::new(search_paths);
     if let Err(err) = run(options.command.unwrap_or(Command::Repl), ctx) {
@@ -49,6 +53,7 @@ fn main() {
 
 fn run(command: Command, ctx: Context) -> Result<()> {
     match command {
+        Command::Interpret { main, args } => interpret::run(ctx, main, args),
         Command::Repl => repl::run(ctx),
         Command::Script { main, args } => script::run(ctx, main, args),
     }

@@ -12,4 +12,5 @@ stahl_ast = { path = "../ast" }
 stahl_cst = { path = "../cst" }
 stahl_errors = { path = "../errors" }
 stahl_modules = { path = "../modules" }
+stahl_parser = { path = "../parser" }
 stahl_util = { path = "../util" }

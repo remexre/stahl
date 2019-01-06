@@ -1,30 +1,47 @@
 use stahl_ast::LibName;
-use stahl_cst::Value;
 use stahl_errors::{Location, Result};
-use stahl_parser::parse_file;
+use stahl_parser::{parse_file, Value};
 use stahl_util::{SharedPath, SharedString};
-use std::{collections::HashMap, u16, u32};
+use std::{
+    collections::HashMap,
+    io::{Error as IoError, ErrorKind as IoErrorKind},
+    u16, u32,
+};
 
-/// Finds the `lib.stahld` for the given library name in the search path.
-pub fn load_lib_stahld(
-    name: LibName,
-    search_paths: &[SharedPath],
-) -> Result<(SharedPath, HashMap<SharedString, LibName>)> {
+/// Returns an iterator over `lib.stahld` contents for the given library name.
+pub fn lib_stald_iter<'a>(
+    name: &'a str,
+    search_paths: &'a [SharedPath],
+) -> impl 'a + Iterator<Item = (SharedPath, LibName, HashMap<SharedString, LibName>)> {
     search_paths
         .iter()
-        .map(|search_path| search_path.join(&*name.0).join("lib.stahld"))
+        .map(move |search_path| search_path.join(name).join("lib.stahld"))
         .map(SharedPath::from)
-        .filter_map(|path| {
-            let r = parse_file(path.clone())
-                .and_then(|vals| lib_stahld_from_values(vals, Location::new().path(path.clone())));
-            match r {
-                Ok((ref n, _)) if n != &name => None,
-                Ok((_, deps)) => Some(Ok((path, deps))),
-                Err(err) => Some(Err(err)),
+        .map(|path| {
+            parse_file(path.clone())
+                .and_then(|vals| lib_stahld_from_values(vals, Location::new().path(path.clone())))
+                .map(|(lib, deps)| {
+                    let path = path.parent().unwrap().to_owned();
+                    (path.into(), lib, deps)
+                })
+                .map_err(|mut err| {
+                    err.loc.path = Some(path.clone());
+                    err
+                })
+        })
+        .filter_map(move |r| match r {
+            Ok(x) => Some(x),
+            Err(e) => {
+                if e.err
+                    .downcast_ref()
+                    .map(|e: &IoError| e.kind() != IoErrorKind::NotFound)
+                    .unwrap_or(false)
+                {
+                    warn!("When loading {}, found an invalid lib.stahl: {}", name, e);
+                }
+                None
             }
         })
-        .next()
-        .unwrap_or_else(|| raise!("Couldn't find library {}", name))
 }
 
 /// Parses a `lib.stahld` file from values.
@@ -61,7 +78,30 @@ fn lib_stahld_from_values(
                         None => raise!(@val.loc(), "Invalid version: {}", val),
                     }
                 }
-                "deps" => unimplemented!(),
+                "deps" => {
+                    if deps.is_some() {
+                        raise!(@loc, "Duplicate deps form");
+                    }
+                    let mut dep_map = HashMap::new();
+                    for dep_form in vals {
+                        let name = sym_headed_list(dep_form)
+                            .and_then(|(name, mut vals)| {
+                                if vals.len() == 1 {
+                                    version_from_value(vals.pop().unwrap()).map(
+                                        |(major, minor, patch)| LibName(name, major, minor, patch),
+                                    )
+                                } else {
+                                    None
+                                }
+                            })
+                            .ok_or_else(|| err!(@loc.clone(), "Invalid deps form"))?;
+                        if dep_map.contains_key(&name.0) {
+                            raise!(@loc.clone(), "Duplicate dependency on {}", name.0);
+                        }
+                        dep_map.insert(name.0.clone(), name);
+                    }
+                    deps = Some(dep_map);
+                }
                 _ => raise!(@loc, "Invalid form: {}", val),
             }
         } else {
@@ -70,7 +110,7 @@ fn lib_stahld_from_values(
     }
 
     let name = name.ok_or_else(|| err!(@loc.clone(), "No name was specified"))?;
-    let version = version.ok_or_else(|| err!(@loc, "No name was specified"))?;
+    let version = version.ok_or_else(|| err!(@loc, "No version was specified"))?;
     let deps = deps.unwrap_or_else(HashMap::new);
     Ok((LibName(name, version.0, version.1, version.2), deps))
 }

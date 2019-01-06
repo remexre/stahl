@@ -1,0 +1,9 @@
+(module example
+  main)
+
+(import geom
+  square-area)
+
+(def main ; (pi () unit)
+  (fn ()
+  	(square-area 5)))

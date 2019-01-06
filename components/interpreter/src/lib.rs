@@ -43,7 +43,7 @@ impl<'c> Interpreter<'c> {
                 warn!("{} is already normal; this may be a bug.", expr);
                 expr
             }
-            Expr::GlobalVar(_, ref name) => match self.ctx.get_decl(name.clone()).unwrap() {
+            Expr::GlobalVar(_, ref name) => match self.ctx.get_decl(name.clone(), false).unwrap() {
                 Decl::Def(_, _, _, expr) => expr.clone(),
                 decl => panic!("{} is not a def", decl),
             },

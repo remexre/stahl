@@ -787,6 +787,7 @@ dependencies = [
  "stahl_cst 0.1.0",
  "stahl_errors 0.1.0",
  "stahl_modules 0.1.0",
+ "stahl_parser 0.1.0",
  "stahl_util 0.1.0",
 ]
 

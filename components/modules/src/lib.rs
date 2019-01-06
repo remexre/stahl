@@ -7,11 +7,15 @@ extern crate stahl_errors;
 mod from_values;
 mod load;
 
-use crate::load::load_lib_stahld;
+use crate::load::lib_stald_iter;
 use stahl_ast::{Decl, FQName, LibName};
-use stahl_errors::Result;
+use stahl_errors::{Location, Result};
 use stahl_util::{SharedPath, SharedString};
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::read_dir,
+    path::Path,
+};
 
 /// A library.
 #[derive(Debug)]
@@ -20,7 +24,7 @@ pub struct Library {
     pub name: LibName,
 
     /// The versioned names of the libraries this library depends on.
-    pub dep_versions: HashMap<SharedString, LibName>,
+    pub deps: HashMap<SharedString, LibName>,
 
     /// The modules in the library.
     pub mods: HashMap<SharedString, Module>,
@@ -30,15 +34,83 @@ pub struct Library {
 }
 
 impl Library {
-    /// Loads the `lib.stahld` file for a given `LibName`. Note that the `mods` field is
-    /// unpopulated.
+    /// Loads the library with the given name and version, without populating its modules.
     pub fn load(name: LibName, search_paths: &[SharedPath]) -> Result<Library> {
-        load_lib_stahld(name.clone(), search_paths).map(|(path, dep_versions)| Library {
-            name,
-            dep_versions,
-            mods: HashMap::new(),
-            path: Some(path),
-        })
+        lib_stald_iter(name.0.as_str(), search_paths)
+            .filter(|(_, n, _)| *n == name)
+            .next()
+            .map(|(path, _, deps)| Library {
+                name: name.clone(),
+                deps,
+                mods: HashMap::new(),
+                path: Some(path),
+            })
+            .ok_or_else(|| err!("Couldn't load library {}", name))
+    }
+
+    /// Loads the library with the given name, without populating its modules.
+    pub fn load_highest_version(
+        name: SharedString,
+        search_paths: &[SharedPath],
+    ) -> Result<Library> {
+        lib_stald_iter(name.as_str(), search_paths)
+            .max_by_key(|&(_, LibName(_, major, minor, patch), _)| (major, minor, patch))
+            .map(|(path, name, deps)| Library {
+                name,
+                deps,
+                mods: HashMap::new(),
+                path: Some(path),
+            })
+            .ok_or_else(|| err!("Couldn't load library {}", name))
+    }
+
+    /// Finds the modules of the library.
+    pub fn find_modules(&self) -> Result<HashMap<String, SharedPath>> {
+        fn find_modules_in(
+            dir: &Path,
+            mod_name: &mut String,
+            mods: &mut HashMap<String, SharedPath>,
+        ) -> Result<()> {
+            for entry in read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if entry.file_type()?.is_dir() {
+                    find_modules_in(&entry.path(), mod_name, mods)?;
+                } else if path.extension() == Some("stahl".as_ref()) {
+                    unimplemented!()
+                }
+            }
+            Ok(())
+        }
+
+        let path = self
+            .path
+            .clone()
+            .expect("Can't populate a library without its path!");
+        let mut name = self.name.0.to_string();
+        let mut mods = HashMap::new();
+        for entry in read_dir(path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if entry.file_type()?.is_dir() {
+                find_modules_in(&entry.path(), &mut name, &mut mods)?;
+            } else if path.extension() == Some("stahl".as_ref()) {
+                if path.file_stem() == Some(self.name.0.as_ref()) {
+                    mods.insert(name.clone(), path.into());
+                } else {
+                    let mod_name = path.file_stem().and_then(|s| s.to_str()).ok_or_else(|| {
+                        err!(@Location::new().path(path.clone().into()), "{:?} is not a valid name",
+                            path.file_stem())
+                    })?;
+                    let old_len = name.len();
+                    name.push(':');
+                    name += mod_name;
+                    mods.insert(name.clone(), path.into());
+                    name.truncate(old_len);
+                }
+            }
+        }
+        Ok(mods)
     }
 }
 

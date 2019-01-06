@@ -141,7 +141,12 @@ impl Display for Error {
             } else {
                 write!(fmt, "\nCAUSE - ")?;
             }
-            write!(fmt, "{}: {}", e.loc, e.err)?;
+            if e.loc.is_empty() {
+                // TODO: Suitably chastise the programmer, ideally with line numbers.
+            } else {
+                write!(fmt, "{}: ", e.loc)?;
+            }
+            write!(fmt, "{}", e.err)?;
             err = e.cause.as_ref().map(|e| &**e);
         }
         Ok(())
@@ -178,6 +183,11 @@ impl Location {
     /// Creates an "empty" location.
     pub fn new() -> Location {
         Location::default()
+    }
+
+    /// Returns whether the location is entirely devoid of information.
+    pub fn is_empty(&self) -> bool {
+        self.name == None && self.path == None && self.pos == None
     }
 
     /// Adds a name to the location.

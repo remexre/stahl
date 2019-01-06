@@ -6,6 +6,7 @@ mod split_vec;
 pub use crate::split_vec::SplitVec;
 use owning_ref::ArcRef;
 use std::{
+    ffi::OsStr,
     fmt::{Debug, Display, Formatter, Result as FmtResult},
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -19,6 +20,12 @@ use std::{
 /// A path whose backing storage is shared (via a reference count).
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct SharedPath(ArcRef<Path>);
+
+impl AsRef<OsStr> for SharedPath {
+    fn as_ref(&self) -> &OsStr {
+        self.0.as_ref().as_ref()
+    }
+}
 
 impl AsRef<Path> for SharedPath {
     fn as_ref(&self) -> &Path {
@@ -56,9 +63,32 @@ impl From<PathBuf> for SharedPath {
 pub struct SharedString(ArcRef<str>);
 
 impl SharedString {
+    /// Returns the string being shared.
+    pub fn as_str(&self) -> &str {
+        self.as_ref()
+    }
+
     /// Creates a string based on `genint`.
     pub fn gensym() -> SharedString {
         format!("#G:{}#", genint()).into()
+    }
+}
+
+impl AsRef<OsStr> for SharedString {
+    fn as_ref(&self) -> &OsStr {
+        self.0.as_ref().as_ref()
+    }
+}
+
+impl AsRef<Path> for SharedString {
+    fn as_ref(&self) -> &Path {
+        self.0.as_ref().as_ref()
+    }
+}
+
+impl AsRef<str> for SharedString {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
     }
 }
 
@@ -77,7 +107,7 @@ impl Debug for SharedString {
 
 impl Display for SharedString {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        fmt.write_str(self.as_ref())
+        fmt.write_str(self.as_str())
     }
 }
 

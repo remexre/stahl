@@ -13,7 +13,7 @@ pub struct Options {
 
     /// Additional search paths for packages.
     #[structopt(short = "I", long = "include", parse(from_os_str))]
-    pub search_paths: Vec<PathBuf>,
+    pub search_paths: Option<PathBuf>,
 
     /// Disables the built-in search paths.
     #[structopt(long = "disable-built-in-includes")]
@@ -48,6 +48,18 @@ impl Options {
 
 #[derive(Debug, StructOpt)]
 pub enum Command {
+    /// Runs a package's main function.
+    #[structopt(name = "interpret")]
+    Interpret {
+        /// The file being interpreted.
+        #[structopt(name = "main_package")]
+        main: String,
+
+        /// The arguments to the script.
+        #[structopt(name = "args")]
+        args: Vec<String>,
+    },
+
     /// Starts a REPL.
     #[structopt(name = "repl")]
     Repl,

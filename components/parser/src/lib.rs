@@ -96,7 +96,7 @@ impl FromStr for Value {
 /// Parses several `Value`s from a file.
 pub fn parse_file(path: SharedPath) -> Result<Vec<Value>> {
     let mut buf = String::new();
-    File::open(path.as_ref())?.read_to_string(&mut buf)?;
+    File::open(&path)?.read_to_string(&mut buf)?;
     let loc = Location::new().path(path);
     grammar::ValuesParser::new()
         .parse(&loc.clone(), Lexer::new(&buf))

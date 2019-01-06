@@ -20,8 +20,9 @@ pub use crate::{
 };
 use stahl_ast::{Decl, FQName, LibName};
 use stahl_cst::Decl as CstDecl;
-use stahl_errors::{Location, Result};
+use stahl_errors::{Location, Result, ResultExt};
 use stahl_modules::{Library, Module};
+use stahl_parser::parse_file;
 use stahl_util::{genint, SharedPath, SharedString, Taker};
 use std::{
     collections::{HashMap, HashSet},
@@ -58,14 +59,14 @@ impl Context {
     pub fn create_lib(
         &mut self,
         name: LibName,
-        dep_versions: HashMap<SharedString, LibName>,
+        deps: HashMap<SharedString, LibName>,
         path: Option<SharedPath>,
     ) -> LibContext {
         LibContext {
             context: self.into(),
             library: Library {
                 name,
-                dep_versions,
+                deps,
                 mods: HashMap::new(),
                 path,
             }
@@ -75,22 +76,70 @@ impl Context {
 
     /// Loads the library with the given name from the search path.
     pub fn load_lib(&mut self, name: LibName) -> Result<()> {
-        let mut lib = Library::load(name, &self.search_paths)?;
-        todo!("Load modules for {:?}", lib)
+        if self.libs.contains_key(&name) {
+            return Ok(());
+        }
+
+        let lib = Library::load(name.clone(), &self.search_paths)?;
+        for dep in lib.deps.values() {
+            self.load_lib(dep.clone())
+                .chain(|| err!("When loading dependency of {}:", name))?;
+        }
+        self.finish_loading_and_insert_lib(lib)?;
+        Ok(())
+    }
+
+    /// Loads the library with the highest version and the given name from the search path,
+    /// Returns the name of the library loaded.
+    pub fn load_lib_highest_version(&mut self, name: SharedString) -> Result<LibName> {
+        let lib = Library::load_highest_version(name.clone(), &self.search_paths)?;
+        for dep in lib.deps.values() {
+            self.load_lib(dep.clone())
+                .chain(|| err!("When loading dependency of {}:", name))?;
+        }
+        let name = lib.name.clone();
+        self.finish_loading_and_insert_lib(lib)?;
+        Ok(name)
+    }
+
+    /// Loads the modules from the given library.
+    fn finish_loading_and_insert_lib(&mut self, lib: Library) -> Result<()> {
+        let mods = lib.find_modules()?;
+        self.with_lib(lib.name, lib.deps, lib.path, |lib_ctx| {
+            for (mut name, path) in mods {
+                let vals = parse_file(path.clone())?;
+                let (mod_name, exports, imports, decls) =
+                    Module::from_values(vals, Location::new().path(path.clone()))?;
+                if *mod_name != *name {
+                    raise!(@Location::new().path(path), "Expected module to be named {:?}, found {:?}",
+                        name, mod_name);
+                }
+                let idx = name.find(':').unwrap_or_else(|| name.len());
+                name.drain(..idx);
+                lib_ctx.with_mod(name.into(), exports, imports, |mod_ctx| {
+                    decls
+                        .into_iter()
+                        .map(|decl| mod_ctx.add_cst_decl(decl))
+                        .collect::<Result<_>>()
+                })?;
+            }
+            Ok(())
+        })
+        .map(|_| ())
     }
 
     /// Runs the given closure with a `LibContext`, cleaning up afterwards.
     pub fn with_lib<'c, F>(
         &'c mut self,
         name: LibName,
-        dep_versions: HashMap<SharedString, LibName>,
+        deps: HashMap<SharedString, LibName>,
         path: Option<SharedPath>,
         f: F,
     ) -> Result<&'c mut Context>
     where
         F: FnOnce(&mut LibContext<'c>) -> Result<()>,
     {
-        let mut lib_ctx = self.create_lib(name, dep_versions, path);
+        let mut lib_ctx = self.create_lib(name, deps, path);
         match f(&mut lib_ctx) {
             Ok(()) => lib_ctx.finish(),
             Err(err) => {
@@ -111,8 +160,9 @@ impl Context {
         Ok(())
     }
 
-    /// Returns the declaration referenced by the given fully qualified name.
-    pub fn get_decl(&self, name: FQName) -> Result<&Decl> {
+    /// Returns the declaration referenced by the given fully qualified name. If `enforce_exports`
+    /// is false, the decl is returned regardless of whether it is public.
+    pub fn get_decl(&self, name: FQName, enforce_exports: bool) -> Result<&Decl> {
         let library = self
             .libs
             .get(&name.0)
@@ -125,7 +175,7 @@ impl Context {
             }
         })?;
 
-        if !module.exports.contains(&name.2) {
+        if enforce_exports && !module.exports.contains(&name.2) {
             if name.1 == "" {
                 raise!("{} does not export {}", name.0, name.2)
             } else {
@@ -187,7 +237,7 @@ impl<'c> LibContext<'c> {
             .map(|(lib_name, lib_imports)| {
                 if lib_name == self.library.name.0 {
                     Ok((self.library.name.clone(), lib_imports))
-                } else if let Some(name) = self.library.dep_versions.get(&lib_name) {
+                } else if let Some(name) = self.library.deps.get(&lib_name) {
                     Ok((name.clone(), lib_imports))
                 } else {
                     raise!(
@@ -373,7 +423,7 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
             }
             None
         } else {
-            self.library.context.get_decl(name).ok()
+            self.library.context.get_decl(name, true).ok()
         }
     }
 
@@ -390,7 +440,7 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                     } else {
                         self.library
                             .context
-                            .get_decl(name.clone())
+                            .get_decl(name.clone(), true)
                             .map(|decl| (name, decl))
                     }
                 }
