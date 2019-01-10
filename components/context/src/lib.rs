@@ -104,9 +104,12 @@ impl Context {
 
     /// Loads the modules from the given library.
     fn finish_loading_and_insert_lib(&mut self, lib: Library) -> Result<()> {
-        let mods = lib.find_modules()?;
+        let mut mods = lib.find_modules()?;
         self.with_lib(lib.name, lib.deps, lib.path, |lib_ctx| {
-            for (mut name, path) in mods {
+            while let Some(mut name) = mods.keys().cloned().next() {
+                let path = mods.remove(&name).unwrap();
+
+                // Parse the module.
                 let vals = parse_file(path.clone())?;
                 let (mod_name, exports, imports, decls) =
                     Module::from_values(vals, Location::new().path(path.clone()))?;
@@ -114,9 +117,21 @@ impl Context {
                     raise!(@Location::new().path(path), "Expected module to be named {:?}, found {:?}",
                         name, mod_name);
                 }
+
+                // Strip the library name off.
                 let idx = name.find(':').unwrap_or_else(|| name.len());
                 name.drain(..idx);
-                lib_ctx.with_mod(name.into(), exports, imports, |mod_ctx| {
+                let name = name.into();
+
+                // Load all the dependencies.
+                if let Some(internal_imports) = imports.get(&lib_ctx.name.0) {
+                    for mod_name in internal_imports.keys() {
+                        panic!("{}", mod_name);
+                    }
+                }
+
+                // Load the module in.
+                lib_ctx.with_mod(name, exports, imports, |mod_ctx| {
                     decls
                         .into_iter()
                         .map(|decl| mod_ctx.add_cst_decl(decl))
@@ -366,6 +381,23 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                 self.add(Decl::Def(loc, name, ty, expr))
             }
             CstDecl::DefEff(loc, _name, _arg, _ret) => todo!(@loc),
+            CstDecl::DefEffSet(loc, name, effs) => {
+                let effs = effs
+                    .into_iter()
+                    .map(|eff| match self.resolve(eff) {
+                        Ok((name, Decl::DefEff(_, _, _, _))) => Ok(name),
+                        Ok((name, Decl::DefEffSet(_, _, _))) => todo!(@loc.clone()),
+                        Ok((name, Decl::Def(_, _, _, _))) => {
+                            raise!(@loc.clone(), "{} is a value, not an effect", name)
+                        }
+                        Ok((name, Decl::DefTy(_, _, _, _))) => {
+                            raise!(@loc.clone(), "{} is a type, not an effect", name)
+                        }
+                        Err(err) => Err(err),
+                    })
+                    .collect::<Result<_>>()?;
+                self.add(Decl::DefEffSet(loc, name, effs))
+            }
             CstDecl::DefTy(loc, _name, _ty_args, _ctors) => todo!(@loc),
         }
     }
@@ -432,10 +464,18 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
         if !name.contains(':') {
             match self.module.resolve(name.clone()) {
                 Some(name) => {
-                    if name.0 == self.module.lib_name && name.1 == self.module.mod_name {
-                        match self.decls.iter().find(|decl| decl.name() == name.2) {
-                            Some(decl) => Ok((name, decl)),
-                            None => panic!("resolve() lied about {} being local", name),
+                    if name.0 == self.module.lib_name {
+                        if name.1 == self.module.mod_name {
+                            match self.decls.iter().find(|decl| decl.name() == name.2) {
+                                Some(decl) => Ok((name, decl)),
+                                None => panic!("resolve() lied about {} being local", name),
+                            }
+                        } else {
+                            if let Some(m) = self.library.library.mods.get(&name.1) {
+                                todo!("resolve {} in {:#?}", name, m);
+                            } else {
+                                raise!("Cannot find {} in non-existent module", name);
+                            }
                         }
                     } else {
                         self.library

@@ -36,6 +36,13 @@ pub enum Decl {
         Option<Arc<Expr>>,
     ),
 
+    /// A effect set declaration.
+    DefEffSet(
+        #[derivative(Debug = "ignore")] Location,
+        SharedString,
+        Vec<SharedString>,
+    ),
+
     /// A type definition.
     DefTy(
         #[derivative(Debug = "ignore")] Location,
@@ -49,18 +56,20 @@ impl Decl {
     /// Returns the location at which the declaration is.
     pub fn loc(&self) -> Location {
         match self {
-            Decl::Def(loc, _, _, _) | Decl::DefEff(loc, _, _, _) | Decl::DefTy(loc, _, _, _) => {
-                loc.clone()
-            }
+            Decl::Def(loc, _, _, _)
+            | Decl::DefEff(loc, _, _, _)
+            | Decl::DefEffSet(loc, _, _)
+            | Decl::DefTy(loc, _, _, _) => loc.clone(),
         }
     }
 
     /// Returns the name of the declaration.
     pub fn name(&self) -> SharedString {
         match self {
-            Decl::Def(_, name, _, _) | Decl::DefEff(_, name, _, _) | Decl::DefTy(_, name, _, _) => {
-                name.clone()
-            }
+            Decl::Def(_, name, _, _)
+            | Decl::DefEff(_, name, _, _)
+            | Decl::DefEffSet(_, name, _)
+            | Decl::DefTy(_, name, _, _) => name.clone(),
         }
     }
 }
@@ -72,6 +81,13 @@ impl Display for Decl {
             Decl::DefEff(_, name, expr, None) => write!(fmt, "(defeff {} {})", name, expr),
             Decl::DefEff(_, name, expr, Some(ret)) => {
                 write!(fmt, "(defeff {} {} {})", name, expr, ret)
+            }
+            Decl::DefEffSet(_, name, effs) => {
+                write!(fmt, "(defeffset {} ", name)?;
+                for eff in effs {
+                    write!(fmt, " {}", eff)?;
+                }
+                write!(fmt, ")")
             }
             Decl::DefTy(_, name, kind, ctors) => {
                 write!(fmt, "(defty {} {}", name, kind)?;

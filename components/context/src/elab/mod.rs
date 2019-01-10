@@ -101,7 +101,13 @@ impl ModContext<'_, '_> {
                     .into_iter()
                     .map(|name| match self.resolve(name.clone()) {
                         Ok((name, Decl::DefEff(_, _, _, _))) => Ok(name),
-                        Ok((name, _)) => raise!(@loc.clone(), "{} is not an effect", name),
+                        Ok((name, Decl::DefEffSet(_, _, _))) => todo!(@loc.clone()),
+                        Ok((name, Decl::Def(_, _, _, _))) => {
+                            raise!(@loc.clone(), "{} is a value, not an effect", name)
+                        }
+                        Ok((name, Decl::DefTy(_, _, _, _))) => {
+                            raise!(@loc.clone(), "{} is a type, not an effect", name)
+                        }
                         Err(err) => Err(err),
                     })
                     .collect::<Result<_>>()?;
@@ -112,7 +118,16 @@ impl ModContext<'_, '_> {
                     UnifExpr::LocalVar(loc.clone(), name.clone())
                 } else {
                     match self.resolve(name.clone()) {
-                        Ok((name, _)) => UnifExpr::GlobalVar(loc.clone(), name),
+                        Ok((name, Decl::Def(_, _, _, _))) => UnifExpr::GlobalVar(loc.clone(), name),
+                        Ok((name, Decl::DefEff(_, _, _, _))) => {
+                            raise!(@loc.clone(), "{} is an effect, not a value", name)
+                        }
+                        Ok((name, Decl::DefEffSet(_, _, _))) => {
+                            raise!(@loc.clone(), "{} is an effect set, not a value", name)
+                        }
+                        Ok((name, Decl::DefTy(_, _, _, _))) => {
+                            raise!(@loc.clone(), "{} is a type, not a value", name)
+                        }
                         Err(err) => {
                             return Err(
                                 err.chain(err!(@loc.clone(), "Undefined variable: {}", name))
@@ -172,21 +187,21 @@ impl ModContext<'_, '_> {
                 }
                 ty => raise!(@loc.clone(), "The target of a call must be a function, not {}", ty),
             },
-            UnifExpr::Const(_, val) => match val {
-                Literal::Int(loc, _) => {
-                    Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum))
-                }
-                Literal::String(loc, _) => {
-                    Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::String))
-                }
-                Literal::Symbol(loc, _) => {
-                    Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Symbol))
-                }
-            },
+            UnifExpr::Const(_, val) => {
+                let intr = match val {
+                    Literal::Int(_, _) => Intrinsic::Fixnum,
+                    Literal::String(_, _) => Intrinsic::String,
+                    Literal::Symbol(_, _) => Intrinsic::Symbol,
+                };
+                Rc::new(UnifExpr::Intrinsic(val.loc(), intr))
+            }
             UnifExpr::GlobalVar(loc, name) => match self.get_decl(name.clone()) {
                 Some(Decl::Def(_, _, ty, _)) => Rc::new((&**ty).into()),
                 Some(Decl::DefEff(_, _, _, _)) => {
                     raise!(@loc.clone(), "{} is an effect, not a value", name)
+                }
+                Some(Decl::DefEffSet(_, _, _)) => {
+                    raise!(@loc.clone(), "{} is an effect set, not a value", name)
                 }
                 Some(Decl::DefTy(_, _, _, _)) => unimplemented!(),
                 None => raise!(@loc.clone(), "Undefined global variable {}", name),

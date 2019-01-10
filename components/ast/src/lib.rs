@@ -70,7 +70,10 @@ impl FromStr for LibName {
     fn from_str(s: &str) -> Result<LibName> {
         let mut chunks = s.rsplitn(4, '-').collect::<Vec<_>>();
         if chunks.len() != 4 {
-            raise!("Invalid library name; the correct format is NAME-MAJOR-MINOR-PATCH");
+            raise!(
+                "Invalid library name {:?}; the correct format is NAME-MAJOR-MINOR-PATCH",
+                s
+            );
         }
 
         let name = chunks.pop().unwrap();
@@ -101,6 +104,13 @@ pub enum Decl {
         Option<Arc<Expr>>,
     ),
 
+    /// The declaration of a set of effects.
+    DefEffSet(
+        #[derivative(Debug = "ignore")] Location,
+        SharedString,
+        Vec<FQName>,
+    ),
+
     /// A type definition.
     DefTy(
         #[derivative(Debug = "ignore")] Location,
@@ -114,18 +124,20 @@ impl Decl {
     /// Returns the location at which the declaration is.
     pub fn loc(&self) -> Location {
         match self {
-            Decl::Def(loc, _, _, _) | Decl::DefEff(loc, _, _, _) | Decl::DefTy(loc, _, _, _) => {
-                loc.clone()
-            }
+            Decl::Def(loc, _, _, _)
+            | Decl::DefEff(loc, _, _, _)
+            | Decl::DefEffSet(loc, _, _)
+            | Decl::DefTy(loc, _, _, _) => loc.clone(),
         }
     }
 
     /// Returns the name of the declaration.
     pub fn name(&self) -> SharedString {
         match self {
-            Decl::Def(_, name, _, _) | Decl::DefEff(_, name, _, _) | Decl::DefTy(_, name, _, _) => {
-                name.clone()
-            }
+            Decl::Def(_, name, _, _)
+            | Decl::DefEff(_, name, _, _)
+            | Decl::DefEffSet(_, name, _)
+            | Decl::DefTy(_, name, _, _) => name.clone(),
         }
     }
 }
@@ -137,6 +149,13 @@ impl Display for Decl {
             Decl::DefEff(_, name, expr, None) => write!(fmt, "(defeff {} {})", name, expr),
             Decl::DefEff(_, name, expr, Some(ret)) => {
                 write!(fmt, "(defeff {} {} {})", name, expr, ret)
+            }
+            Decl::DefEffSet(_, name, effs) => {
+                write!(fmt, "(defeffset {}", name)?;
+                for eff in effs {
+                    write!(fmt, " {}", eff)?;
+                }
+                write!(fmt, ")")
             }
             Decl::DefTy(_, name, ty_args, ctors) => {
                 unimplemented!();
@@ -322,6 +341,15 @@ pub enum Literal {
         #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
         SharedString,
     ),
+}
+
+impl Literal {
+    /// Returns the location at which the declaration is.
+    pub fn loc(&self) -> Location {
+        match self {
+            Literal::Int(loc, _) | Literal::String(loc, _) | Literal::Symbol(loc, _) => loc.clone(),
+        }
+    }
 }
 
 impl Display for Literal {

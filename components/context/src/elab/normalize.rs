@@ -92,6 +92,9 @@ impl ModContext<'_, '_> {
                 Some(Decl::DefEff(_, _, _, _)) => {
                     raise!(@loc.clone(), "{} is an effect, not a value", name)
                 }
+                Some(Decl::DefEffSet(_, _, _)) => {
+                    raise!(@loc.clone(), "{} is an effect set, not a value", name)
+                }
                 Some(Decl::DefTy(_, _, _, _)) => unimplemented!(),
                 None => raise!(@loc.clone(), "{} is not defined", name),
             },
