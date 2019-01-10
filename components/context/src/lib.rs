@@ -108,13 +108,14 @@ impl Context {
         self.with_lib(lib.name, lib.deps, lib.path, |lib_ctx| {
             while let Some(mut name) = mods.keys().cloned().next() {
                 let path = mods.remove(&name).unwrap();
+                let loc = Location::new().path(path.clone());
 
                 // Parse the module.
                 let vals = parse_file(path.clone())?;
                 let (mod_name, exports, imports, decls) =
                     Module::from_values(vals, Location::new().path(path.clone()))?;
                 if *mod_name != *name {
-                    raise!(@Location::new().path(path), "Expected module to be named {:?}, found {:?}",
+                    raise!(@loc, "Expected module to be named {:?}, found {:?}",
                         name, mod_name);
                 }
 
@@ -126,6 +127,9 @@ impl Context {
                 // Load all the dependencies.
                 if let Some(internal_imports) = imports.get(&lib_ctx.name.0) {
                     for mod_name in internal_imports.keys() {
+                        if *mod_name == name {
+                            raise!(@loc, "Module {} cannot import itself!", name)
+                        }
                         panic!("{}", mod_name);
                     }
                 }
