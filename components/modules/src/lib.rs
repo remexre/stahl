@@ -65,11 +65,11 @@ impl Library {
     }
 
     /// Finds the modules of the library.
-    pub fn find_modules(&self) -> Result<HashMap<String, SharedPath>> {
+    pub fn find_modules(&self) -> Result<HashMap<SharedString, SharedPath>> {
         fn find_modules_in(
             dir: &Path,
             mod_name: &mut String,
-            mods: &mut HashMap<String, SharedPath>,
+            mods: &mut HashMap<SharedString, SharedPath>,
         ) -> Result<()> {
             for entry in read_dir(dir)? {
                 let entry = entry?;
@@ -87,26 +87,25 @@ impl Library {
             .path
             .clone()
             .expect("Can't populate a library without its path!");
-        let mut name = self.name.0.to_string();
         let mut mods = HashMap::new();
         for entry in read_dir(path)? {
             let entry = entry?;
             let path = entry.path();
             if entry.file_type()?.is_dir() {
+                let mut name = path.to_str().map(|s| s.to_string()).ok_or_else(|| {
+                    err!(@Location::new().path(path.clone().into()), "{:?} is not a valid name",
+                            path.file_stem())
+                })?;
                 find_modules_in(&entry.path(), &mut name, &mut mods)?;
             } else if path.extension() == Some("stahl".as_ref()) {
                 if path.file_stem() == Some(self.name.0.as_ref()) {
-                    mods.insert(name.clone(), path.into());
+                    mods.insert("".into(), path.into());
                 } else {
                     let mod_name = path.file_stem().and_then(|s| s.to_str()).ok_or_else(|| {
                         err!(@Location::new().path(path.clone().into()), "{:?} is not a valid name",
                             path.file_stem())
                     })?;
-                    let old_len = name.len();
-                    name.push(':');
-                    name += mod_name;
-                    mods.insert(name.clone(), path.into());
-                    name.truncate(old_len);
+                    mods.insert(mod_name.into(), path.into());
                 }
             }
         }

@@ -106,41 +106,8 @@ impl Context {
     fn finish_loading_and_insert_lib(&mut self, lib: Library) -> Result<()> {
         let mut mods = lib.find_modules()?;
         self.with_lib(lib.name, lib.deps, lib.path, |lib_ctx| {
-            while let Some(mut name) = mods.keys().cloned().next() {
-                let path = mods.remove(&name).unwrap();
-                let loc = Location::new().path(path.clone());
-
-                // Parse the module.
-                let vals = parse_file(path.clone())?;
-                let (mod_name, exports, imports, decls) =
-                    Module::from_values(vals, Location::new().path(path.clone()))?;
-                if *mod_name != *name {
-                    raise!(@loc, "Expected module to be named {:?}, found {:?}",
-                        name, mod_name);
-                }
-
-                // Strip the library name off.
-                let idx = name.find(':').unwrap_or_else(|| name.len());
-                name.drain(..idx);
-                let name = name.into();
-
-                // Load all the dependencies.
-                if let Some(internal_imports) = imports.get(&lib_ctx.name.0) {
-                    for mod_name in internal_imports.keys() {
-                        if *mod_name == name {
-                            raise!(@loc, "Module {} cannot import itself!", name)
-                        }
-                        panic!("{}", mod_name);
-                    }
-                }
-
-                // Load the module in.
-                lib_ctx.with_mod(name, exports, imports, |mod_ctx| {
-                    decls
-                        .into_iter()
-                        .map(|decl| mod_ctx.add_cst_decl(decl))
-                        .collect::<Result<_>>()
-                })?;
+            while let Some(name) = mods.keys().cloned().next() {
+                lib_ctx.load_module_recursively(&mut mods, name)?;
             }
             Ok(())
         })
@@ -317,6 +284,59 @@ impl<'c> LibContext<'c> {
         self.library.mods.insert(module.mod_name.clone(), module);
         Ok(())
     }
+
+    /// Loads a module, and all of the modules from the same library that it depends on. Used
+    /// during library loading.
+    pub fn load_module_recursively(
+        &mut self,
+        mods: &mut HashMap<SharedString, SharedPath>,
+        name: SharedString,
+    ) -> Result<()> {
+        let path = mods.remove(&name).unwrap();
+        let loc = Location::new().path(path.clone());
+
+        // Parse the module.
+        let vals = parse_file(path.clone())?;
+        let (mod_name, exports, imports, decls) =
+            Module::from_values(vals, Location::new().path(path.clone()))?;
+        let l = self.name.0.len();
+        let name_ok = if name == "" {
+            mod_name == self.name.0
+        } else {
+            mod_name.len() >= l + 1
+                && &mod_name[..l] == self.name.0.as_str()
+                && &mod_name[l..l + 1] == ":"
+                && &mod_name[l + 1..] == name.as_str()
+        };
+        if !name_ok {
+            raise!(@loc, "Expected module to be named {:?}, found {:?}",
+                name, mod_name);
+        }
+
+        // Load all the dependencies.
+        if let Some(internal_imports) = imports.get(&self.name.0) {
+            for mod_name in internal_imports.keys() {
+                if *mod_name == name {
+                    raise!(@loc, "Module {}:{} cannot import itself!", self.name.0, name)
+                } else if mods.contains_key(mod_name) {
+                    self.load_module_recursively(mods, mod_name.clone())?;
+                } else if !self.mods.contains_key(mod_name) {
+                    raise!(@loc, "Module {}:{} was imported but not found, or was part of a cycle",
+                           self.name.0, mod_name);
+                }
+            }
+        }
+
+        // Load the module in.
+        self.with_mod(name, exports, imports, |mod_ctx| {
+            decls
+                .into_iter()
+                .map(|decl| mod_ctx.add_cst_decl(decl))
+                .collect::<Result<_>>()
+        })?;
+
+        Ok(())
+    }
 }
 
 impl Deref for LibContext<'_> {
@@ -476,7 +496,23 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                             }
                         } else {
                             if let Some(m) = self.library.library.mods.get(&name.1) {
-                                todo!("resolve {} in {:#?}", name, m);
+                                match m.decls.iter().find(|decl| decl.name() == name.2) {
+                                    Some(decl) => {
+                                        if true {
+                                            Ok((name, decl))
+                                        } else {
+                                            raise!(
+                                                "{}:{} does not export {}",
+                                                name.0,
+                                                name.1,
+                                                name.2
+                                            )
+                                        }
+                                    }
+                                    None => {
+                                        raise!("{}:{} does not declare {}", name.0, name.1, name.2)
+                                    }
+                                }
                             } else {
                                 raise!("Cannot find {} in non-existent module", name);
                             }

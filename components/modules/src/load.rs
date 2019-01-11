@@ -37,7 +37,7 @@ pub fn lib_stald_iter<'a>(
                     .map(|e: &IoError| e.kind() != IoErrorKind::NotFound)
                     .unwrap_or(false)
                 {
-                    warn!("When loading {}, found an invalid lib.stahl: {}", name, e);
+                    warn!("When loading {}, found an invalid lib.stahld: {}", name, e);
                 }
                 None
             }
