@@ -42,8 +42,9 @@ fn main() {
     }
     search_paths.extend(options.search_paths.iter().cloned().map(SharedPath::from));
 
-    let ctx = Context::new(search_paths);
-    if let Err(err) = run(options.command.unwrap_or(Command::Repl), ctx) {
+    let r = Context::new(true, search_paths)
+        .and_then(|ctx| run(options.command.unwrap_or(Command::Repl), ctx));
+    if let Err(err) = r {
         error!("{}", err);
         exit(1);
     }

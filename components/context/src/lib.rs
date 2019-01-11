@@ -38,11 +38,14 @@ pub struct Context {
 
     /// The paths searched when looking for libraries.
     pub search_paths: Vec<SharedPath>,
+
+    /// The name of the standard library, if it has been loaded.
+    std: Option<LibName>,
 }
 
 impl Context {
     /// Creates a new `Context`.
-    pub fn new<II, P>(search_paths: II) -> Context
+    pub fn new<II, P>(load_std: bool, search_paths: II) -> Result<Context>
     where
         II: IntoIterator<Item = P>,
         P: Into<SharedPath>,
@@ -50,9 +53,10 @@ impl Context {
         let mut ctx = Context {
             libs: HashMap::new(),
             search_paths: search_paths.into_iter().map(Into::into).collect(),
+            std: None,
         };
-        builtins::add_to(&mut ctx);
-        ctx
+        builtins::add_to(&mut ctx, load_std)?;
+        Ok(ctx)
     }
 
     /// Creates a context for the library with the given name and version.
@@ -103,7 +107,12 @@ impl Context {
     }
 
     /// Loads the modules from the given library.
-    fn finish_loading_and_insert_lib(&mut self, lib: Library) -> Result<()> {
+    fn finish_loading_and_insert_lib(&mut self, mut lib: Library) -> Result<()> {
+        // Insert a dependency on std, if std has been loaded.
+        if let Some(ref std) = self.std {
+            lib.deps.entry("std".into()).or_insert_with(|| std.clone());
+        }
+
         let mut mods = lib.find_modules()?;
         self.with_lib(lib.name, lib.deps, lib.path, |lib_ctx| {
             while let Some(name) = mods.keys().cloned().next() {
@@ -312,7 +321,7 @@ impl<'c> LibContext<'c> {
 
         // Parse the module.
         let vals = parse_file(path.clone())?;
-        let (mod_name, exports, imports, decls) =
+        let (mod_name, exports, mut imports, decls) =
             Module::from_values(vals, Location::new().path(path.clone()))?;
         let l = self.name.0.len();
         let name_ok = if name == "" {
@@ -327,6 +336,22 @@ impl<'c> LibContext<'c> {
             let name = format!("{}:{}", self.name.0, name);
             raise!(@loc, "Expected module to be named {:?}, found {:?}",
                 name, mod_name);
+        }
+
+        // If std has been loaded, the library depends on std, std:prelude exists, and the module
+        // doesn't depend on std:prelude, insert an import for all exports of std:prelude.
+        if let Some(ref std) = self.context.std {
+            // We use .get() instead of .contains_key() so we know it's the same version.
+            if self.library.deps.get(&std.0) == Some(std) {
+                let prelude_name = "prelude".into();
+                if let Some(ref prelude) = self.context.libs[std].mods.get(&prelude_name) {
+                    imports
+                        .entry(std.0.clone())
+                        .or_default()
+                        .entry(prelude_name)
+                        .or_insert_with(|| prelude.exports.clone());
+                }
+            }
         }
 
         // Load all the dependencies.

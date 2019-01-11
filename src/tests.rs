@@ -6,8 +6,8 @@ use stahl_util::SharedPath;
 use std::rc::Rc;
 
 /// Runs the given closure with a context for tests.
-fn with_context(f: impl FnOnce(&mut ModContext)) {
-    let mut ctx = Context::new(Vec::<SharedPath>::new());
+fn with_context(load_std: bool, f: impl FnOnce(&mut ModContext)) {
+    let mut ctx = Context::new(load_std, Vec::<SharedPath>::new()).unwrap();
 
     let mut lib_ctx = ctx.create_lib(
         LibName("test".into(), 0, 0, 0),
@@ -60,12 +60,12 @@ fn build_the_helper(mod_ctx: &mut ModContext) {
 
 #[test]
 fn build_the() {
-    with_context(build_the_helper);
+    with_context(false, build_the_helper);
 }
 
 #[test]
 fn the_fixnum_1() {
-    with_context(|mut mod_ctx| {
+    with_context(false, |mut mod_ctx| {
         build_the_helper(&mut mod_ctx);
 
         let loc = Location::new();

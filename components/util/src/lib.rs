@@ -6,6 +6,7 @@ mod split_vec;
 pub use crate::split_vec::SplitVec;
 use owning_ref::ArcRef;
 use std::{
+    borrow::Borrow,
     ffi::OsStr,
     fmt::{Debug, Display, Formatter, Result as FmtResult},
     ops::{Deref, DerefMut},
@@ -89,6 +90,12 @@ impl AsRef<Path> for SharedString {
 impl AsRef<str> for SharedString {
     fn as_ref(&self) -> &str {
         self.0.as_ref()
+    }
+}
+
+impl Borrow<str> for SharedString {
+    fn borrow(&self) -> &str {
+        self.as_str()
     }
 }
 

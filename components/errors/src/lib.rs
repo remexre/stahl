@@ -91,7 +91,7 @@ macro_rules! todo {
 /// A useful alias for Result with this crate's Error type.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// The common error wrapper, which allows attaching a location or span.
+/// The common error wrapper, which allows attaching a location and/or a cause.
 #[derive(Debug)]
 pub struct Error {
     /// The cause of the error, if any.
