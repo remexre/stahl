@@ -9,7 +9,7 @@ Goals
 -----
 
 -	[x] Typechecking for core language
--	[ ] Modules
+-	[x] Modules
 -	[ ] ADTs
 -	[ ] CPDT arithmetic interpreter example
 -	[ ] Interfaces
