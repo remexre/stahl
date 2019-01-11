@@ -37,33 +37,37 @@ fn with_context(f: impl FnOnce(&mut ModContext)) {
     lib_ctx.finish().unwrap();
 }
 
+fn build_the_helper(mod_ctx: &mut ModContext) {
+    let loc = Location::new().name("the definition of `the'".into());
+    let mut def_ctx = mod_ctx.create_def(loc.clone(), "the".into());
+
+    let ty = def_ctx.type_zipper();
+    ty.intros_pi(loc.clone(), vec!["T".into(), "x".into()]);
+    ty.go_to_leftmost_hole();
+    ty.fill(Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type)));
+    ty.go_to_leftmost_hole();
+    ty.fill(Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())));
+    ty.go_to_leftmost_hole();
+    ty.fill(Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())));
+    assert!(!ty.go_to_leftmost_hole());
+
+    let expr = def_ctx.expr_zipper();
+    expr.intros(loc.clone(), vec!["T".into(), "x".into()]);
+    expr.fill(Rc::new(UnifExpr::LocalVar(loc, "x".into())));
+
+    def_ctx.finish().unwrap();
+}
+
 #[test]
 fn build_the() {
-    with_context(|mod_ctx| {
-        let loc = Location::new().name("the definition of `the'".into());
-        let mut def_ctx = mod_ctx.create_def(loc.clone(), "the".into());
-
-        let ty = def_ctx.type_zipper();
-        ty.intros_pi(loc.clone(), vec!["T".into(), "x".into()]);
-        ty.go_to_leftmost_hole();
-        ty.fill(Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type)));
-        ty.go_to_leftmost_hole();
-        ty.fill(Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())));
-        ty.go_to_leftmost_hole();
-        ty.fill(Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())));
-        assert!(!ty.go_to_leftmost_hole());
-
-        let expr = def_ctx.expr_zipper();
-        expr.intros(loc.clone(), vec!["T".into(), "x".into()]);
-        expr.fill(Rc::new(UnifExpr::LocalVar(loc, "x".into())));
-
-        def_ctx.finish().unwrap();
-    });
+    with_context(build_the_helper);
 }
 
 #[test]
 fn the_fixnum_1() {
-    with_context(|mod_ctx| {
+    with_context(|mut mod_ctx| {
+        build_the_helper(&mut mod_ctx);
+
         let loc = Location::new();
 
         let mut def_ctx = mod_ctx.create_def(loc.clone(), "one".into());
@@ -72,7 +76,7 @@ fn the_fixnum_1() {
             loc.clone(),
             Rc::new(UnifExpr::GlobalVar(
                 loc.clone(),
-                "compiler-builtins-0-0-0:the".parse().unwrap(),
+                "test-0-0-0:the".parse().unwrap(),
             )),
             vec![
                 Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),

@@ -5,6 +5,7 @@ name = "stahl_modules"
 version = "0.1.0"
 
 [dependencies]
+log = "0.4.6"
 maplit = "1.0.1"
 stahl_ast = { path = "../ast" }
 stahl_cst = { path = "../cst" }

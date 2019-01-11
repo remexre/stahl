@@ -44,6 +44,10 @@ pub enum Decl {
     ),
 
     /// A type definition.
+    ///
+    /// The second argument is the name of the type being defined. The third argument is the kind
+    /// of the type. The fourth argument is the list of constructors, which are each pairs of the
+    /// constructor name and constructor type.
     DefTy(
         #[derivative(Debug = "ignore")] Location,
         SharedString,

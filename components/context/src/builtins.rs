@@ -89,15 +89,13 @@ pub fn add_to(ctx: &mut Context) {
     let mut lib_ctx = ctx.create_lib(lib_name.clone(), hashmap! {}, None);
 
     builtin!(lib_ctx, {
-        def "+" : (arrow!((intr!(Fixnum), intr!(Fixnum)) => intr!(Fixnum))) = intr!(FixnumAdd);
-        def "fixnum" : (intr!(Type)) = intr!(Fixnum);
-        def "prop-eq" : (pi!((T: intr!(Type), x: var!(T), y: var!(T)) => intr!(Type))) = intr!(Eq);
+        def "Fixnum" : (intr!(Type)) = intr!(Fixnum);
+        def "fixnum-add" : (arrow!((intr!(Fixnum), intr!(Fixnum)) => intr!(Fixnum))) = intr!(FixnumAdd);
+        def "Eq" : (pi!((T: intr!(Type), x: var!(T), y: var!(T)) => intr!(Type))) = intr!(Eq);
         def "refl" : (pi!((T: intr!(Type), x: var!(T)) => call!(intr!(Eq), var!(T), var!(x), var!(x)))) = intr!(Refl);
-        def "string" : (intr!(Type)) = intr!(String);
-        def "symbol" : (intr!(Type)) = intr!(Symbol);
-        def "type" : (intr!(TypeOfType)) = intr!(Type);
-        def "the" : (pi!((T: intr!(Type), x: var!(T)) => var!(T))) = lam!((T, x) : var!(T) => var!(x));
-        def "the-type" : (pi!((T: intr!(Type)) => var!(Type))) = lam!((T) : intr!(Type) => var!(T));
+        def "String" : (intr!(Type)) = intr!(String);
+        def "Symbol" : (intr!(Type)) = intr!(Symbol);
+        def "TYPE" : (intr!(TypeOfType)) = intr!(Type);
     });
 
     builtin!(lib_ctx:unsafe, {

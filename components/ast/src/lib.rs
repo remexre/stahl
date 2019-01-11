@@ -112,11 +112,37 @@ pub enum Decl {
     ),
 
     /// A type definition.
+    ///
+    /// The second argument is the name of the type being defined. The third argument is a list of
+    /// the types of arguments to the type, which are pairs of argument name (if the argument is an
+    /// index) and argument type. The fourth argument is the list of constructors, which are triples
+    /// of the constructor name, a list of the types of arguments to the constructor, and a list of
+    /// arguments to the type of the value produced by the constructor.
+    ///
+    /// For example, the traditional `Vect` type would be represented as:
+    ///
+    /// ```ignore
+    /// // In the module foo:bar
+    /// DefTy(_, "Vect",
+    ///     [(None,      Intrinsic(_, Type)         ),
+    ///      (Some("n"), GlobalVar(_, FQName("std", "", "nat")))],
+    ///     [("nil",  [("T", Intrinsic(_, Type))],
+    ///               [LocalVar(_, "T"), GlobalVar(_, FQName("std", "", "zero"))]),
+    ///      ("cons", [("T", Intrinsic(_, Type)),
+    ///                ("n", GlobalVar(_, FQName("std", "", "Nat"))),
+    ///                ("h", LocalVar(_, "T")),
+    ///                ("t", Call(_, GlobalVar(_, FQName("foo", "bar", "Vect")),
+    ///                           [LocalVar(_, "T"),
+    ///                            LocalVar(_, "n")]))],
+    ///               [LocalVar(_, "T"),
+    ///                Call(_, GlobalVar(_, FQName("std", "", "succ")),
+    ///                     [LocalVar(_, "n")])])])
+    /// ```
     DefTy(
         #[derivative(Debug = "ignore")] Location,
         SharedString,
-        Vec<Arc<Expr>>,
-        Vec<(SharedString, Vec<Arc<Expr>>, Vec<Arc<Expr>>)>,
+        Vec<(Option<SharedString>, Arc<Expr>)>,
+        Vec<(SharedString, Vec<(SharedString, Arc<Expr>)>, Vec<Arc<Expr>>)>,
     ),
 }
 

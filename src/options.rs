@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 #[derive(Debug, StructOpt)]
-#[structopt(raw(setting = "::structopt::clap::AppSettings::ColoredHelp"))]
+#[structopt(raw(setting = "structopt::clap::AppSettings::ColoredHelp"))]
 pub struct Options {
     /// Turns off message output.
     #[structopt(short = "q", long = "quiet")]
@@ -11,9 +11,10 @@ pub struct Options {
     #[structopt(short = "v", long = "verbose", parse(from_occurrences))]
     pub verbose: usize,
 
-    /// Additional search paths for packages.
+    /// Additional search paths for libraries.
     #[structopt(short = "I", long = "include", parse(from_os_str))]
-    pub search_paths: Option<PathBuf>,
+    #[structopt(raw(number_of_values = "1"))]
+    pub search_paths: Vec<PathBuf>,
 
     /// Disables the built-in search paths.
     #[structopt(long = "disable-built-in-includes")]
@@ -30,17 +31,6 @@ impl Options {
         stderrlog::new()
             .verbosity(self.verbose + 1)
             .quiet(self.quiet)
-            .modules(vec![
-                "stahl",
-                "stahl_ast",
-                "stahl_context",
-                "stahl_cst",
-                "stahl_errors",
-                "stahl_interpreter",
-                "stahl_modules",
-                "stahl_parser",
-                "stahl_util",
-            ])
             .init()
             .unwrap();
     }

@@ -1,0 +1,5 @@
+(module std:prelude
+  Fixnum fixnum-add Eq refl String Symbol TYPE)
+
+(import compiler-builtins
+  Fixnum fixnum-add Eq refl String Symbol TYPE)

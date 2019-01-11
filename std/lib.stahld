@@ -1,0 +1,5 @@
+(name std)
+(description "The Stahl standard library.")
+(version (0 0 0))
+
+(deps (compiler-builtins (0 0 0)))

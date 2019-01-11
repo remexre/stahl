@@ -29,7 +29,7 @@ fn main() {
             // Yeah, gross side effects... pop returns false on failure.
             let not_too_close_to_root = path.pop() && path.pop();
             if not_too_close_to_root {
-                path.push("lib");
+                path.push("libs");
                 search_paths.push(path.into());
             }
         }
@@ -40,9 +40,7 @@ fn main() {
             }
         }
     }
-    if let Some(arg_paths) = options.search_paths {
-        search_paths.extend(env::split_paths(&arg_paths).map(SharedPath::from));
-    }
+    search_paths.extend(options.search_paths.iter().cloned().map(SharedPath::from));
 
     let ctx = Context::new(search_paths);
     if let Err(err) = run(options.command.unwrap_or(Command::Repl), ctx) {

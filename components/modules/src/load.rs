@@ -35,9 +35,9 @@ pub fn lib_stald_iter<'a>(
                 if e.err
                     .downcast_ref()
                     .map(|e: &IoError| e.kind() != IoErrorKind::NotFound)
-                    .unwrap_or(false)
+                    .unwrap_or(true)
                 {
-                    warn!("When loading {}, found an invalid lib.stahld: {}", name, e);
+                    error!("When loading {}, found an invalid lib.stahld: {}", name, e);
                 }
                 None
             }
@@ -50,6 +50,7 @@ fn lib_stahld_from_values(
     loc: Location,
 ) -> Result<(LibName, HashMap<SharedString, LibName>)> {
     let mut name = None;
+    let mut description = None;
     let mut version = None;
     let mut deps = None;
 
@@ -65,6 +66,15 @@ fn lib_stahld_from_values(
                         name = Some(s);
                     }
                     val => raise!(@val.loc(), "Invalid library name: {}", val),
+                },
+                "description" if vals.len() == 1 => match vals.pop().unwrap() {
+                    Value::String(_, s) => {
+                        if description.is_some() {
+                            raise!(@loc, "Duplicate description form");
+                        }
+                        description = Some(s);
+                    }
+                    val => raise!(@val.loc(), "Invalid library description: {}", val),
                 },
                 "version" if vals.len() == 1 => {
                     let val = vals.pop().unwrap();

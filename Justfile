@@ -11,7 +11,7 @@ clippy:
 doc:
 	cargo doc --all
 run +ARGS="":
-	cargo run -- {{ARGS}}
+	cargo run -- -I . -I examples {{ARGS}}
 test:
 	cargo test --all
 watch +TARGETS="all":

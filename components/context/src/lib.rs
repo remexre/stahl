@@ -175,7 +175,22 @@ impl Context {
             }
         }
 
-        unimplemented!("TODO: Check imports of module")
+        for (lib_name, library) in module.imports.iter() {
+            for (mod_name, module) in library.iter() {
+                if module.contains(&name.2) {
+                    return self.get_decl(
+                        FQName(lib_name.clone(), mod_name.clone(), name.2.clone()),
+                        enforce_exports,
+                    );
+                }
+            }
+        }
+
+        if name.1 == "" {
+            raise!("{} does not define {}", name.0, name.2)
+        } else {
+            raise!("{}:{} does not define {}", name.0, name.1, name.2)
+        }
     }
 
     /// Returns the module given by the given library name and module name.
@@ -309,6 +324,7 @@ impl<'c> LibContext<'c> {
                 && &mod_name[l + 1..] == name.as_str()
         };
         if !name_ok {
+            let name = format!("{}:{}", self.name.0, name);
             raise!(@loc, "Expected module to be named {:?}, found {:?}",
                 name, mod_name);
         }

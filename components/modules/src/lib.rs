@@ -2,6 +2,8 @@
 #![deny(missing_docs)]
 
 #[macro_use]
+extern crate log;
+#[macro_use]
 extern crate stahl_errors;
 
 mod from_values;
@@ -45,7 +47,7 @@ impl Library {
                 mods: HashMap::new(),
                 path: Some(path),
             })
-            .ok_or_else(|| err!("Couldn't load library {}", name))
+            .ok_or_else(|| err!("Couldn't find library {}", name))
     }
 
     /// Loads the library with the given name, without populating its modules.
@@ -61,7 +63,7 @@ impl Library {
                 mods: HashMap::new(),
                 path: Some(path),
             })
-            .ok_or_else(|| err!("Couldn't load library {}", name))
+            .ok_or_else(|| err!("Couldn't find library {}", name))
     }
 
     /// Finds the modules of the library.

@@ -1,0 +1,5 @@
+(module hello-world)
+
+(def main ; (pi () unit)
+  (fn ()
+  	(fixnum-add 2 3)))
