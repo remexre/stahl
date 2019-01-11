@@ -75,14 +75,14 @@ impl Decl {
     }
 }
 
-fn as_pi_arg(val: &Value) -> Result<(SharedString, Arc<Expr>)> {
+fn as_pi_arg(val: &Value) -> Result<(Option<SharedString>, Arc<Expr>)> {
     match val {
         Value::Cons(_, h, t) => match (&**h, &**t) {
             (Value::Symbol(_, s), Value::Cons(_, e, t)) => {
                 let s = s.clone();
                 let e = Expr::from_value_unnamed(e, "a pi type argument")?;
                 match &**t {
-                    Value::Nil(_) => Ok((s, e)),
+                    Value::Nil(_) => Ok((Some(s), e)),
                     _ => raise!(@val.loc(), "Invalid pi type argument: {}", val),
                 }
             }
@@ -92,7 +92,7 @@ fn as_pi_arg(val: &Value) -> Result<(SharedString, Arc<Expr>)> {
     }
 }
 
-fn as_pi_arg_list(val: &Value) -> Result<Vec<(SharedString, Arc<Expr>)>> {
+fn as_pi_arg_list(val: &Value) -> Result<Vec<(Option<SharedString>, Arc<Expr>)>> {
     match val {
         Value::Cons(_, h, t) => {
             let arg = as_pi_arg(h)?;
@@ -182,6 +182,10 @@ impl Expr {
                         let args = args.as_sym_list().ok_or_else(
                             || err!(@args.loc(), "An argument list must be composed of symbols"),
                         )?;
+                        let args = args
+                            .into_iter()
+                            .map(|s| if s == "_" { None } else { Some(s) })
+                            .collect();
                         let body = vals
                             .iter()
                             .map(Expr::from_value)

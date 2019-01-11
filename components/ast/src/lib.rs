@@ -114,10 +114,10 @@ pub enum Decl {
     /// A type definition.
     ///
     /// The second argument is the name of the type being defined. The third argument is a list of
-    /// the types of arguments to the type, which are pairs of argument name (if the argument is an
-    /// index) and argument type. The fourth argument is the list of constructors, which are triples
-    /// of the constructor name, a list of the types of arguments to the constructor, and a list of
-    /// arguments to the type of the value produced by the constructor.
+    /// the types of arguments to the type, which are pairs of argument name (if the argument is
+    /// not an index) and argument type. The fourth argument is the list of constructors, which are
+    /// triples of the constructor name, a list of the types of arguments to the constructor, and a
+    /// list of arguments to the type of the value produced by the constructor.
     ///
     /// For example, the traditional `Vect` type would be represented as:
     ///

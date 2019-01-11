@@ -57,6 +57,11 @@ impl ModContext<'_, '_> {
             CstExpr::Hole(loc) => return Ok(UnifExpr::hole(loc.clone())),
             CstExpr::Lam(loc, args, body) => {
                 let old_len = locals.len();
+                let args = args
+                    .iter()
+                    .cloned()
+                    .map(|s| s.unwrap_or_else(SharedString::gensym))
+                    .collect::<Vec<_>>();
                 locals.extend(args.iter().cloned());
                 let body = body
                     .into_iter()
@@ -81,7 +86,7 @@ impl ModContext<'_, '_> {
                     .collect::<Result<_>>()?;
                 assert!(locals.len() >= old_len);
                 locals.truncate(old_len);
-                UnifExpr::Lam(loc.clone(), args.clone(), body)
+                UnifExpr::Lam(loc.clone(), args, body)
             }
             CstExpr::Pi(loc, args, body, effs) => {
                 let old_len = locals.len();
@@ -89,8 +94,9 @@ impl ModContext<'_, '_> {
                     .iter()
                     .map(|(name, ty)| {
                         let ty = self.cst_to_unif(ty, locals)?;
+                        let name = name.clone().unwrap_or_else(SharedString::gensym);
                         locals.push(name.clone());
-                        Ok((name.clone(), ty))
+                        Ok((name, ty))
                     })
                     .collect::<Result<_>>()?;
                 let body = self.cst_to_unif(body, locals)?;

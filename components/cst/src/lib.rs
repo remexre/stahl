@@ -124,14 +124,14 @@ pub enum Expr {
     /// A lambda.
     Lam(
         #[derivative(Debug = "ignore")] Location,
-        Vec<SharedString>,
+        Vec<Option<SharedString>>,
         Vec<(Option<(SharedString, Option<Arc<Expr>>)>, Arc<Expr>)>,
     ),
 
     /// A pi type with effects.
     Pi(
         #[derivative(Debug = "ignore")] Location,
-        Vec<(SharedString, Arc<Expr>)>,
+        Vec<(Option<SharedString>, Arc<Expr>)>,
         Arc<Expr>,
         Vec<SharedString>,
     ),
@@ -171,7 +171,13 @@ impl Display for Expr {
             Expr::Hole(_) => write!(fmt, "_"),
             Expr::Lam(_, args, body) => {
                 write!(fmt, "(fn (")?;
-                fmt_iter(fmt, args)?;
+                fmt_iter(
+                    fmt,
+                    args.iter().map(|s| match s {
+                        Some(s) => s.as_str(),
+                        None => "_",
+                    }),
+                )?;
                 write!(fmt, ")")?;
                 for (def_info, expr) in body {
                     match def_info {
@@ -191,7 +197,13 @@ impl Display for Expr {
                     } else {
                         fmt.write_str(" ")?;
                     }
-                    write!(fmt, "({} {})", name, expr)?;
+                    write!(fmt, "(")?;
+                    if let Some(name) = name {
+                        write!(fmt, "{}", name)?;
+                    } else {
+                        write!(fmt, "_")?;
+                    }
+                    write!(fmt, " {})", expr)?;
                 }
                 write!(fmt, ") {}", body)?;
                 if !effs.is_empty() {

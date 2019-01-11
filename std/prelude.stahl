@@ -1,5 +1,24 @@
 (module std:prelude
-  Fixnum fixnum-add Eq refl String Symbol TYPE)
+  Fixnum fixnum-add Eq refl String Symbol the TYPE)
 
 (import compiler-builtins
   Fixnum fixnum-add Eq refl String Symbol TYPE)
+
+(def the (pi ((T TYPE) (_ T)) T)
+  (fn (_ x) x))
+
+(defty Bool TYPE
+  false Bool
+  true Bool)
+
+(defty Nat TYPE
+  zero Nat
+  succ (pi ((_ Nat)) Nat))
+
+(defty List (pi ((T TYPE)) TYPE)
+  nil-List  (pi ((T TYPE))                    (List T))
+  cons-List (pi ((T TYPE) (_ T) (_ (List T))) (List T)))
+
+(defty Vect (pi ((T TYPE) (_ Nat)) TYPE)
+  nil-Vect  (pi ((T TYPE))                              (Vect T zero))
+  cons-Vect (pi ((T TYPE) (n Nat) (_ T) (_ (Vect T n))) (Vect T (succ n))))
