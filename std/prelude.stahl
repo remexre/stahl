@@ -1,6 +1,5 @@
 (module std:prelude
   Bool false true
-  Data cons fixnum nil string symbol
   Fixnum fixnum-add
   Eq refl
   List nil-List cons-List
@@ -20,13 +19,6 @@
 (defty Bool TYPE
   false Bool
   true Bool)
-
-(defty Data TYPE
-  cons   (pi ((_ Data) (_ Data)) Data)
-  fixnum (pi ((_ Fixnum))        Data)
-  nil                            Data
-  string (pi ((_ String))        Data)
-  symbol (pi ((_ Symbol))        Data))
 
 (defty Nat TYPE
   zero Nat
