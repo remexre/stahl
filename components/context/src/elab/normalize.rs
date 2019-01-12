@@ -11,14 +11,21 @@ pub struct NormalizeEnv<'a> {
     pub ext: Vec<(SharedString, Option<Rc<UnifExpr>>)>,
 }
 
-impl NormalizeEnv<'_> {
+impl<'a> NormalizeEnv<'a> {
+    pub fn new(base: &'a [(SharedString, Rc<UnifExpr>, Option<Rc<UnifExpr>>)]) -> NormalizeEnv<'a> {
+        NormalizeEnv {
+            base,
+            ext: Vec::new(),
+        }
+    }
+
     fn get(&self, n: &str) -> Option<Rc<UnifExpr>> {
         let iter = self.base.iter().rev().map(|(n, _, v)| (n, v));
         let iter = self.ext.iter().rev().map(|(n, v)| (n, v)).chain(iter);
         iter.filter(|(name, _)| name == &n)
             .map(|(_, val)| val.clone())
             .next()
-            .unwrap()
+            .unwrap_or_else(|| panic!("{} not found", n))
     }
 }
 

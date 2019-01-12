@@ -28,6 +28,7 @@ use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
     rc::Rc,
+    sync::Arc,
     thread::panicking,
 };
 
@@ -528,16 +529,28 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                     .collect::<Result<_>>()?;
                 self.add(Decl::DefEffSet(loc, name, effs))
             }
-            CstDecl::DefTy(loc, name, kind, ctors) => {
-                self.with_defty(loc, name, |defty_ctx| {
-                    let mut locals = Vec::new();
-                    let kind = defty_ctx.module.cst_to_unif(&kind, &mut locals)?;
-                    defty_ctx.kind_zipper().fill(kind);
-                    if !ctors.is_empty() {
-                        warn!("TODO Fill ctors {:?}", ctors);
-                    }
-                    Ok(())
-                })?;
+            CstDecl::DefTy(loc, ty_name, kind, ctors) => {
+                let mut locals = Vec::new();
+                self.with_defty(
+                    loc,
+                    ty_name.clone(),
+                    |defty_kind_ctx| {
+                        let kind = defty_kind_ctx.module.cst_to_unif(&kind, &mut Vec::new())?;
+                        defty_kind_ctx.kind_zipper().fill(kind);
+                        Ok(())
+                    },
+                    |defty_ctors_ctx| {
+                        locals.push(ty_name);
+                        for (name, ty) in ctors {
+                            defty_ctors_ctx.with_ctor(name, |ctor_ctx| {
+                                let ty = ctor_ctx.defty.module.cst_to_unif(&ty, &mut locals)?;
+                                ctor_ctx.zipper().fill(ty);
+                                Ok(())
+                            })?;
+                        }
+                        Ok(())
+                    },
+                )?;
                 Ok(())
             }
         }
@@ -565,14 +578,13 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
         &'m mut self,
         loc: Location,
         name: SharedString,
-    ) -> DefTyContext<'m, 'l, 'c> {
+    ) -> DefTyKindContext<'m, 'l, 'c> {
         let kind_zipper = Zipper::new(Rc::new(UnifExpr::UnifVar(loc.clone(), genint())));
-        DefTyContext {
+        DefTyKindContext {
             module: self.into(),
             loc: loc.into(),
             name: name.into(),
             kind_zipper: kind_zipper.into(),
-            ctors: Vec::new().into(),
         }
     }
 
@@ -596,21 +608,33 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
         }
     }
 
-    /// Runs the given closure with a `DefTyContext`, cleaning up afterwards.
-    pub fn with_defty<'m, F>(
+    /// Runs the given closure with a `DefTyKindContext`, then another with the corresponding
+    /// `DefTyCtorsContext`, cleaning up afterwards.
+    pub fn with_defty<'m, F1, F2>(
         &'m mut self,
         loc: Location,
         name: SharedString,
-        f: F,
+        f1: F1,
+        f2: F2,
     ) -> Result<&'m mut ModContext<'l, 'c>>
     where
-        F: FnOnce(&mut DefTyContext<'m, 'l, 'c>) -> Result<()>,
+        F1: FnOnce(&mut DefTyKindContext<'m, 'l, 'c>) -> Result<()>,
+        F2: FnOnce(&mut DefTyCtorsContext<'m, 'l, 'c>) -> Result<()>,
     {
-        let mut defty_ctx = self.create_defty(loc, name);
-        match f(&mut defty_ctx) {
-            Ok(()) => defty_ctx.finish(),
+        let mut defty_kind_ctx = self.create_defty(loc, name);
+        match f1(&mut defty_kind_ctx) {
+            Ok(()) => {
+                let mut defty_ctors_ctx = defty_kind_ctx.finish()?;
+                match f2(&mut defty_ctors_ctx) {
+                    Ok(()) => defty_ctors_ctx.finish(),
+                    Err(err) => {
+                        defty_ctors_ctx.discard();
+                        Err(err)
+                    }
+                }
+            }
             Err(err) => {
-                defty_ctx.discard();
+                defty_kind_ctx.discard();
                 Err(err)
             }
         }
@@ -728,14 +752,15 @@ pub struct DefContext<'m, 'l, 'c> {
 }
 
 impl<'m, 'l: 'm, 'c: 'l> DefContext<'m, 'l, 'c> {
-    /// Adds this def to the module.
+    /// Adds this `def` to the module.
     pub fn finish(mut self) -> Result<&'m mut ModContext<'l, 'c>> {
         let loc = self.loc.take();
         let name = self.name.take();
 
         let mut ty = Rc::new(self.type_zipper.take().into_expr());
         let mut expr = Rc::new(self.expr_zipper.take().into_expr());
-        self.module.unify_ty_expr(&mut ty, &mut expr)?;
+        self.module
+            .unify_ty_expr(&mut ty, &mut expr, &mut Vec::new())?;
 
         let expr = reify(&expr)?;
         let ty = reify(&ty)?;
@@ -743,7 +768,7 @@ impl<'m, 'l: 'm, 'c: 'l> DefContext<'m, 'l, 'c> {
         Ok(self.module.take())
     }
 
-    /// Discards this def. Use this instead of just dropping in the case where the def should not
+    /// Discards this def. Use this instead of just dropping in the case where the `def` should not
     /// be added!
     pub fn discard(mut self) {
         self.loc.take();
@@ -777,35 +802,32 @@ impl Drop for DefContext<'_, '_, '_> {
     }
 }
 
-/// A single `defty`'s portion of the context.
+/// A single `defty`'s portion of the context, while defining the kind of the type.
 #[derive(Debug)]
-pub struct DefTyContext<'m, 'l, 'c> {
+pub struct DefTyKindContext<'m, 'l, 'c> {
     module: Taker<&'m mut ModContext<'l, 'c>>,
     loc: Taker<Location>,
     name: Taker<SharedString>,
     kind_zipper: Taker<Zipper>,
-    ctors: Taker<Vec<()>>,
 }
 
-impl<'m, 'l: 'm, 'c: 'l> DefTyContext<'m, 'l, 'c> {
-    /// Adds this def to the module.
-    pub fn finish(mut self) -> Result<&'m mut ModContext<'l, 'c>> {
-        let loc = self.loc.take();
-        let name = self.name.take();
-
+impl<'m, 'l: 'm, 'c: 'l> DefTyKindContext<'m, 'l, 'c> {
+    /// Marks the kind of the type complete, allowing constructors to be added to the `defty`.
+    pub fn finish(mut self) -> Result<DefTyCtorsContext<'m, 'l, 'c>> {
         let mut ty = UnifExpr::hole(self.kind_zipper.expr().loc());
         let mut kind = Rc::new(self.kind_zipper.take().into_expr());
-        self.module.unify_ty_expr(&mut ty, &mut kind)?;
+        self.module
+            .unify_ty_expr(&mut ty, &mut kind, &mut Vec::new())?;
         let kind = reify(&kind)?;
         let ty_args = match &*kind {
-            Expr::Pi(_, args, ret, effs) => {
+            Expr::Pi(_, args, ret, effs) if !args.is_empty() => {
                 if !effs.0.is_empty() {
-                    raise!(@kind.loc(), "Invalid kind for {}: {}", name, kind);
+                    raise!(@kind.loc(), "Invalid kind for {}: {}", *self.name, kind);
                 }
 
                 match **ret {
                     Expr::Intrinsic(_, Intrinsic::Type) => {}
-                    _ => raise!(@kind.loc(), "Invalid kind for {}: {}", name, kind),
+                    _ => raise!(@kind.loc(), "Invalid kind for {}: {}", *self.name, kind),
                 }
 
                 args.iter()
@@ -817,8 +839,62 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyContext<'m, 'l, 'c> {
                     .collect()
             }
             Expr::Intrinsic(_, Intrinsic::Type) => vec![],
-            _ => raise!(@kind.loc(), "Invalid kind for {}: {}", name, kind),
+            _ => raise!(@kind.loc(), "Invalid kind for {}: {}", *self.name, kind),
         };
+
+        Ok(DefTyCtorsContext {
+            module: self.module.take().into(),
+            loc: self.loc.take().into(),
+            name: self.name.take().into(),
+            ty_args: ty_args.into(),
+            ctors: Vec::new().into(),
+        })
+    }
+
+    /// Discards this `defty`. Use this instead of just dropping in the case where the `defty`
+    /// should not be added!
+    pub fn discard(mut self) {
+        self.module.take();
+        self.loc.take();
+        self.name.take();
+        self.kind_zipper.take();
+    }
+
+    /// Gets the zipper for the kind of the type.
+    pub fn kind_zipper(&mut self) -> &mut Zipper {
+        &mut *self.kind_zipper
+    }
+}
+
+impl Drop for DefTyKindContext<'_, '_, '_> {
+    fn drop(&mut self) {
+        if !(panicking()
+            || self.module.taken()
+            || self.loc.taken()
+            || self.name.taken()
+            || self.kind_zipper.taken())
+        {
+            panic!("Dropping a DefTyCtorsContext that has not called .finish() or .discard()");
+        }
+    }
+}
+
+/// A single `defty`'s portion of the context, while defining the constructors of the type.
+#[derive(Debug)]
+pub struct DefTyCtorsContext<'m, 'l, 'c> {
+    module: Taker<&'m mut ModContext<'l, 'c>>,
+    loc: Taker<Location>,
+    name: Taker<SharedString>,
+    ty_args: Taker<Vec<(Option<SharedString>, Arc<Expr>)>>,
+    ctors: Taker<Vec<(SharedString, Vec<(SharedString, Arc<Expr>)>, Vec<Arc<Expr>>)>>,
+}
+
+impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
+    /// Adds this `defty` to the module.
+    pub fn finish(mut self) -> Result<&'m mut ModContext<'l, 'c>> {
+        let loc = self.loc.take();
+        let name = self.name.take();
+        let ty_args = self.ty_args.take();
 
         let ctors = self
             .ctors
@@ -831,32 +907,149 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyContext<'m, 'l, 'c> {
         Ok(self.module.take())
     }
 
-    /// Discards this def. Use this instead of just dropping in the case where the def should not
-    /// be added!
+    /// Discards this `defty`. Use this instead of just dropping in the case where the `defty`
+    /// should not be added!
     pub fn discard(mut self) {
         self.module.take();
         self.loc.take();
         self.name.take();
-        self.kind_zipper.take();
+        self.ty_args.take();
         self.ctors.take();
     }
 
-    /// Gets the zipper for the type.
-    pub fn kind_zipper(&mut self) -> &mut Zipper {
-        &mut *self.kind_zipper
+    /// Returns the kind of the type being defined.
+    fn kind(&self) -> Rc<UnifExpr> {
+        let ty = Rc::new(UnifExpr::Intrinsic(self.loc.clone(), Intrinsic::Type));
+        if self.ty_args.is_empty() {
+            ty
+        } else {
+            unimplemented!()
+        }
+    }
+
+    /// Returns the UnifExpr corresponding to the type being defined.
+    fn ty(&self) -> Rc<UnifExpr> {
+        Rc::new(UnifExpr::Intrinsic(
+            self.loc.clone(),
+            Intrinsic::Tag(FQName(
+                self.module.lib_name.clone(),
+                self.module.mod_name.clone(),
+                self.name.clone(),
+            )),
+        ))
+    }
+
+    /// Begins creating a constructor.
+    pub fn create_ctor<'d>(&'d mut self, name: SharedString) -> CtorContext<'d, 'm, 'l, 'c> {
+        let zipper = Zipper::new(Rc::new(UnifExpr::UnifVar(self.loc.clone(), genint())));
+        CtorContext {
+            defty: self.into(),
+            name: name.into(),
+            zipper: zipper.into(),
+        }
+    }
+
+    /// Runs the given closure with a `DefContext`, cleaning up afterwards.
+    pub fn with_ctor<'d, F>(
+        &'d mut self,
+        name: SharedString,
+        f: F,
+    ) -> Result<&'d mut DefTyCtorsContext<'m, 'l, 'c>>
+    where
+        F: FnOnce(&mut CtorContext<'d, 'm, 'l, 'c>) -> Result<()>,
+    {
+        let mut ctor_ctx = self.create_ctor(name);
+        match f(&mut ctor_ctx) {
+            Ok(()) => ctor_ctx.finish(),
+            Err(err) => {
+                ctor_ctx.discard();
+                Err(err)
+            }
+        }
     }
 }
 
-impl Drop for DefTyContext<'_, '_, '_> {
+impl Drop for DefTyCtorsContext<'_, '_, '_> {
     fn drop(&mut self) {
         if !(panicking()
             || self.module.taken()
             || self.loc.taken()
             || self.name.taken()
-            || self.kind_zipper.taken()
+            || self.ty_args.taken()
             || self.ctors.taken())
         {
-            panic!("Dropping a DefTyContext that has not called .finish() or .discard()");
+            panic!("Dropping a DefTyCtorsContext that has not called .finish() or .discard()");
+        }
+    }
+}
+
+/// A single constructor in a `defty`'s portion of the context.
+#[derive(Debug)]
+pub struct CtorContext<'d, 'm, 'l, 'c> {
+    defty: Taker<&'d mut DefTyCtorsContext<'m, 'l, 'c>>,
+    name: Taker<SharedString>,
+    zipper: Taker<Zipper>,
+}
+
+impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
+    /// Adds this constructor to the `defty`.
+    pub fn finish(mut self) -> Result<&'d mut DefTyCtorsContext<'m, 'l, 'c>> {
+        let name = self.name.take();
+
+        let mut ctor_kind = Rc::new(UnifExpr::Intrinsic(
+            self.zipper.expr().loc(),
+            Intrinsic::Type,
+        ));
+        let mut ctor_type = Rc::new(self.zipper.take().into_expr());
+        let mut env = vec![(
+            self.defty.name.clone(),
+            self.defty.kind(),
+            Some(self.defty.ty()),
+        )];
+        self.defty
+            .module
+            .unify_ty_expr(&mut ctor_kind, &mut ctor_type, &mut env)?;
+        let ctor_type = reify(&ctor_type)?;
+        let (ctor_args, ty_args) = match &*ctor_type {
+            Expr::Pi(_, args, ret, effs) if !args.is_empty() => {
+                if !effs.0.is_empty() {
+                    raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type);
+                }
+
+                let ctor_args = args.clone();
+                warn!("TODO: Positivity check");
+
+                let ty_args = match **ret {
+                    _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
+                };
+
+                (ctor_args, ty_args)
+            }
+            _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
+        };
+
+        self.defty.ctors.push((name, ctor_args, ty_args));
+        Ok(self.defty.take())
+    }
+
+    /// Discards this constructor. Use this instead of just dropping in the case where the
+    /// constructor should not be added!
+    pub fn discard(mut self) {
+        self.defty.take();
+        self.name.take();
+        self.zipper.take();
+    }
+
+    /// Gets the zipper for the type of the constructor.
+    pub fn zipper(&mut self) -> &mut Zipper {
+        &mut *self.zipper
+    }
+}
+
+impl Drop for CtorContext<'_, '_, '_, '_> {
+    fn drop(&mut self) {
+        if !(panicking() || self.defty.taken() || self.name.taken() || self.zipper.taken()) {
+            panic!("Dropping a CtorContext that has not called .finish() or .discard()");
         }
     }
 }

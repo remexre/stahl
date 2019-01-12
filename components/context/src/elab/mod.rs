@@ -22,7 +22,7 @@ impl ModContext<'_, '_> {
         let mut ty = self.cst_to_unif(ty, &mut Vec::new())?;
         let mut expr = self.cst_to_unif(cst_expr, &mut Vec::new())?;
 
-        self.unify_ty_expr(&mut ty, &mut expr)?;
+        self.unify_ty_expr(&mut ty, &mut expr, &mut Vec::new())?;
 
         let expr = reify(&*expr).chain(|| err!(@cst_expr.loc(), "When elaborating {}", expr))?;
         let chk_ty =
@@ -343,10 +343,15 @@ impl ModContext<'_, '_> {
     }
 
     /// Unifies a (top-level) expression with its type.
-    pub fn unify_ty_expr(&self, ty: &mut Rc<UnifExpr>, expr: &mut Rc<UnifExpr>) -> Result<()> {
+    pub fn unify_ty_expr(
+        &self,
+        ty: &mut Rc<UnifExpr>,
+        expr: &mut Rc<UnifExpr>,
+        env: &mut Vec<(SharedString, Rc<UnifExpr>, Option<Rc<UnifExpr>>)>,
+    ) -> Result<()> {
         let mut constraints = Vec::new();
-        self.tyck(ty, &mut constraints, None, &mut Vec::new())?;
-        self.tyck(expr, &mut constraints, Some(ty.clone()), &mut Vec::new())?;
+        self.tyck(ty, &mut constraints, None, env)?;
+        self.tyck(expr, &mut constraints, Some(ty.clone()), env)?;
 
         debug!("Unifying a declaration:");
         debug!("expr = {}", expr);
@@ -366,8 +371,8 @@ impl ModContext<'_, '_> {
         unify(expr, constraints.clone())?;
         unify(ty, constraints)?;
 
-        self.normalize(expr, &mut NormalizeEnv::default());
-        self.normalize(ty, &mut NormalizeEnv::default());
+        self.normalize(expr, &mut NormalizeEnv::new(env));
+        self.normalize(ty, &mut NormalizeEnv::new(env));
 
         Ok(())
     }
