@@ -6,4 +6,5 @@
 
 (def main ; (pi () unit)
   (fn ()
-  	(square-area 5)))
+  	(square-area 5)
+	(succ zero)))

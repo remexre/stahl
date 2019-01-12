@@ -1,10 +1,7 @@
 (module geom:math
   *)
 
-(import compiler-builtins
-  fixnum)
-
-(def * (pi ((_ fixnum) (_ fixnum)) fixnum)
+(def * (pi ((_ Fixnum) (_ Fixnum)) Fixnum)
   (fn (x y)
     ; TODO
   	x))

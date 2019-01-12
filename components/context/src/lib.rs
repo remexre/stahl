@@ -318,14 +318,14 @@ impl<'c> LibContext<'c> {
                     }
 
                     let name = FQName(lib_name.clone(), mod_name.clone(), name.clone());
-                    let decl = self.get_decl(name.clone()).ok_or_else(|| {
+                    self.get_decl(name.clone()).ok_or_else(|| {
                         err!(
                             "Module {} can't import non-existent {}",
                             module.name(),
                             name
                         )
                     })?;
-                    decl_names.extend(decl.names());
+                    decl_names.insert(name.2);
                 }
             }
         }
@@ -895,13 +895,7 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
         let loc = self.loc.take();
         let name = self.name.take();
         let ty_args = self.ty_args.take();
-
-        let ctors = self
-            .ctors
-            .take()
-            .into_iter()
-            .map(|ctor| todo!("ctor {:?} in type {}", ctor, name))
-            .collect::<Result<_>>()?;
+        let ctors = self.ctors.take();
 
         self.module.add(Decl::DefTy(loc, name, ty_args, ctors))?;
         Ok(self.module.take())
@@ -923,19 +917,24 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
         if self.ty_args.is_empty() {
             ty
         } else {
-            unimplemented!()
+            unimplemented!("{:?}", self.ty_args)
         }
+    }
+
+    /// Returns the fully-qualified name of the type being defined.
+    fn name(&self) -> FQName {
+        FQName(
+            self.module.lib_name.clone(),
+            self.module.mod_name.clone(),
+            self.name.clone(),
+        )
     }
 
     /// Returns the UnifExpr corresponding to the type being defined.
     fn ty(&self) -> Rc<UnifExpr> {
         Rc::new(UnifExpr::Intrinsic(
             self.loc.clone(),
-            Intrinsic::Tag(FQName(
-                self.module.lib_name.clone(),
-                self.module.mod_name.clone(),
-                self.name.clone(),
-            )),
+            Intrinsic::Tag(self.name()),
         ))
     }
 
@@ -995,6 +994,7 @@ impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
     /// Adds this constructor to the `defty`.
     pub fn finish(mut self) -> Result<&'d mut DefTyCtorsContext<'m, 'l, 'c>> {
         let name = self.name.take();
+        let ty_name = self.defty.name();
 
         let mut ctor_kind = Rc::new(UnifExpr::Intrinsic(
             self.zipper.expr().loc(),
@@ -1010,7 +1010,7 @@ impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
             .module
             .unify_ty_expr(&mut ctor_kind, &mut ctor_type, &mut env)?;
         let ctor_type = reify(&ctor_type)?;
-        let (ctor_args, ty_args) = match &*ctor_type {
+        let (ctor_args, ret) = match &*ctor_type {
             Expr::Pi(_, args, ret, effs) if !args.is_empty() => {
                 if !effs.0.is_empty() {
                     raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type);
@@ -1019,12 +1019,21 @@ impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
                 let ctor_args = args.clone();
                 warn!("TODO: Positivity check");
 
-                let ty_args = match **ret {
-                    _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
-                };
-
-                (ctor_args, ty_args)
+                (ctor_args, &**ret)
             }
+            Expr::Call(_, _, _) | Expr::Intrinsic(_, Intrinsic::Tag(_)) => {
+                (Vec::new(), &*ctor_type)
+            }
+            _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
+        };
+        let ty_args = match ret {
+            Expr::Call(_, func, args) if !args.is_empty() => match **func {
+                Expr::Intrinsic(_, Intrinsic::Tag(ref name)) if name == &ty_name => {
+                    unimplemented!()
+                }
+                _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
+            },
+            Expr::Intrinsic(_, Intrinsic::Tag(name)) if name == &ty_name => Vec::new(),
             _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
         };
 

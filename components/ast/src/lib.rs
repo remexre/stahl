@@ -164,10 +164,7 @@ impl Decl {
             | Decl::DefEff(_, name, _, _)
             | Decl::DefEffSet(_, name, _) => vec![name.clone()],
             Decl::DefTy(_, name, _, ctors) => {
-                let mut names = ctors
-                    .iter()
-                    .map(|ctor| unimplemented!())
-                    .collect::<Vec<_>>();
+                let mut names = ctors.iter().map(|ctor| ctor.0.clone()).collect::<Vec<_>>();
                 names.push(name.clone());
                 names
             }

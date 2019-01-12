@@ -11,6 +11,7 @@ Goals
 -	[x] Typechecking for core language
 -	[x] Modules
 -	[ ] ADTs
+-	[ ] Recursion principles
 -	[ ] CPDT arithmetic interpreter example
 -	[ ] Interfaces
 -	[ ] Typechecking with effects

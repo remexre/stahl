@@ -275,9 +275,64 @@ impl ModContext<'_, '_> {
                     )),
                     UnifEffs::any(),
                 )),
-                Intrinsic::Tag(ref name) => {
-                    unimplemented!();
-                }
+                Intrinsic::Tag(ref name) => match self.get_decl(name.clone()) {
+                    Some(Decl::DefTy(decl_loc, ty_name, ty_args, ctors)) => {
+                        if name.to_string() == **ty_name {
+                            let ty_args = ty_args
+                                .iter()
+                                .map(|(name, ty)| {
+                                    (
+                                        name.clone().unwrap_or_else(SharedString::gensym_anon),
+                                        Rc::new((&**ty).into()),
+                                    )
+                                })
+                                .collect();
+                            Rc::new(UnifExpr::Pi(
+                                decl_loc.clone(),
+                                ty_args,
+                                Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type)),
+                                UnifEffs::none(),
+                            ))
+                        } else {
+                            for (ctor_name, ctor_args, ty_args) in ctors {
+                                if name.2 == ctor_name {
+                                    let ty =
+                                        Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type));
+                                    let ty = if ty_args.is_empty() {
+                                        ty
+                                    } else {
+                                        let ty_args = ty_args
+                                            .iter()
+                                            .map(|ty| Rc::new((&**ty).into()))
+                                            .collect();
+                                        Rc::new(UnifExpr::Call(decl_loc.clone(), ty, ty_args))
+                                    };
+                                    let ty = if ctor_args.is_empty() {
+                                        ty
+                                    } else {
+                                        let ctor_args = ctor_args
+                                            .iter()
+                                            .map(|(name, ty)| {
+                                                (name.clone(), Rc::new((&**ty).into()))
+                                            })
+                                            .collect();
+                                        Rc::new(UnifExpr::Pi(
+                                            decl_loc.clone(),
+                                            ctor_args,
+                                            ty,
+                                            UnifEffs::none(),
+                                        ))
+                                    };
+                                    return Ok(ty);
+                                }
+                            }
+                            raise!(@loc.clone(), "{} not found in {}; this should be impossible",
+                                name, ty_name)
+                        }
+                    }
+                    Some(decl) => raise!(@decl.loc(), "Found tag for non-type, non-ctor {}", name),
+                    None => raise!(@loc.clone(), "Found tag for nonexistent {}", name),
+                },
                 Intrinsic::Type => Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::TypeOfType)),
                 Intrinsic::TypeOfType => {
                     raise!(@loc.clone(), "The type of type shouldn't be typechecked")

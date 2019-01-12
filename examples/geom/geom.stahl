@@ -1,10 +1,8 @@
 (module geom
   square-area)
 
-(import compiler-builtins
-  fixnum)
 (import geom
   (math *))
 
-(def square-area (pi ((_ fixnum)) fixnum)
+(def square-area (pi ((_ Fixnum)) Fixnum)
   (fn (x) (* x x)))

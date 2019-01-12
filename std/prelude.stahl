@@ -1,15 +1,15 @@
 (module std:prelude
-  Bool ; false true
+  Bool false true
   Fixnum fixnum-add
   Eq refl
-  List ; nil-List cons-List
-  Nat ; zero succ
+  ; List nil-List cons-List
+  Nat zero succ
   String
   Symbol
   the
   TYPE
-  Unit ; unit
-  Vect ; nil-Vect cons-Vect
+  Unit unit
+  ; Vect nil-Vect cons-Vect
   Void)
 
 (import compiler-builtins
@@ -31,10 +31,10 @@
   zero Nat
   succ (pi ((_ Nat)) Nat))
 
-(defty List (pi ((T TYPE)) TYPE)
-  nil-List  (pi ((T TYPE))                    (List T))
-  cons-List (pi ((T TYPE) (_ T) (_ (List T))) (List T)))
+; (defty List (pi ((T TYPE)) TYPE)
+;   nil-List  (pi ((T TYPE))                    (List T))
+;   cons-List (pi ((T TYPE) (_ T) (_ (List T))) (List T)))
 
-(defty Vect (pi ((T TYPE) (_ Nat)) TYPE)
-  nil-Vect  (pi ((T TYPE))                              (Vect T zero))
-  cons-Vect (pi ((T TYPE) (n Nat) (_ T) (_ (Vect T n))) (Vect T (succ n))))
+; (defty Vect (pi ((T TYPE) (_ Nat)) TYPE)
+;   nil-Vect  (pi ((T TYPE))                              (Vect T zero))
+;   cons-Vect (pi ((T TYPE) (n Nat) (_ T) (_ (Vect T n))) (Vect T (succ n))))
