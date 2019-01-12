@@ -6,5 +6,4 @@
 
 (def main ; (pi () Unit (IO))
   (fn ()
-  	(square-area 5)
-	(type-of _ (succ (the Nat zero)))))
+    (square-area 5)))
