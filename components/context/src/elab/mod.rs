@@ -10,7 +10,7 @@ use crate::{
     ModContext,
 };
 use log::debug;
-use stahl_ast::{Decl, Effects, Expr, Intrinsic, Literal};
+use stahl_ast::{Decl, Effects, Expr, FQName, Intrinsic, Literal};
 use stahl_cst::{Expr as CstExpr, Value};
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_util::{genint, SharedString};
@@ -204,14 +204,14 @@ impl ModContext<'_, '_> {
                 Rc::new(UnifExpr::Intrinsic(val.loc(), intr))
             }
             UnifExpr::GlobalVar(loc, name) => match self.get_decl(name.clone()) {
-                Some(Decl::Def(_, _, ty, _)) => Rc::new((&**ty).into()),
-                Some(Decl::DefEff(_, _, _, _)) => {
+                Some((_, Decl::Def(_, _, ty, _))) => Rc::new((&**ty).into()),
+                Some((_, Decl::DefEff(_, _, _, _))) => {
                     raise!(@loc.clone(), "{} is an effect, not a value", name)
                 }
-                Some(Decl::DefEffSet(_, _, _)) => {
+                Some((_, Decl::DefEffSet(_, _, _))) => {
                     raise!(@loc.clone(), "{} is an effect set, not a value", name)
                 }
-                Some(Decl::DefTy(_, _, _, _)) => unimplemented!(),
+                Some((_, Decl::DefTy(_, _, _, _))) => unimplemented!(),
                 None => raise!(@loc.clone(), "Undefined global variable {}", name),
             },
             UnifExpr::Intrinsic(loc, i) => match *i {
@@ -276,28 +276,39 @@ impl ModContext<'_, '_> {
                     UnifEffs::any(),
                 )),
                 Intrinsic::Tag(ref name) => match self.get_decl(name.clone()) {
-                    Some(Decl::DefTy(decl_loc, ty_name, ty_args, ctors)) => {
-                        if name.to_string() == **ty_name {
-                            let ty_args = ty_args
-                                .iter()
-                                .map(|(name, ty)| {
-                                    (
-                                        name.clone().unwrap_or_else(SharedString::gensym_anon),
-                                        Rc::new((&**ty).into()),
-                                    )
-                                })
-                                .collect();
-                            Rc::new(UnifExpr::Pi(
-                                decl_loc.clone(),
-                                ty_args,
-                                Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type)),
-                                UnifEffs::none(),
-                            ))
+                    Some((ref name, Decl::DefTy(decl_loc, ty_name, ty_args, ctors))) => {
+                        if name.2 == **ty_name {
+                            let ty = Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type));
+                            if ty_args.is_empty() {
+                                ty
+                            } else {
+                                let ty_args = ty_args
+                                    .iter()
+                                    .map(|(name, ty)| {
+                                        (
+                                            name.clone().unwrap_or_else(SharedString::gensym_anon),
+                                            Rc::new((&**ty).into()),
+                                        )
+                                    })
+                                    .collect();
+                                Rc::new(UnifExpr::Pi(
+                                    decl_loc.clone(),
+                                    ty_args,
+                                    ty,
+                                    UnifEffs::none(),
+                                ))
+                            }
                         } else {
                             for (ctor_name, ctor_args, ty_args) in ctors {
                                 if name.2 == ctor_name {
-                                    let ty =
-                                        Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type));
+                                    let ty = Rc::new(UnifExpr::Intrinsic(
+                                        loc.clone(),
+                                        Intrinsic::Tag(FQName(
+                                            name.0.clone(),
+                                            name.1.clone(),
+                                            ty_name.clone(),
+                                        )),
+                                    ));
                                     let ty = if ty_args.is_empty() {
                                         ty
                                     } else {
@@ -330,7 +341,9 @@ impl ModContext<'_, '_> {
                                 name, ty_name)
                         }
                     }
-                    Some(decl) => raise!(@decl.loc(), "Found tag for non-type, non-ctor {}", name),
+                    Some((_, decl)) => {
+                        raise!(@decl.loc(), "Found tag for non-type, non-ctor {}", name)
+                    }
                     None => raise!(@loc.clone(), "Found tag for nonexistent {}", name),
                 },
                 Intrinsic::Type => Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::TypeOfType)),

@@ -2,12 +2,14 @@
   Bool false true
   Fixnum fixnum-add
   Eq refl
+  id
   ; List nil-List cons-List
   Nat zero succ
   String
   Symbol
   the
   TYPE
+  type-of
   Unit unit
   ; Vect nil-Vect cons-Vect
   Void)
@@ -15,8 +17,14 @@
 (import compiler-builtins
   Fixnum fixnum-add Eq refl String Symbol TYPE)
 
+(def id (pi ((T TYPE) (_ T)) T)
+  (fn (_ x) x))
+
 (def the (pi ((T TYPE) (_ T)) T)
   (fn (_ x) x))
+
+(def type-of (pi ((T TYPE) (_ T)) TYPE)
+  (fn (T _) T))
 
 (defty Void TYPE)
 

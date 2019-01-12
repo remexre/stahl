@@ -4,7 +4,7 @@
 (import geom
   square-area)
 
-(def main ; (pi () unit)
+(def main ; (pi () Unit (IO))
   (fn ()
   	(square-area 5)
-	(succ zero)))
+	(type-of _ (succ (the Nat zero)))))

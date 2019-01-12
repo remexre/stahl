@@ -158,7 +158,7 @@ impl Context {
 
     /// Returns the declaration referenced by the given fully qualified name. If `enforce_exports`
     /// is false, the decl is returned regardless of whether it is public.
-    pub fn get_decl(&self, name: FQName, enforce_exports: bool) -> Result<&Decl> {
+    pub fn get_decl(&self, name: FQName, enforce_exports: bool) -> Result<(FQName, &Decl)> {
         let library = self
             .libs
             .get(&name.0)
@@ -181,7 +181,7 @@ impl Context {
 
         for decl in &module.decls {
             if decl.names().contains(&name.2) {
-                return Ok(decl);
+                return Ok((name, decl));
             }
         }
 
@@ -345,13 +345,13 @@ impl<'c> LibContext<'c> {
     }
 
     /// Returns the decl referred to by the given global name.
-    pub fn get_decl(&self, name: FQName) -> Option<&Decl> {
+    pub fn get_decl(&self, name: FQName) -> Option<(FQName, &Decl)> {
         if self.name == name.0 {
             let module = self.mods.get(&name.1)?;
 
             for decl in &module.decls {
                 if decl.names().contains(&name.2) {
-                    return Some(decl);
+                    return Some((name, decl));
                 }
             }
 
@@ -641,11 +641,11 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
     }
 
     /// Returns the decl referred to by the given global name.
-    pub fn get_decl(&self, name: FQName) -> Option<&Decl> {
+    pub fn get_decl(&self, name: FQName) -> Option<(FQName, &Decl)> {
         if self.module.lib_name == name.0 && self.mod_name == name.1 {
             for decl in &self.module.decls {
                 if decl.names().contains(&name.2) {
-                    return Some(decl);
+                    return Some((name, decl));
                 }
             }
             None
@@ -688,10 +688,9 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                                                     mod_name.clone(),
                                                     name.2.clone(),
                                                 );
-                                                return match self.get_decl(name.clone()) {
-                                                    Some(decl) => Ok((name, decl)),
-                                                    None => raise!("{} doesn't exist", name),
-                                                };
+                                                return self
+                                                    .get_decl(name.clone())
+                                                    .ok_or_else(|| err!("{} doesn't exist", name));
                                             }
                                         }
                                     }
@@ -702,20 +701,15 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                             }
                         }
                     } else {
-                        self.library
-                            .context
-                            .get_decl(name.clone(), true)
-                            .map(|decl| (name, decl))
+                        self.library.context.get_decl(name.clone(), true)
                     }
                 }
                 None => raise!("No definition for {} exists", name),
             }
         } else {
             let name = name.parse::<FQName>()?;
-            match self.get_decl(name.clone()) {
-                Some(decl) => Ok((name, decl)),
-                None => raise!("No definition for {} exists", name),
-            }
+            self.get_decl(name.clone())
+                .ok_or_else(|| err!("No definition for {} exists", name))
         }
     }
 }

@@ -95,14 +95,14 @@ impl ModContext<'_, '_> {
                 }
             }
             UnifExpr::GlobalVar(loc, name) => match self.get_decl(name.clone()) {
-                Some(Decl::Def(_, _, _, expr)) => Ok((&**expr).into()),
-                Some(Decl::DefEff(_, _, _, _)) => {
+                Some((_, Decl::Def(_, _, _, expr))) => Ok((&**expr).into()),
+                Some((_, Decl::DefEff(_, _, _, _))) => {
                     raise!(@loc.clone(), "{} is an effect, not a value", name)
                 }
-                Some(Decl::DefEffSet(_, _, _)) => {
+                Some((_, Decl::DefEffSet(_, _, _))) => {
                     raise!(@loc.clone(), "{} is an effect set, not a value", name)
                 }
-                Some(Decl::DefTy(_, _, _, _)) => unimplemented!(),
+                Some((_, Decl::DefTy(_, _, _, _))) => unimplemented!(),
                 None => raise!(@loc.clone(), "{} is not defined", name),
             },
             UnifExpr::LocalVar(loc, name) => env

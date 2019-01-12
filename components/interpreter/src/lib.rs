@@ -44,8 +44,8 @@ impl<'c> Interpreter<'c> {
                 expr
             }
             Expr::GlobalVar(_, ref name) => match self.ctx.get_decl(name.clone(), false).unwrap() {
-                Decl::Def(_, _, _, expr) => expr.clone(),
-                decl => panic!("{} is not a def", decl),
+                (_, Decl::Def(_, _, _, expr)) => expr.clone(),
+                (_, decl) => panic!("{} is not a def", decl),
             },
             Expr::LocalVar(_, ref name) => {
                 for (n, expr) in self.env.iter().cloned().rev() {
@@ -92,7 +92,9 @@ impl<'c> Interpreter<'c> {
                         self.env.truncate(old_env_len);
                         val
                     }
-                    Expr::Intrinsic(_, Intrinsic::Eq) | Expr::Intrinsic(_, Intrinsic::Refl) => {
+                    Expr::Intrinsic(_, Intrinsic::Eq)
+                    | Expr::Intrinsic(_, Intrinsic::Refl)
+                    | Expr::Intrinsic(_, Intrinsic::Tag(_)) => {
                         Arc::new(Expr::Call(loc.clone(), func, call_args))
                     }
                     Expr::Intrinsic(_, Intrinsic::FixnumAdd) => match &*call_args {
