@@ -215,25 +215,6 @@ impl ModContext<'_, '_> {
                 None => raise!(@loc.clone(), "Undefined global variable {}", name),
             },
             UnifExpr::Intrinsic(loc, i) => match *i {
-                Intrinsic::Eq => Rc::new(UnifExpr::Pi(
-                    loc.clone(),
-                    vec![
-                        (
-                            "T".into(),
-                            Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type)),
-                        ),
-                        (
-                            "x".into(),
-                            Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())),
-                        ),
-                        (
-                            "y".into(),
-                            Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())),
-                        ),
-                    ],
-                    Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type)),
-                    UnifEffs::any(),
-                )),
                 Intrinsic::Fixnum | Intrinsic::String | Intrinsic::Symbol => {
                     Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type))
                 }
@@ -250,29 +231,6 @@ impl ModContext<'_, '_> {
                         ),
                     ],
                     Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
-                    UnifEffs::any(),
-                )),
-                Intrinsic::Refl => Rc::new(UnifExpr::Pi(
-                    loc.clone(),
-                    vec![
-                        (
-                            "T".into(),
-                            Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type)),
-                        ),
-                        (
-                            "x".into(),
-                            Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())),
-                        ),
-                    ],
-                    Rc::new(UnifExpr::Call(
-                        loc.clone(),
-                        Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Eq)),
-                        vec![
-                            Rc::new(UnifExpr::LocalVar(loc.clone(), "T".into())),
-                            Rc::new(UnifExpr::LocalVar(loc.clone(), "x".into())),
-                            Rc::new(UnifExpr::LocalVar(loc.clone(), "x".into())),
-                        ],
-                    )),
                     UnifEffs::any(),
                 )),
                 Intrinsic::Tag(ref name) => match self.get_decl(name.clone()) {

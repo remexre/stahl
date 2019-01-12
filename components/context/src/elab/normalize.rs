@@ -77,8 +77,7 @@ impl ModContext<'_, '_> {
                         env.ext.truncate(old_env_len);
                         Ok(unwrap_rc(last))
                     }
-                    UnifExpr::Intrinsic(_, Intrinsic::Eq)
-                    | UnifExpr::Intrinsic(_, Intrinsic::Refl) => {
+                    UnifExpr::Intrinsic(_, Intrinsic::Tag(_)) => {
                         Ok(UnifExpr::Call(loc, func, call_args))
                     }
                     UnifExpr::Intrinsic(_, Intrinsic::FixnumAdd) => match &*call_args {
@@ -134,8 +133,7 @@ impl UnifExpr {
             UnifExpr::Call(_, func, args) => {
                 if args.iter().all(|arg| arg.is_normal(env)) {
                     match **func {
-                        UnifExpr::Intrinsic(_, Intrinsic::Eq)
-                        | UnifExpr::Intrinsic(_, Intrinsic::Refl) => true,
+                        UnifExpr::Intrinsic(_, Intrinsic::Tag(_)) => true,
                         _ => false,
                     }
                 } else {

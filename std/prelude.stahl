@@ -1,7 +1,7 @@
 (module std:prelude
   Bool false true
   Fixnum fixnum-add
-  Eq refl
+  ; Eq refl
   id
   ; List nil-List cons-List
   Nat zero succ
@@ -15,7 +15,7 @@
   Void)
 
 (import compiler-builtins
-  Fixnum fixnum-add Eq refl String Symbol TYPE)
+  Fixnum fixnum-add String Symbol TYPE)
 
 (def id (pi ((T TYPE) (_ T)) T)
   (fn (_ x) x))
@@ -46,3 +46,6 @@
 ; (defty Vect (pi ((T TYPE) (_ Nat)) TYPE)
 ;   nil-Vect  (pi ((T TYPE))                              (Vect T zero))
 ;   cons-Vect (pi ((T TYPE) (n Nat) (_ T) (_ (Vect T n))) (Vect T (succ n))))
+
+; (defty Eq (pi ((T TYPE) (_ T) (_ T)) TYPE)
+;   refl (pi ((T TYPE) (a T)) (Eq T a a)))

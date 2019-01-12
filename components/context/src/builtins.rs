@@ -41,11 +41,6 @@ macro_rules! arrow {
     };
 }
 
-/// Creates a function call.
-macro_rules! call {
-    ($func:expr $(,$arg:expr)* $(,)*) => { Arc::new(Expr::Call(loc!(), $func, vec![$($arg),*])) };
-}
-
 /// Returns an intrinsic.
 macro_rules! intr {
     ($name:ident) => {
@@ -92,8 +87,6 @@ pub fn add_to(ctx: &mut Context, load_std: bool) -> Result<()> {
     builtin!(lib_ctx, {
         def "Fixnum" : (intr!(Type)) = intr!(Fixnum);
         def "fixnum-add" : (arrow!((intr!(Fixnum), intr!(Fixnum)) => intr!(Fixnum))) = intr!(FixnumAdd);
-        def "Eq" : (pi!((T: intr!(Type), x: var!(T), y: var!(T)) => intr!(Type))) = intr!(Eq);
-        def "refl" : (pi!((T: intr!(Type), x: var!(T)) => call!(intr!(Eq), var!(T), var!(x), var!(x)))) = intr!(Refl);
         def "String" : (intr!(Type)) = intr!(String);
         def "Symbol" : (intr!(Type)) = intr!(Symbol);
         def "TYPE" : (intr!(TypeOfType)) = intr!(Type);

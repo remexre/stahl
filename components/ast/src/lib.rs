@@ -209,18 +209,11 @@ impl Display for Effects {
 /// A compiler intrinsic.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Intrinsic {
-    /// The propositional equality type. This is defined as an intrinsic largely so it can be used
-    /// for optimization.
-    Eq,
-
     /// The type of machine-sized integers.
     Fixnum,
 
     /// Addition on fixnums.
     FixnumAdd,
-
-    /// The reflexive principle; the sole constructor of the Eq type.
-    Refl,
 
     /// The type of strings.
     String,
@@ -241,10 +234,8 @@ pub enum Intrinsic {
 impl Display for Intrinsic {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
-            Intrinsic::Eq => fmt.write_str("EQ"),
             Intrinsic::Fixnum => fmt.write_str("FIXNUM"),
             Intrinsic::FixnumAdd => fmt.write_str("FIXNUM-ADD"),
-            Intrinsic::Refl => fmt.write_str("REFL"),
             Intrinsic::String => fmt.write_str("STRING"),
             Intrinsic::Symbol => fmt.write_str("SYMBOL"),
             Intrinsic::Tag(name) => return write!(fmt, "{}", name),

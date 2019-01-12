@@ -1,14 +1,7 @@
 (module main
   main)
 
-; (import std
-;   (prelude println string))
-(import compiler-builtins
-  string
-  (unsafe bogus))
-
 (def main
   (fn ()
-    (def msg string
-      "Hello, world!")
+    (def msg "Hello, world!")
     msg))

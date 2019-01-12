@@ -92,9 +92,7 @@ impl<'c> Interpreter<'c> {
                         self.env.truncate(old_env_len);
                         val
                     }
-                    Expr::Intrinsic(_, Intrinsic::Eq)
-                    | Expr::Intrinsic(_, Intrinsic::Refl)
-                    | Expr::Intrinsic(_, Intrinsic::Tag(_)) => {
+                    Expr::Intrinsic(_, Intrinsic::Tag(_)) => {
                         Arc::new(Expr::Call(loc.clone(), func, call_args))
                     }
                     Expr::Intrinsic(_, Intrinsic::FixnumAdd) => match &*call_args {
@@ -123,9 +121,7 @@ impl<'c> Interpreter<'c> {
             Expr::Call(_, func, args) => {
                 if args.iter().all(|a| self.is_normal(a)) {
                     match &**func {
-                        Expr::Intrinsic(_, Intrinsic::Eq)
-                        | Expr::Intrinsic(_, Intrinsic::Refl)
-                        | Expr::Intrinsic(_, Intrinsic::Tag(_)) => true,
+                        Expr::Intrinsic(_, Intrinsic::Tag(_)) => true,
                         _ => false,
                     }
                 } else {
