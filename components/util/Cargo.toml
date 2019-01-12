@@ -5,4 +5,3 @@ name = "stahl_util"
 version = "0.1.0"
 
 [dependencies]
-owning_ref = "0.4.0"

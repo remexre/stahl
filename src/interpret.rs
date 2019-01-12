@@ -5,7 +5,7 @@ use stahl_interpreter::Interpreter;
 use std::sync::Arc;
 
 /// Runs a package's main function.
-pub fn run(mut ctx: Context, main: String, args: Vec<String>) -> Result<()> {
+pub fn run(mut ctx: Context, main: String, _args: Vec<String>) -> Result<()> {
     let main = ctx.load_lib_highest_version(main.into())?;
     let main = FQName(main, "".into(), "main".into());
 

@@ -157,13 +157,20 @@ impl Decl {
         }
     }
 
-    /// Returns the name of the declaration.
-    pub fn name(&self) -> SharedString {
+    /// Returns the names introduced by the declaration.
+    pub fn names(&self) -> Vec<SharedString> {
         match self {
             Decl::Def(_, name, _, _)
             | Decl::DefEff(_, name, _, _)
-            | Decl::DefEffSet(_, name, _)
-            | Decl::DefTy(_, name, _, _) => name.clone(),
+            | Decl::DefEffSet(_, name, _) => vec![name.clone()],
+            Decl::DefTy(_, name, _, ctors) => {
+                let mut names = ctors
+                    .iter()
+                    .map(|ctor| unimplemented!())
+                    .collect::<Vec<_>>();
+                names.push(name.clone());
+                names
+            }
         }
     }
 }
@@ -203,7 +210,7 @@ impl Display for Effects {
 }
 
 /// A compiler intrinsic.
-#[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Intrinsic {
     /// The propositional equality type. This is defined as an intrinsic largely so it can be used
     /// for optimization.
@@ -224,6 +231,9 @@ pub enum Intrinsic {
     /// The type of symbols.
     Symbol,
 
+    /// The tag for a constructor, recursion principle, or type.
+    Tag(FQName),
+
     /// The type of types.
     Type,
 
@@ -233,17 +243,17 @@ pub enum Intrinsic {
 
 impl Display for Intrinsic {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
-        let s = match self {
-            Intrinsic::Eq => "EQ",
-            Intrinsic::Fixnum => "FIXNUM",
-            Intrinsic::FixnumAdd => "FIXNUM-ADD",
-            Intrinsic::Refl => "REFL",
-            Intrinsic::String => "STRING",
-            Intrinsic::Symbol => "SYMBOL",
-            Intrinsic::Type => "TYPE",
-            Intrinsic::TypeOfType => "TYPE-OF-TYPE",
-        };
-        fmt.write_str(s)
+        match self {
+            Intrinsic::Eq => fmt.write_str("EQ"),
+            Intrinsic::Fixnum => fmt.write_str("FIXNUM"),
+            Intrinsic::FixnumAdd => fmt.write_str("FIXNUM-ADD"),
+            Intrinsic::Refl => fmt.write_str("REFL"),
+            Intrinsic::String => fmt.write_str("STRING"),
+            Intrinsic::Symbol => fmt.write_str("SYMBOL"),
+            Intrinsic::Tag(name) => return write!(fmt, "{}", name),
+            Intrinsic::Type => fmt.write_str("TYPE"),
+            Intrinsic::TypeOfType => fmt.write_str("TYPE-OF-TYPE"),
+        }
     }
 }
 

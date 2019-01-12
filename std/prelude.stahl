@@ -1,20 +1,27 @@
 (module std:prelude
-  Bool false true
+  Bool ; false true
   Fixnum fixnum-add
   Eq refl
-  List nil-List cons-List
-  Nat zero succ
+  List ; nil-List cons-List
+  Nat ; zero succ
   String
   Symbol
   the
   TYPE
-  Vect nil-Vect cons-Vect)
+  Unit ; unit
+  Vect ; nil-Vect cons-Vect
+  Void)
 
 (import compiler-builtins
   Fixnum fixnum-add Eq refl String Symbol TYPE)
 
 (def the (pi ((T TYPE) (_ T)) T)
   (fn (_ x) x))
+
+(defty Void TYPE)
+
+(defty Unit TYPE
+  unit Unit)
 
 (defty Bool TYPE
   false Bool

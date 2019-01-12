@@ -70,6 +70,33 @@ impl Decl {
                 },
                 _ => raise!(@val.loc(), "Invalid defeff: {}", val),
             },
+            "defty" => {
+                if let (l, Value::Nil(_)) = t.clone().as_list() {
+                    if l.len() < 2 || l.len() % 2 == 1 {
+                        raise!(@val.loc(), "Invalid defty: {}", val)
+                    }
+                    let name = match &l[0] {
+                        Value::Symbol(_, name) => name.clone(),
+                        val => raise!(@val.loc(), "Invalid type name: {}", val),
+                    };
+                    let kind = Expr::from_value_unnamed(&l[1], "The kind of a type")?;
+                    let ctors = l[2..]
+                        .chunks(2)
+                        .map(|chunk| {
+                            let name = match &chunk[0] {
+                                Value::Symbol(_, name) => name.clone(),
+                                val => raise!(@val.loc(), "Invalid constructor name: {}", val),
+                            };
+                            let ty =
+                                Expr::from_value_unnamed(&chunk[1], "The type of a constructor")?;
+                            Ok((name, ty))
+                        })
+                        .collect::<Result<_>>()?;
+                    Ok(Decl::DefTy(loc, name, kind, ctors))
+                } else {
+                    raise!(@val.loc(), "Invalid defty: {}", val)
+                }
+            }
             decl_type => raise!(@loc, "{} is not a declaration type", decl_type),
         }
     }

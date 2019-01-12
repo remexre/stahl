@@ -4,7 +4,6 @@
 mod split_vec;
 
 pub use crate::split_vec::SplitVec;
-use owning_ref::ArcRef;
 use std::{
     borrow::Borrow,
     ffi::OsStr,
@@ -20,7 +19,7 @@ use std::{
 
 /// A path whose backing storage is shared (via a reference count).
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct SharedPath(ArcRef<Path>);
+pub struct SharedPath(Arc<Path>);
 
 impl AsRef<OsStr> for SharedPath {
     fn as_ref(&self) -> &OsStr {
@@ -55,13 +54,13 @@ impl Display for SharedPath {
 
 impl From<PathBuf> for SharedPath {
     fn from(path: PathBuf) -> SharedPath {
-        SharedPath(ArcRef::from(Arc::from(path.as_ref())))
+        SharedPath(Arc::from(path.as_ref()))
     }
 }
 
 /// A string whose backing storage is shared (via a reference count).
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct SharedString(ArcRef<str>);
+pub struct SharedString(Arc<str>, bool);
 
 impl SharedString {
     /// Returns the string being shared.
@@ -72,6 +71,18 @@ impl SharedString {
     /// Creates a string based on `genint`.
     pub fn gensym() -> SharedString {
         format!("#G:{}#", genint()).into()
+    }
+
+    /// Creates a string based on `genint` that returns true for `is_anon`.
+    pub fn gensym_anon() -> SharedString {
+        let mut s = SharedString::gensym();
+        s.1 = true;
+        s
+    }
+
+    /// Returns whether the string is the result of instantiating an anonymous argument.
+    pub fn is_anon(&self) -> bool {
+        self.1
     }
 }
 
@@ -120,7 +131,7 @@ impl Display for SharedString {
 
 impl From<&str> for SharedString {
     fn from(s: &str) -> SharedString {
-        SharedString(ArcRef::from(Arc::from(s)))
+        SharedString(Arc::from(s), false)
     }
 }
 
@@ -132,7 +143,7 @@ impl From<&String> for SharedString {
 
 impl From<String> for SharedString {
     fn from(s: String) -> SharedString {
-        SharedString(ArcRef::from(Arc::from(s)))
+        SharedString(Arc::from(s), false)
     }
 }
 

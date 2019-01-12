@@ -30,7 +30,8 @@ impl ModContext<'_, '_> {
         Ok((expr, chk_ty))
     }
 
-    fn cst_to_unif(
+    /// Converts a CST expression to a `UnifExpr`, with the given variables treated as locals.
+    pub fn cst_to_unif(
         &mut self,
         expr: &CstExpr,
         locals: &mut Vec<SharedString>,
@@ -60,7 +61,7 @@ impl ModContext<'_, '_> {
                 let args = args
                     .iter()
                     .cloned()
-                    .map(|s| s.unwrap_or_else(SharedString::gensym))
+                    .map(|s| s.unwrap_or_else(SharedString::gensym_anon))
                     .collect::<Vec<_>>();
                 locals.extend(args.iter().cloned());
                 let body = body
@@ -94,7 +95,7 @@ impl ModContext<'_, '_> {
                     .iter()
                     .map(|(name, ty)| {
                         let ty = self.cst_to_unif(ty, locals)?;
-                        let name = name.clone().unwrap_or_else(SharedString::gensym);
+                        let name = name.clone().unwrap_or_else(SharedString::gensym_anon);
                         locals.push(name.clone());
                         Ok((name, ty))
                     })
@@ -107,7 +108,7 @@ impl ModContext<'_, '_> {
                     .into_iter()
                     .map(|name| match self.resolve(name.clone()) {
                         Ok((name, Decl::DefEff(_, _, _, _))) => Ok(name),
-                        Ok((name, Decl::DefEffSet(_, _, _))) => todo!(@loc.clone()),
+                        Ok((_name, Decl::DefEffSet(_, _, _))) => todo!(@loc.clone()),
                         Ok((name, Decl::Def(_, _, _, _))) => {
                             raise!(@loc.clone(), "{} is a value, not an effect", name)
                         }
@@ -132,7 +133,8 @@ impl ModContext<'_, '_> {
                             raise!(@loc.clone(), "{} is an effect set, not a value", name)
                         }
                         Ok((name, Decl::DefTy(_, _, _, _))) => {
-                            raise!(@loc.clone(), "{} is a type, not a value", name)
+                            // TODO: Ctors?
+                            UnifExpr::Intrinsic(loc.clone(), Intrinsic::Tag(name))
                         }
                         Err(err) => {
                             return Err(
@@ -273,6 +275,9 @@ impl ModContext<'_, '_> {
                     )),
                     UnifEffs::any(),
                 )),
+                Intrinsic::Tag(ref name) => {
+                    unimplemented!();
+                }
                 Intrinsic::Type => Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::TypeOfType)),
                 Intrinsic::TypeOfType => {
                     raise!(@loc.clone(), "The type of type shouldn't be typechecked")
@@ -382,7 +387,7 @@ pub fn reify(expr: &UnifExpr) -> Result<Arc<Expr>> {
         }
         UnifExpr::Const(loc, lit) => Ok(Arc::new(Expr::Const(loc.clone(), lit.clone()))),
         UnifExpr::GlobalVar(loc, name) => Ok(Arc::new(Expr::GlobalVar(loc.clone(), name.clone()))),
-        UnifExpr::Intrinsic(loc, i) => Ok(Arc::new(Expr::Intrinsic(loc.clone(), *i))),
+        UnifExpr::Intrinsic(loc, i) => Ok(Arc::new(Expr::Intrinsic(loc.clone(), i.clone()))),
         UnifExpr::Lam(loc, args, body) => {
             let body = body
                 .iter()

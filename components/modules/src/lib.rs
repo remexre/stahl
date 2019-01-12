@@ -135,13 +135,22 @@ pub struct Module {
 }
 
 impl Module {
+    /// Returns the name of the module.
+    pub fn name(&self) -> SharedString {
+        if self.mod_name == "" {
+            self.lib_name.to_string().into()
+        } else {
+            format!("{}:{}", self.lib_name, self.mod_name).into()
+        }
+    }
+
     /// Resolves a local name inside this module.
     pub fn resolve(&self, name: SharedString) -> Option<FQName> {
         assert!(!name.contains(':'));
 
         // Check declarations in the module.
         for decl in &self.decls {
-            if decl.name() == name {
+            if decl.names().contains(&name) {
                 return Some(FQName(self.lib_name.clone(), self.mod_name.clone(), name));
             }
         }

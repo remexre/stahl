@@ -24,8 +24,8 @@ fn with_context(load_std: bool, f: impl FnOnce(&mut ModContext)) {
             hashmap! {
                 "compiler-builtins".into() => hashmap! {
                     "".into() => hashset!{
-                        "fixnum".into(),
-                        "type".into(),
+                        "Fixnum".into(),
+                        "TYPE".into(),
                     }
                 }
             },

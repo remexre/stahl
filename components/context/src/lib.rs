@@ -18,7 +18,7 @@ pub use crate::{
     types::{UnifEffs, UnifExpr},
     zipper::Zipper,
 };
-use stahl_ast::{Decl, FQName, LibName};
+use stahl_ast::{Decl, Expr, FQName, Intrinsic, LibName};
 use stahl_cst::Decl as CstDecl;
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_modules::{Library, Module};
@@ -179,7 +179,7 @@ impl Context {
         }
 
         for decl in &module.decls {
-            if decl.name() == &name.2 {
+            if decl.names().contains(&name.2) {
                 return Ok(decl);
             }
         }
@@ -297,16 +297,80 @@ impl<'c> LibContext<'c> {
     /// Inserts the given module, creating an entry for it in the context.
     pub fn insert_mod(&mut self, module: Module) -> Result<()> {
         if self.library.mods.contains_key(&module.mod_name) {
-            raise!(
-                "Module {}:{} already exists",
-                self.library.name,
-                module.mod_name
-            )
+            raise!("Module {} already exists", module.name())
         }
 
-        // TODO: Check imports, exports, etc.
+        let mut decl_names = module
+            .decls
+            .iter()
+            .flat_map(|d| d.names())
+            .collect::<HashSet<_>>();
+        for (lib_name, mods) in &module.imports {
+            for (mod_name, names) in mods {
+                for name in names {
+                    if decl_names.contains(name) {
+                        raise!(
+                            "Module {} imports {}, but that already exists in the module",
+                            module.name(),
+                            name
+                        );
+                    }
+
+                    let name = FQName(lib_name.clone(), mod_name.clone(), name.clone());
+                    let decl = self.get_decl(name.clone()).ok_or_else(|| {
+                        err!(
+                            "Module {} can't import non-existent {}",
+                            module.name(),
+                            name
+                        )
+                    })?;
+                    decl_names.extend(decl.names());
+                }
+            }
+        }
+
+        for name in &module.exports {
+            if !decl_names.contains(name) {
+                raise!(
+                    "Module {} exports {}, but does not define it",
+                    module.name(),
+                    name
+                );
+            }
+        }
+
         self.library.mods.insert(module.mod_name.clone(), module);
         Ok(())
+    }
+
+    /// Returns the decl referred to by the given global name.
+    pub fn get_decl(&self, name: FQName) -> Option<&Decl> {
+        if self.name == name.0 {
+            let module = self.mods.get(&name.1)?;
+
+            for decl in &module.decls {
+                if decl.names().contains(&name.2) {
+                    return Some(decl);
+                }
+            }
+
+            for (lib_name, mods) in &module.imports {
+                for (mod_name, names) in mods {
+                    for imp_name in names {
+                        if imp_name == &name.2 {
+                            return self.get_decl(FQName(
+                                lib_name.clone(),
+                                mod_name.clone(),
+                                imp_name.clone(),
+                            ));
+                        }
+                    }
+                }
+            }
+            None
+        } else {
+            self.context.get_decl(name, true).ok()
+        }
     }
 
     /// Loads a module, and all of the modules from the same library that it depends on. Used
@@ -423,15 +487,16 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
 
     /// Adds a new declaration.
     pub fn add(&mut self, decl: Decl) -> Result<()> {
-        let name = decl.name();
-        if self.module.decls.iter().any(|decl| decl.name() == name) {
-            raise!(
-                @decl.loc(),
-                "Module {}:{} already declares {}",
-                self.library.library.name,
-                self.module.mod_name,
-                name
-            )
+        for name in decl.names() {
+            if self.module.decls.iter().any(|d| d.names().contains(&name)) {
+                raise!(
+                    @decl.loc(),
+                    "Module {}:{} already declares {}",
+                    self.library.library.name,
+                    self.module.mod_name,
+                    name
+                )
+            }
         }
 
         self.module.decls.push(decl);
@@ -451,7 +516,7 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                     .into_iter()
                     .map(|eff| match self.resolve(eff) {
                         Ok((name, Decl::DefEff(_, _, _, _))) => Ok(name),
-                        Ok((name, Decl::DefEffSet(_, _, _))) => todo!(@loc.clone()),
+                        Ok((_name, Decl::DefEffSet(_, _, _))) => todo!(@loc.clone()),
                         Ok((name, Decl::Def(_, _, _, _))) => {
                             raise!(@loc.clone(), "{} is a value, not an effect", name)
                         }
@@ -463,11 +528,22 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                     .collect::<Result<_>>()?;
                 self.add(Decl::DefEffSet(loc, name, effs))
             }
-            CstDecl::DefTy(loc, _name, _ty_args, _ctors) => todo!(@loc),
+            CstDecl::DefTy(loc, name, kind, ctors) => {
+                self.with_defty(loc, name, |defty_ctx| {
+                    let mut locals = Vec::new();
+                    let kind = defty_ctx.module.cst_to_unif(&kind, &mut locals)?;
+                    defty_ctx.kind_zipper().fill(kind);
+                    if !ctors.is_empty() {
+                        warn!("TODO Fill ctors {:?}", ctors);
+                    }
+                    Ok(())
+                })?;
+                Ok(())
+            }
         }
     }
 
-    /// Begins creating a def.
+    /// Begins creating a `def`.
     pub fn create_def<'m>(
         &'m mut self,
         loc: Location,
@@ -481,6 +557,22 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
             name: name.into(),
             type_zipper: type_zipper.into(),
             expr_zipper: expr_zipper.into(),
+        }
+    }
+
+    /// Begins creating a `defty`.
+    pub fn create_defty<'m>(
+        &'m mut self,
+        loc: Location,
+        name: SharedString,
+    ) -> DefTyContext<'m, 'l, 'c> {
+        let kind_zipper = Zipper::new(Rc::new(UnifExpr::UnifVar(loc.clone(), genint())));
+        DefTyContext {
+            module: self.into(),
+            loc: loc.into(),
+            name: name.into(),
+            kind_zipper: kind_zipper.into(),
+            ctors: Vec::new().into(),
         }
     }
 
@@ -504,23 +596,37 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
         }
     }
 
+    /// Runs the given closure with a `DefTyContext`, cleaning up afterwards.
+    pub fn with_defty<'m, F>(
+        &'m mut self,
+        loc: Location,
+        name: SharedString,
+        f: F,
+    ) -> Result<&'m mut ModContext<'l, 'c>>
+    where
+        F: FnOnce(&mut DefTyContext<'m, 'l, 'c>) -> Result<()>,
+    {
+        let mut defty_ctx = self.create_defty(loc, name);
+        match f(&mut defty_ctx) {
+            Ok(()) => defty_ctx.finish(),
+            Err(err) => {
+                defty_ctx.discard();
+                Err(err)
+            }
+        }
+    }
+
     /// Returns the decl referred to by the given global name.
     pub fn get_decl(&self, name: FQName) -> Option<&Decl> {
-        if self.module.lib_name == name.0 {
-            let module = if self.module.mod_name == name.1 {
-                &self.module
-            } else {
-                self.library.mods.get(&name.1)?
-            };
-
-            for decl in &module.decls {
-                if decl.name() == name.2 {
+        if self.module.lib_name == name.0 && self.mod_name == name.1 {
+            for decl in &self.module.decls {
+                if decl.names().contains(&name.2) {
                     return Some(decl);
                 }
             }
             None
         } else {
-            self.library.context.get_decl(name, true).ok()
+            self.library.get_decl(name)
         }
     }
 
@@ -531,28 +637,41 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                 Some(name) => {
                     if name.0 == self.module.lib_name {
                         if name.1 == self.module.mod_name {
-                            match self.decls.iter().find(|decl| decl.name() == name.2) {
+                            match self
+                                .decls
+                                .iter()
+                                .find(|decl| decl.names().contains(&name.2))
+                            {
                                 Some(decl) => Ok((name, decl)),
                                 None => panic!("resolve() lied about {} being local", name),
                             }
                         } else {
                             if let Some(m) = self.library.library.mods.get(&name.1) {
-                                match m.decls.iter().find(|decl| decl.name() == name.2) {
-                                    Some(decl) => {
-                                        if true {
-                                            Ok((name, decl))
-                                        } else {
-                                            raise!(
-                                                "{}:{} does not export {}",
-                                                name.0,
-                                                name.1,
-                                                name.2
-                                            )
+                                if let Some(decl) =
+                                    m.decls.iter().find(|decl| decl.names().contains(&name.2))
+                                {
+                                    if true {
+                                        Ok((name, decl))
+                                    } else {
+                                        raise!("{}:{} does not export {}", name.0, name.1, name.2)
+                                    }
+                                } else {
+                                    for (lib_name, lib_imps) in m.imports.iter() {
+                                        for (mod_name, mod_imps) in lib_imps.iter() {
+                                            if mod_imps.contains(&name.2) {
+                                                let name = FQName(
+                                                    lib_name.clone(),
+                                                    mod_name.clone(),
+                                                    name.2.clone(),
+                                                );
+                                                return match self.get_decl(name.clone()) {
+                                                    Some(decl) => Ok((name, decl)),
+                                                    None => raise!("{} doesn't exist", name),
+                                                };
+                                            }
                                         }
                                     }
-                                    None => {
-                                        raise!("{}:{} does not declare {}", name.0, name.1, name.2)
-                                    }
+                                    raise!("{}:{} does not declare {}", name.0, name.1, name.2)
                                 }
                             } else {
                                 raise!("Cannot find {} in non-existent module", name);
@@ -598,7 +717,7 @@ impl Drop for ModContext<'_, '_> {
     }
 }
 
-/// A single def's portion of the context.
+/// A single `def`'s portion of the context.
 #[derive(Debug)]
 pub struct DefContext<'m, 'l, 'c> {
     module: Taker<&'m mut ModContext<'l, 'c>>,
@@ -633,12 +752,12 @@ impl<'m, 'l: 'm, 'c: 'l> DefContext<'m, 'l, 'c> {
         self.expr_zipper.take();
     }
 
-    /// Gets the zipper for the type, immutably.
+    /// Gets the zipper for the type.
     pub fn expr_zipper(&mut self) -> &mut Zipper {
         &mut *self.expr_zipper
     }
 
-    /// Gets the zipper for the type, immutably.
+    /// Gets the zipper for the type.
     pub fn type_zipper(&mut self) -> &mut Zipper {
         &mut *self.type_zipper
     }
@@ -654,6 +773,90 @@ impl Drop for DefContext<'_, '_, '_> {
             || self.expr_zipper.taken())
         {
             panic!("Dropping a DefContext that has not called .finish() or .discard()");
+        }
+    }
+}
+
+/// A single `defty`'s portion of the context.
+#[derive(Debug)]
+pub struct DefTyContext<'m, 'l, 'c> {
+    module: Taker<&'m mut ModContext<'l, 'c>>,
+    loc: Taker<Location>,
+    name: Taker<SharedString>,
+    kind_zipper: Taker<Zipper>,
+    ctors: Taker<Vec<()>>,
+}
+
+impl<'m, 'l: 'm, 'c: 'l> DefTyContext<'m, 'l, 'c> {
+    /// Adds this def to the module.
+    pub fn finish(mut self) -> Result<&'m mut ModContext<'l, 'c>> {
+        let loc = self.loc.take();
+        let name = self.name.take();
+
+        let mut ty = UnifExpr::hole(self.kind_zipper.expr().loc());
+        let mut kind = Rc::new(self.kind_zipper.take().into_expr());
+        self.module.unify_ty_expr(&mut ty, &mut kind)?;
+        let kind = reify(&kind)?;
+        let ty_args = match &*kind {
+            Expr::Pi(_, args, ret, effs) => {
+                if !effs.0.is_empty() {
+                    raise!(@kind.loc(), "Invalid kind for {}: {}", name, kind);
+                }
+
+                match **ret {
+                    Expr::Intrinsic(_, Intrinsic::Type) => {}
+                    _ => raise!(@kind.loc(), "Invalid kind for {}: {}", name, kind),
+                }
+
+                args.iter()
+                    .cloned()
+                    .map(|(name, ty)| {
+                        let name = if name.is_anon() { None } else { Some(name) };
+                        (name, ty)
+                    })
+                    .collect()
+            }
+            Expr::Intrinsic(_, Intrinsic::Type) => vec![],
+            _ => raise!(@kind.loc(), "Invalid kind for {}: {}", name, kind),
+        };
+
+        let ctors = self
+            .ctors
+            .take()
+            .into_iter()
+            .map(|ctor| todo!("ctor {:?} in type {}", ctor, name))
+            .collect::<Result<_>>()?;
+
+        self.module.add(Decl::DefTy(loc, name, ty_args, ctors))?;
+        Ok(self.module.take())
+    }
+
+    /// Discards this def. Use this instead of just dropping in the case where the def should not
+    /// be added!
+    pub fn discard(mut self) {
+        self.module.take();
+        self.loc.take();
+        self.name.take();
+        self.kind_zipper.take();
+        self.ctors.take();
+    }
+
+    /// Gets the zipper for the type.
+    pub fn kind_zipper(&mut self) -> &mut Zipper {
+        &mut *self.kind_zipper
+    }
+}
+
+impl Drop for DefTyContext<'_, '_, '_> {
+    fn drop(&mut self) {
+        if !(panicking()
+            || self.module.taken()
+            || self.loc.taken()
+            || self.name.taken()
+            || self.kind_zipper.taken()
+            || self.ctors.taken())
+        {
+            panic!("Dropping a DefTyContext that has not called .finish() or .discard()");
         }
     }
 }

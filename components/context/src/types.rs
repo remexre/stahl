@@ -193,7 +193,7 @@ impl From<&Expr> for UnifExpr {
             ),
             Expr::Const(loc, lit) => UnifExpr::Const(loc.clone(), lit.clone()),
             Expr::GlobalVar(loc, name) => UnifExpr::GlobalVar(loc.clone(), name.clone()),
-            Expr::Intrinsic(loc, i) => UnifExpr::Intrinsic(loc.clone(), *i),
+            Expr::Intrinsic(loc, i) => UnifExpr::Intrinsic(loc.clone(), i.clone()),
             Expr::Lam(loc, args, body) => UnifExpr::Lam(
                 loc.clone(),
                 args.clone(),

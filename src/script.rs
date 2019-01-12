@@ -9,7 +9,7 @@ use stahl_util::SharedPath;
 use std::{path::PathBuf, sync::Arc};
 
 /// Runs a file as a script.
-pub fn run(mut ctx: Context, main: PathBuf, args: Vec<String>) -> Result<()> {
+pub fn run(mut ctx: Context, main: PathBuf, _args: Vec<String>) -> Result<()> {
     let main = SharedPath::from(main);
     let vals = parse_file(main.clone())?;
     let (mod_name, exports, imports, decls) =
