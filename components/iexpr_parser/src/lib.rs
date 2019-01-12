@@ -16,11 +16,12 @@ pub mod tests;
 
 use crate::lexer::{Lexer, LexerError, Token};
 use lalrpop_util::ParseError;
-use stahl_errors::{Error, Location, Result};
+use stahl_errors::{Error, Location, PointLC, Result};
 use stahl_util::SharedPath;
 use stahl_value::Value;
 use std::{fs::File, io::Read};
 
+/*
 /// Parses a single `Value` from a string.
 pub fn parse_str_one(s: &str) -> Result<Value> {
     let loc = Location::new();
@@ -53,17 +54,18 @@ pub fn parse_str_from(s: &str, loc: Location) -> Result<Vec<Value>> {
         .parse(&loc.clone(), Lexer::new(s))
         .map_err(|err| convert_err(err, loc, s.len()))
 }
+*/
 
-fn convert_err(err: ParseError<usize, Token, LexerError>, loc: Location, l: usize) -> Error {
+fn convert_err(err: ParseError<PointLC, Token, LexerError>, loc: Location, l: PointLC) -> Error {
     match err {
         ParseError::ExtraToken { token: (l, _, _) } | ParseError::InvalidToken { location: l } => {
-            Error::new(err, loc.point(l))
+            Error::new(err, loc.point_lc(l))
         }
         ParseError::UnrecognizedToken {
             token: Some((start, _, end)),
             ..
-        } => Error::new(err, loc.span(start, end)),
-        ParseError::UnrecognizedToken { token: None, .. } => Error::new(err, loc.point(l)),
+        } => Error::new(err, loc.span_lc(start, end)),
+        ParseError::UnrecognizedToken { token: None, .. } => Error::new(err, loc.point_lc(l)),
         ParseError::User { error } => Error::new(error, loc),
     }
 }

@@ -746,6 +746,7 @@ dependencies = [
  "stahl_context 0.1.0",
  "stahl_cst 0.1.0",
  "stahl_errors 0.1.0",
+ "stahl_iexpr_parser 0.1.0",
  "stahl_interpreter 0.1.0",
  "stahl_modules 0.1.0",
  "stahl_sexpr_parser 0.1.0",
@@ -774,8 +775,8 @@ dependencies = [
  "stahl_ast 0.1.0",
  "stahl_cst 0.1.0",
  "stahl_errors 0.1.0",
+ "stahl_iexpr_parser 0.1.0",
  "stahl_modules 0.1.0",
- "stahl_sexpr_parser 0.1.0",
  "stahl_util 0.1.0",
  "stahl_value 0.1.0",
 ]
@@ -797,6 +798,20 @@ dependencies = [
  "failure 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "stahl_util 0.1.0",
+]
+
+[[package]]
+name = "stahl_iexpr_parser"
+version = "0.1.0"
+dependencies = [
+ "failure 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lalrpop 0.16.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lalrpop-util 0.16.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proptest 0.8.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stahl_errors 0.1.0",
+ "stahl_util 0.1.0",
+ "stahl_value 0.1.0",
 ]
 
 [[package]]

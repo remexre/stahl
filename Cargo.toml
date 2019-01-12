@@ -28,6 +28,7 @@ stahl_ast = { path = "components/ast" }
 stahl_context = { path = "components/context" }
 stahl_cst = { path = "components/cst" }
 stahl_errors = { path = "components/errors" }
+stahl_iexpr_parser = { path = "components/iexpr_parser" }
 stahl_interpreter = { path = "components/interpreter" }
 stahl_modules = { path = "components/modules" }
 stahl_sexpr_parser = { path = "components/sexpr_parser" }

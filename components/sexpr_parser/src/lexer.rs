@@ -223,6 +223,10 @@ fn is_symbolish(c: char) -> bool {
         || c == '-'
         || c == '/'
         || c == ':'
+        || c == '<'
+        || c == '='
+        || c == '>'
+        || c == '?'
 }
 
 fn is_whitespace(c: char) -> bool {

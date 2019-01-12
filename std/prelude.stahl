@@ -18,6 +18,13 @@
 (import compiler-builtins
   Fixnum fixnum-add String Symbol TYPE)
 
+def
+  const
+  (pi ((T TYPE) (U TYPE) (_ T)) (pi ((_ U)) T))
+  fn (_ _ x)
+    fn (_)
+	  x
+
 (def const (pi ((T TYPE) (U TYPE) (_ T)) (pi ((_ U)) T))
   (fn (_ _ x) (fn (_) x)))
 

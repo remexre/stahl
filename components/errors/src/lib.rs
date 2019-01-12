@@ -235,28 +235,38 @@ impl Location {
         self.position(Position::Point(point))
     }
 
+    /// Adds the given line-column point to the location as a position.
+    pub fn point_lc(self, point: PointLC) -> Location {
+        self.position(Position::PointLC(point))
+    }
+
     /// Adds the given span to the location as a position.
     pub fn span(self, start: usize, end: usize) -> Location {
         self.position(Position::Span(start, end))
+    }
+
+    /// Adds the given line-column span to the location as a position.
+    pub fn span_lc(self, start: PointLC, end: PointLC) -> Location {
+        self.position(Position::SpanLC(start, end))
     }
 }
 
 impl Display for Location {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match (self.name.as_ref(), self.path.as_ref(), self.pos) {
-            (None, Some(path), Some(pos)) => write!(fmt, "In {}, at {}", path.display(), pos),
-            (None, Some(path), None) => write!(fmt, "In {}", path.display()),
-            (None, None, Some(pos)) => write!(fmt, "At {}", pos),
+            (None, Some(path), Some(pos)) => write!(fmt, "in {}, {}", path.display(), pos),
+            (None, Some(path), None) => write!(fmt, "in {}", path.display()),
+            (None, None, Some(pos)) => write!(fmt, "{}", pos),
             (None, None, None) => {
                 // TODO: Suitably chastise the programmer, ideally with line numbers.
-                write!(fmt, "At an unknown location")
+                write!(fmt, "at an unknown location")
             }
             (Some(name), Some(path), Some(pos)) => {
-                write!(fmt, "In {} (in {}, at {})", name, path.display(), pos)
+                write!(fmt, "in {} (in {}, {})", name, path.display(), pos)
             }
-            (Some(name), Some(path), None) => write!(fmt, "In {} (in {})", name, path.display()),
-            (Some(name), None, Some(pos)) => write!(fmt, "In {} (at {})", name, pos),
-            (Some(name), None, None) => write!(fmt, "In {}", name),
+            (Some(name), Some(path), None) => write!(fmt, "in {} (in {})", name, path.display()),
+            (Some(name), None, Some(pos)) => write!(fmt, "in {} ({})", name, pos),
+            (Some(name), None, None) => write!(fmt, "in {}", name),
         }
     }
 }
@@ -273,16 +283,40 @@ pub enum Position {
     /// A single point in a file.
     Point(usize),
 
+    /// A point in the file, along with line and column information.
+    PointLC(PointLC),
+
     /// A span in a file.
     Span(usize, usize),
+
+    /// A span in a file, along with line and column information.
+    SpanLC(PointLC, PointLC),
 }
 
 impl Display for Position {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
-            Position::Point(point) => write!(fmt, "byte {}", point),
-            Position::Span(start, end) => write!(fmt, "bytes {}-{}", start, end),
+            Position::Point(point) => write!(fmt, "at byte {}", point),
+            Position::PointLC(point) => write!(fmt, "at {}", point),
+            Position::Span(start, end) => write!(fmt, "at bytes {}-{}", start, end),
+            Position::SpanLC(s, e) => write!(fmt, "from {} to {}", s, e),
         }
+    }
+}
+
+/// A point in source code. A `(byte, line, column)` triple.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct PointLC(pub usize, pub usize, pub usize);
+
+impl Default for PointLC {
+    fn default() -> PointLC {
+        PointLC(0, 1, 1)
+    }
+}
+
+impl Display for PointLC {
+    fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+        write!(fmt, "line {}, column {}", self.1, self.2)
     }
 }
 

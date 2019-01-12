@@ -1,0 +1,45 @@
+use crate::lexer::{Token, LexerError};
+use stahl_errors::{Location, PointLC};
+use stahl_value::Value;
+use stahl_util::{SharedString};
+
+grammar(loc: &Location);
+
+extern {
+    type Location = PointLC;
+    type Error = LexerError;
+
+    enum Token {
+        "_" => Token::Hole,
+        "(" => Token::ParenOpen,
+        ")" => Token::ParenClose,
+        "|" => Token::Pipe,
+        Dedent => Token::Dedent,
+        Group => Token::Group,
+        Indent => Token::Indent,
+        Int => Token::Int(<isize>),
+        String => Token::String(<SharedString>),
+        Symbol => Token::Symbol(<SharedString>),
+    }
+}
+
+pub SExprs = <SExpr*>;
+
+pub SExpr: Value = {
+    "(" <SExprListBody>,
+    <l:@L> "_" <r:@R> => Value::Symbol(loc.clone().span_lc(l, r),
+                                       SharedString::from("_")),
+    <l:@L> <n:Int> <r:@R> => Value::Int(loc.clone().span_lc(l, r), n),
+    <l:@L> <s:String> <r:@R> => Value::String(loc.clone().span_lc(l, r), s),
+    <l:@L> <s:Symbol> <r:@R> => Value::Symbol(loc.clone().span_lc(l, r), s),
+};
+
+SExprListBody: Value = {
+    <l:@L> <h: SExpr> <t: SExprListBody> <r:@R> => Value::Cons(
+        loc.clone().span_lc(l, r),
+        Box::new(h),
+        Box::new(t),
+    ),
+    "|" <v: SExpr> ")" => v,
+    <l:@L> ")" <r:@R> => Value::Nil(loc.clone().span_lc(l, r)),
+};
