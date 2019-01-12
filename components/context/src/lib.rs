@@ -22,7 +22,7 @@ use stahl_ast::{Decl, Expr, FQName, Intrinsic, LibName};
 use stahl_cst::Decl as CstDecl;
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_modules::{Library, Module};
-use stahl_parser::parse_file;
+use stahl_sexpr_parser::parse_file;
 use stahl_util::{genint, SharedPath, SharedString, Taker};
 use std::{
     collections::{HashMap, HashSet},

@@ -11,9 +11,10 @@ use crate::{
 };
 use log::debug;
 use stahl_ast::{Decl, Effects, Expr, FQName, Intrinsic, Literal};
-use stahl_cst::{Expr as CstExpr, Value};
+use stahl_cst::Expr as CstExpr;
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_util::{genint, SharedString};
+use stahl_value::Value;
 use std::{rc::Rc, sync::Arc};
 
 impl ModContext<'_, '_> {

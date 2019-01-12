@@ -1,5 +1,6 @@
-use crate::{lexer::{Token, LexerError}, Value};
+use crate::lexer::{Token, LexerError};
 use stahl_errors::Location;
+use stahl_value::Value;
 use stahl_util::{SharedString};
 
 grammar(loc: &Location);

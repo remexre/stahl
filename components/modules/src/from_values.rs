@@ -1,8 +1,9 @@
 use crate::Module;
 use maplit::hashset;
-use stahl_cst::{Decl, Value};
+use stahl_cst::Decl;
 use stahl_errors::{Location, Result};
 use stahl_util::SharedString;
+use stahl_value::Value;
 use std::collections::{HashMap, HashSet};
 
 impl Module {

@@ -9,8 +9,8 @@ extern crate stahl_errors;
 mod from_value;
 
 use stahl_errors::Location;
-pub use stahl_parser::Value;
 use stahl_util::{fmt_iter, SharedString};
+use stahl_value::Value;
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     sync::Arc,

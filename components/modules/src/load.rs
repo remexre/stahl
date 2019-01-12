@@ -1,7 +1,8 @@
 use stahl_ast::LibName;
 use stahl_errors::{Location, Result};
-use stahl_parser::{parse_file, Value};
+use stahl_sexpr_parser::parse_file;
 use stahl_util::{SharedPath, SharedString};
+use stahl_value::Value;
 use std::{
     collections::HashMap,
     io::{Error as IoError, ErrorKind as IoErrorKind},

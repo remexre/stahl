@@ -1,7 +1,7 @@
 use crate::{Decl, Expr};
 use stahl_errors::{Location, Result};
-use stahl_parser::Value;
 use stahl_util::SharedString;
+use stahl_value::Value;
 use std::sync::Arc;
 
 impl Decl {

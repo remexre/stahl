@@ -7,7 +7,7 @@ use stahl_ast::LibName;
 use stahl_context::{Context, ModContext};
 use stahl_cst::Expr as CstExpr;
 use stahl_errors::{Location, Result};
-use stahl_parser::parse_str_from;
+use stahl_sexpr_parser::parse_str_from;
 
 /// Runs the REPL.
 pub fn run(mut ctx: Context) -> Result<()> {
