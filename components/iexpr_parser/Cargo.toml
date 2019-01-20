@@ -18,3 +18,5 @@ lalrpop = "0.16.2"
 
 [dev-dependencies]
 proptest = "0.8.7"
+stahl_value = { features = ["proptest"], path = "../value"  }
+pretty_assertions = "0.5.1"

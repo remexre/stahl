@@ -308,6 +308,22 @@ impl Display for Position {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PointLC(pub usize, pub usize, pub usize);
 
+impl PointLC {
+    /// Advances the point by the given character.
+    pub fn advance(&mut self, ch: char) {
+        self.0 += ch.len_utf8();
+        match ch {
+            '\n' => {
+                self.1 += 1;
+                self.2 = 1;
+            }
+            _ => {
+                self.2 += 1;
+            }
+        }
+    }
+}
+
 impl Default for PointLC {
     fn default() -> PointLC {
         PointLC(0, 1, 1)

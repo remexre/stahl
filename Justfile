@@ -13,7 +13,7 @@ doc:
 run +ARGS="":
 	cargo run -- -I . -I examples {{ARGS}}
 test:
-	cargo test --all
+	cargo test --all -- --nocapture
 watch +TARGETS="all":
 	watchexec -cre lalrpop,rs,stahl,stahld -- just {{TARGETS}}
 

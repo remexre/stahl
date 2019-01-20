@@ -3,13 +3,16 @@
 
 #[macro_use]
 extern crate derivative;
+#[cfg(feature = "proptest")]
 #[macro_use]
-extern crate failure;
+extern crate proptest;
 
+#[cfg(feature = "proptest")]
+mod cfg_proptest;
 mod print;
 
-use stahl_errors::{Error, Location, Result};
-use stahl_util::{SharedPath, SharedString};
+use stahl_errors::Location;
+use stahl_util::SharedString;
 
 /// An acyclic value.
 #[allow(missing_docs)]
@@ -58,6 +61,20 @@ impl Value {
         }
     }
 
+    /// Creates a cons-list from an iterator of values.
+    pub fn from_iter<I: IntoIterator<Item = Value>>(iter: I) -> Value {
+        let mut with_locs = Vec::new();
+        for val in iter {
+            with_locs.push((val.loc(), val));
+        }
+
+        let mut val = Value::Nil(with_locs.last().map(|(l, _)| l.clone()).unwrap_or_default());
+        while let Some((loc, h)) = with_locs.pop() {
+            val = Value::Cons(loc, Box::new(h), Box::new(val));
+        }
+        val
+    }
+
     /// Gets the location at which the value appeared.
     pub fn loc(&self) -> Location {
         match self {
@@ -66,6 +83,17 @@ impl Value {
             | Value::String(loc, _)
             | Value::Symbol(loc, _)
             | Value::Nil(loc) => loc.clone(),
+        }
+    }
+
+    /// Gets a mutable reference to the location at which the value appeared.
+    pub fn loc_mut(&mut self) -> &mut Location {
+        match self {
+            Value::Cons(loc, _, _)
+            | Value::Int(loc, _)
+            | Value::String(loc, _)
+            | Value::Symbol(loc, _)
+            | Value::Nil(loc) => loc,
         }
     }
 }

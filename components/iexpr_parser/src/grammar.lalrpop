@@ -18,19 +18,37 @@ extern {
         Group => Token::Group,
         Indent => Token::Indent,
         Int => Token::Int(<isize>),
+        Newline => Token::Newline,
         String => Token::String(<SharedString>),
         Symbol => Token::Symbol(<SharedString>),
     }
 }
 
-pub SExprs = <SExpr*>;
+pub IExprs = <IExpr*>;
 
-pub SExpr: Value = {
-    "(" <SExprListBody>,
-    <l:@L> "_" <r:@R> => Value::Symbol(loc.clone().span_lc(l, r),
-                                       SharedString::from("_")),
-    <l:@L> <n:Int> <r:@R> => Value::Int(loc.clone().span_lc(l, r), n),
-    <l:@L> <s:String> <r:@R> => Value::String(loc.clone().span_lc(l, r), s),
+pub IExpr: Value = {
+	<h:Head> <b:Body?> => {
+		let mut h = h;
+		if h.len() == 1 && b.is_none() {
+			h.pop().unwrap()
+		} else {
+			h.extend(b.unwrap_or_default());
+			Value::from_iter(h)
+		}
+	},
+};
+
+Head: Vec<Value> = {
+	Group Newline => Vec::new(),
+	<SExpr*> Newline,
+};
+Body: Vec<Value> = Indent <IExpr+> Dedent;
+
+SExpr: Value = {
+    // "(" <SExprListBody>,
+    // <l:@L> "_" <r:@R> => Value::Symbol(loc.clone().span_lc(l, r), SharedString::from("_")),
+    // <l:@L> <n:Int> <r:@R> => Value::Int(loc.clone().span_lc(l, r), n),
+    // <l:@L> <s:String> <r:@R> => Value::String(loc.clone().span_lc(l, r), s),
     <l:@L> <s:Symbol> <r:@R> => Value::Symbol(loc.clone().span_lc(l, r), s),
 };
 

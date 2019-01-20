@@ -1,8 +1,9 @@
+use stahl_errors::PointLC;
 use stahl_util::{fmt_string, SharedString};
 use std::{
     char::from_u32,
     fmt::{Display, Formatter, Result as FmtResult},
-    iter::Peekable,
+    str::Chars,
 };
 
 #[derive(Debug, Fail)]
@@ -32,13 +33,14 @@ pub enum LexerError {
     Unexpected(char),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Dedent,
     Group,
     Indent,
     Hole,
     Int(isize),
+    Newline,
     ParenClose,
     ParenOpen,
     Pipe,
@@ -55,6 +57,7 @@ impl Display for Token {
             Token::Hole => write!(fmt, "_"),
             Token::Indent => write!(fmt, "INDENT"),
             Token::Int(n) => write!(fmt, "{}", n),
+            Token::Newline => write!(fmt, "NEWLINE"),
             Token::ParenClose => write!(fmt, ")"),
             Token::ParenOpen => write!(fmt, "("),
             Token::Pipe => write!(fmt, "|"),
@@ -66,57 +69,77 @@ impl Display for Token {
 }
 
 pub struct Lexer<'src> {
-    init: bool,
-    iter: Peekable<PosIter<'src>>,
-    last_ws: Vec<bool>,
+    end: bool,
+    indented: usize,
+    iter: Peekable<PosIter<Chars<'src>>>,
+    last: PointLC,
+    last_ws: &'src str,
+    queued_nl: Option<PointLC>,
 }
 
 impl<'src> Lexer<'src> {
     pub fn new(s: &'src str) -> Lexer<'src> {
-        Lexer {
-            init: true,
-            iter: PosIter { s, last: (0, 1, 1) }.peekable(),
-            last_ws: Vec::new(),
+        let mut l = Lexer {
+            end: false,
+            indented: 0,
+            iter: Peekable::new(PosIter {
+                iter: s.chars(),
+                pos: PointLC(0, 1, 1),
+            }),
+            last: PointLC(0, 1, 1),
+            last_ws: "",
+            queued_nl: None,
+        };
+        l.last_ws = l.eat_whitespace();
+        l
+    }
+
+    fn eat_whitespace(&mut self) -> &'src str {
+        let s = self.iter.iter().iter.as_str();
+        let pos = s.find(|c| c != ' ' && c != '\t').unwrap_or_else(|| s.len());
+        for _ in 0..pos {
+            assert!(self.iter.next().is_some());
         }
+        dbg!(&s[..pos])
     }
 
     fn lex_hex_digit(&mut self) -> Result<u32, LexerError> {
         match self.iter.next() {
-            Some((_, '0', _)) => Ok(0),
-            Some((_, '1', _)) => Ok(1),
-            Some((_, '2', _)) => Ok(2),
-            Some((_, '3', _)) => Ok(3),
-            Some((_, '4', _)) => Ok(4),
-            Some((_, '5', _)) => Ok(5),
-            Some((_, '6', _)) => Ok(6),
-            Some((_, '7', _)) => Ok(7),
-            Some((_, '8', _)) => Ok(8),
-            Some((_, '9', _)) => Ok(9),
-            Some((_, 'A', _)) | Some((_, 'a', _)) => Ok(10),
-            Some((_, 'B', _)) | Some((_, 'b', _)) => Ok(11),
-            Some((_, 'C', _)) | Some((_, 'c', _)) => Ok(12),
-            Some((_, 'D', _)) | Some((_, 'd', _)) => Ok(13),
-            Some((_, 'E', _)) | Some((_, 'e', _)) => Ok(14),
-            Some((_, 'F', _)) | Some((_, 'f', _)) => Ok(15),
-            Some((_, c, _)) => Err(LexerError::InvalidHexEscape(c)),
+            Some(('0', _)) => Ok(0),
+            Some(('1', _)) => Ok(1),
+            Some(('2', _)) => Ok(2),
+            Some(('3', _)) => Ok(3),
+            Some(('4', _)) => Ok(4),
+            Some(('5', _)) => Ok(5),
+            Some(('6', _)) => Ok(6),
+            Some(('7', _)) => Ok(7),
+            Some(('8', _)) => Ok(8),
+            Some(('9', _)) => Ok(9),
+            Some(('A', _)) | Some(('a', _)) => Ok(10),
+            Some(('B', _)) | Some(('b', _)) => Ok(11),
+            Some(('C', _)) | Some(('c', _)) => Ok(12),
+            Some(('D', _)) | Some(('d', _)) => Ok(13),
+            Some(('E', _)) | Some(('e', _)) => Ok(14),
+            Some(('F', _)) | Some(('f', _)) => Ok(15),
+            Some((c, _)) => Err(LexerError::InvalidHexEscape(c)),
             None => Err(LexerError::UnclosedString),
         }
     }
 
     fn lex_string_escape(&mut self) -> Result<char, LexerError> {
         match self.iter.next() {
-            Some((_, '"', _)) => Ok('"'),
-            Some((_, '\\', _)) => Ok('\\'),
-            Some((_, 'n', _)) => Ok('\n'),
-            Some((_, 'r', _)) => Ok('\r'),
-            Some((_, 't', _)) => Ok('\t'),
-            Some((_, 'x', _)) => {
+            Some(('"', _)) => Ok('"'),
+            Some(('\\', _)) => Ok('\\'),
+            Some(('n', _)) => Ok('\n'),
+            Some(('r', _)) => Ok('\r'),
+            Some(('t', _)) => Ok('\t'),
+            Some(('x', _)) => {
                 let d0 = self.lex_hex_digit()?;
                 let d1 = self.lex_hex_digit()?;
                 let n = (d0 << 4) | d1;
                 from_u32(n).ok_or_else(|| LexerError::NotUnicodeChar(n))
             }
-            Some((_, 'u', _)) => {
+            Some(('u', _)) => {
                 let d0 = self.lex_hex_digit()?;
                 let d1 = self.lex_hex_digit()?;
                 let d2 = self.lex_hex_digit()?;
@@ -124,7 +147,7 @@ impl<'src> Lexer<'src> {
                 let n = (d0 << 12) | (d1 << 8) | (d2 << 4) | d3;
                 from_u32(n).ok_or_else(|| LexerError::NotUnicodeChar(n))
             }
-            Some((_, 'U', _)) => {
+            Some(('U', _)) => {
                 let d0 = self.lex_hex_digit()?;
                 let d1 = self.lex_hex_digit()?;
                 let d2 = self.lex_hex_digit()?;
@@ -143,21 +166,18 @@ impl<'src> Lexer<'src> {
                     | d7;
                 from_u32(n).ok_or_else(|| LexerError::NotUnicodeChar(n))
             }
-            Some((_, c, _)) => Err(LexerError::InvalidEscape(c)),
+            Some((c, _)) => Err(LexerError::InvalidEscape(c)),
             None => Err(LexerError::UnclosedString),
         }
     }
 
-    fn lex_string(
-        &mut self,
-        start: (usize, usize, usize),
-    ) -> Result<((usize, usize, usize), Token, (usize, usize, usize)), LexerError> {
+    fn lex_string(&mut self, start: PointLC) -> Result<(PointLC, Token, PointLC), LexerError> {
         let mut s = String::new();
         let end = loop {
             match self.iter.next() {
-                Some((_, '"', a)) => break a,
-                Some((_, '\\', _)) => s.push(self.lex_string_escape()?),
-                Some((_, c, _)) => s.push(c),
+                Some(('"', a)) => break a,
+                Some(('\\', _)) => s.push(self.lex_string_escape()?),
+                Some((c, _)) => s.push(c),
                 None => return Err(LexerError::UnclosedString),
             }
         };
@@ -166,22 +186,22 @@ impl<'src> Lexer<'src> {
 
     fn lex_symbolish(
         &mut self,
-        start: (usize, usize, usize),
+        start: PointLC,
         c: char,
-    ) -> Result<((usize, usize, usize), Token, (usize, usize, usize)), LexerError> {
+        mut end: PointLC,
+    ) -> Result<(PointLC, Token, PointLC), LexerError> {
         let mut symbolish = String::new();
         symbolish.push(c);
         let mut is_number = ('0' <= c && c <= '9') || c == '+' || c == '-';
-        let mut end = start;
         loop {
             match self.iter.peek() {
-                Some(&(_, c, a)) if is_symbolish(c) => {
+                Some(&(c, a)) if is_symbolish(c) => {
                     is_number &= '0' <= c && c <= '9';
                     self.iter.next();
                     symbolish.push(c);
                     end = a;
                 }
-                Some(&(_, _, _)) => {
+                Some(&(_, _)) => {
                     break;
                 }
                 None => {
@@ -205,36 +225,17 @@ impl<'src> Lexer<'src> {
         Ok((start, tok, end))
     }
 
-    fn nl(
+    fn on_nl(
         &mut self,
-        start_pos: (usize, usize, usize),
-    ) -> Option<Result<((usize, usize, usize), Token, (usize, usize, usize)), LexerError>> {
-        let mut ws = Vec::new();
-        let mut end_pos = start_pos;
-        loop {
-            match *self.iter.peek()? {
-                (_, ' ', a) => {
-                    end_pos = a;
-                    ws.push(false);
-                    self.iter.next();
-                }
-                (_, '\t', a) => {
-                    end_pos = a;
-                    ws.push(true);
-                    self.iter.next();
-                }
-                _ => break,
-            }
-        }
-
+        after_nl: PointLC,
+    ) -> Option<Result<(PointLC, Token, PointLC), LexerError>> {
+        let ws = self.eat_whitespace();
         if ws == self.last_ws {
-            self.next()
-        } else if ws.starts_with(&self.last_ws) {
-            self.last_ws = ws;
-            Some(Ok((start_pos, Token::Indent, end_pos)))
-        } else if self.last_ws.starts_with(&ws) {
-            self.last_ws = ws;
-            Some(Ok((start_pos, Token::Dedent, end_pos)))
+            unimplemented!("ws = {:?}", ws)
+        } else if ws.starts_with(self.last_ws) {
+            unimplemented!("ws = {:?}", ws)
+        } else if self.last_ws.starts_with(ws) {
+            unimplemented!("ws = {:?}", ws)
         } else {
             Some(Err(LexerError::BadWhitespace))
         }
@@ -242,32 +243,61 @@ impl<'src> Lexer<'src> {
 }
 
 impl<'src> Iterator for Lexer<'src> {
-    type Item = Result<((usize, usize, usize), Token, (usize, usize, usize)), LexerError>;
+    type Item = Result<(PointLC, Token, PointLC), LexerError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.init {
-            self.init = false;
-            self.nl((0, 1, 1))
+        let res = if let Some(a) = self.queued_nl {
+            self.on_nl(a)
         } else {
-            loop {
-                match self.iter.next()? {
-                    (_, '\n', a) | (_, '\r', a) => return self.nl(a),
-                    (_, ' ', _) | (_, '\t', _) => continue,
-                    (_, ';', _) => loop {
-                        if let (_, '\n', a) = self.iter.next()? {
-                            return self.nl(a);
+            'outer: loop {
+                match self.iter.next() {
+                    Some(('\n', a)) => {
+                        self.queued_nl = Some(a);
+                        break Some(Ok((self.last, Token::Newline, a)));
+                    }
+                    Some((' ', a)) | Some(('\t', a)) => {
+                        self.last = a;
+                    }
+                    Some((';', _)) => loop {
+                        match self.iter.next() {
+                            Some(('\n', a)) => break 'outer self.on_nl(a),
+                            Some(_) => {}
+                            None => break 'outer None,
                         }
                     },
-                    (b, '"', _) => return Some(self.lex_string(b)),
-                    (b, '\'', a) => return Some(Ok((b, Token::Quote, a))),
-                    (b, '(', a) => return Some(Ok((b, Token::ParenOpen, a))),
-                    (b, ')', a) => return Some(Ok((b, Token::ParenClose, a))),
-                    (b, '_', a) => return Some(Ok((b, Token::Hole, a))),
-                    (b, '|', a) => return Some(Ok((b, Token::Pipe, a))),
-                    (b, c, _) if is_symbolish(c) => return Some(self.lex_symbolish(b, c)),
-                    (_, c, _) => return Some(Err(LexerError::Unexpected(c))),
+                    Some(('"', _)) => break Some(self.lex_string(self.last)),
+                    Some(('\'', a)) => break Some(Ok((self.last, Token::Quote, a))),
+                    Some(('(', a)) => break Some(Ok((self.last, Token::ParenOpen, a))),
+                    Some((')', a)) => break Some(Ok((self.last, Token::ParenClose, a))),
+                    Some(('_', a)) => break Some(Ok((self.last, Token::Hole, a))),
+                    Some(('|', a)) => break Some(Ok((self.last, Token::Pipe, a))),
+                    Some((c, a)) if is_symbolish(c) => {
+                        break Some(self.lex_symbolish(self.last, c, a));
+                    }
+                    Some((c, _)) => break Some(Err(LexerError::Unexpected(c))),
+                    None => break None,
                 }
             }
+        };
+        match res {
+            Some(Ok((b, v, a))) => {
+                if v == Token::Newline {
+                    self.end = true;
+                }
+
+                self.last = a;
+                Some(Ok((b, v, a)))
+            }
+            None if self.indented > 0 => {
+                self.indented -= 1;
+                self.end = false;
+                Some(Ok((self.last, Token::Dedent, self.last)))
+            }
+            None if !self.end => {
+                self.end = true;
+                Some(Ok((self.last, Token::Newline, self.last)))
+            }
+            r => r,
         }
     }
 }
@@ -287,14 +317,46 @@ fn is_symbolish(c: char) -> bool {
         || c == '?'
 }
 
-pub struct PosIter<'a> {
-    s: &'a str,
-    last: (usize, usize, usize),
+pub struct Peekable<I: Iterator> {
+    iter: I,
+    peeked: Option<I::Item>,
 }
 
-impl Iterator for PosIter<'_> {
-    type Item = ((usize, usize, usize), char, (usize, usize, usize));
+impl<I: Iterator> Peekable<I> {
+    fn new(iter: I) -> Peekable<I> {
+        Peekable { iter, peeked: None }
+    }
+
+    fn iter(&mut self) -> &mut I {
+        assert!(self.peeked.is_none());
+        &mut self.iter
+    }
+
+    fn peek(&mut self) -> Option<&I::Item> {
+        if self.peeked.is_none() {
+            self.peeked = self.iter.next();
+        }
+        self.peeked.as_ref()
+    }
+}
+
+impl<I: Iterator> Iterator for Peekable<I> {
+    type Item = I::Item;
+    fn next(&mut self) -> Option<I::Item> {
+        self.peeked.take().or_else(|| self.iter.next())
+    }
+}
+
+pub struct PosIter<I> {
+    iter: I,
+    pos: PointLC,
+}
+
+impl<I: Iterator<Item = char>> Iterator for PosIter<I> {
+    type Item = (char, PointLC);
     fn next(&mut self) -> Option<Self::Item> {
-        unimplemented!()
+        let ch = self.iter.next()?;
+        self.pos.advance(ch);
+        Some((ch, self.pos))
     }
 }
