@@ -97,8 +97,11 @@ impl<'src> Lexer<'src> {
     fn eat_whitespace(&mut self) -> &'src str {
         let s = self.iter.iter().iter.as_str();
         let pos = s.find(|c| c != ' ' && c != '\t').unwrap_or_else(|| s.len());
-        for _ in 0..pos {
-            assert!(self.iter.next().is_some());
+        if pos > 0 {
+            for _ in 0..(pos - 1) {
+                assert!(self.iter.next().is_some());
+            }
+            self.last = self.iter.next().unwrap().1;
         }
         dbg!(&s[..pos])
     }
@@ -233,9 +236,11 @@ impl<'src> Lexer<'src> {
         if ws == self.last_ws {
             unimplemented!("ws = {:?}", ws)
         } else if ws.starts_with(self.last_ws) {
-            unimplemented!("ws = {:?}", ws)
+            self.last_ws = ws;
+            Some(Ok((after_nl, Token::Indent, self.last)))
         } else if self.last_ws.starts_with(ws) {
-            unimplemented!("ws = {:?}", ws)
+            self.last_ws = ws;
+            Some(Ok((after_nl, Token::Dedent, self.last)))
         } else {
             Some(Err(LexerError::BadWhitespace))
         }
