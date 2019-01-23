@@ -1,9 +1,9 @@
-(module example
-  main)
+module example
+  main
 
-(import geom
-  square-area)
+import geom
+  square-area
 
-(def main ; (pi () Unit (IO))
-  (fn ()
-    (square-area 5)))
+def main ; foo
+  fn ()
+    square-area 5

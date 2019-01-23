@@ -13,5 +13,7 @@ fn main() {
         .read_to_string(&mut src)
         .unwrap();
     let toks = Lexer::new(&src).collect::<Result<Vec<_>, _>>().unwrap();
-    println!("{:#?}", toks);
+    for (_, tok, _) in toks {
+        println!("{:?}", tok);
+    }
 }

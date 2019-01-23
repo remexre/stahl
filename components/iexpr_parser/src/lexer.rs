@@ -250,6 +250,7 @@ impl<'src> Lexer<'src> {
                 self.next()
             }
         } else if self.ws.starts_with(ws) {
+            self.ws = ws;
             let mut trunc = None;
             for (i, stop) in self.ws_levels.iter().cloned().enumerate() {
                 if ws.len() == stop {
@@ -295,7 +296,10 @@ impl<'src> Iterator for Lexer<'src> {
                     }
                     Some((';', _)) => loop {
                         match self.iter.next() {
-                            Some(('\n', a)) => break 'outer self.on_nl(a),
+                            Some(('\n', a)) => {
+                                self.queued_nl = Some(a);
+                                break 'outer Some(Ok((self.last, Token::Newline, a)));
+                            }
                             Some(_) => {}
                             None => break 'outer None,
                         }

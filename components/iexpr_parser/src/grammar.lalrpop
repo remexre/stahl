@@ -25,40 +25,48 @@ extern {
 }
 
 pub IExprs = Newline* <IExprsBody*>;
-IExprsBody = <IExpr> Newline*;
+IExprsBody = <IExpr>;
 
 pub IExpr: Value = {
-	<h:Head> <b:Body?> => {
-		let mut h = h;
-		if h.len() == 1 && b.is_none() {
-			h.pop().unwrap()
-		} else {
-			h.extend(b.unwrap_or_default());
-			Value::from_iter(h)
-		}
-	},
+    <h:Head> <b:Body?> => {
+        let mut l = h;
+        if l.len() == 1 && b.is_none() {
+            l.pop().unwrap()
+        } else {
+            if let Some(b) = b {
+                l.extend(b);
+            }
+            Value::from_iter(l)
+        }
+    },
 };
 
 Head: Vec<Value> = {
-	Group Newline => Vec::new(),
-	<SExpr+> Newline,
+    Group <SExpr*> Newline+,
+    <SExpr+> Newline+,
 };
-Body: Vec<Value> = Indent <IExpr+> Dedent;
+Body: Vec<Value> = Indent <IExpr+> Dedent Newline*;
 
 SExpr: Value = {
-    "(" <SExprListBody>,
+    "(" Whitespace <SExprListBody>,
     <l:@L> "_" <r:@R> => Value::Symbol(loc.clone().span_lc(l, r), SharedString::from("_")),
     <l:@L> <n:Int> <r:@R> => Value::Int(loc.clone().span_lc(l, r), n),
     <l:@L> <s:String> <r:@R> => Value::String(loc.clone().span_lc(l, r), s),
     <l:@L> <s:Symbol> <r:@R> => Value::Symbol(loc.clone().span_lc(l, r), s),
 };
-
 SExprListBody: Value = {
-    <l:@L> <h: SExpr> <t: SExprListBody> <r:@R> => Value::Cons(
+    <l:@L> <h:SExpr> Whitespace <t:SExprListBody> <r:@R> => Value::Cons(
         loc.clone().span_lc(l, r),
         Box::new(h),
         Box::new(t),
     ),
-    "|" <v: SExpr> ")" => v,
+    "|" Whitespace <v:SExpr> Whitespace ")" => v,
     <l:@L> ")" <r:@R> => Value::Nil(loc.clone().span_lc(l, r)),
+};
+
+Whitespace: () = WhitespaceOne?;
+WhitespaceOne: () = {
+	Dedent Whitespace,
+	Indent Whitespace,
+	Newline Whitespace,
 };
