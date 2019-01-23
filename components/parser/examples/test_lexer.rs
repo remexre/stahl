@@ -1,4 +1,4 @@
-use stahl_iexpr_parser::lexer::Lexer;
+use stahl_parser::lexer::Lexer;
 use std::{env::args, fs::File, io::Read};
 
 fn main() {

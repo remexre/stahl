@@ -2,7 +2,7 @@
 authors = ["Nathan Ringo <remexre@gmail.com>"]
 build = "build.rs"
 edition = "2018"
-name = "stahl_iexpr_parser"
+name = "stahl_parser"
 version = "0.1.0"
 
 [dependencies]

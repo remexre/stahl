@@ -2,9 +2,9 @@ use maplit::hashmap;
 use stahl_ast::{Expr, LibName};
 use stahl_context::Context;
 use stahl_errors::{Location, Result};
-use stahl_iexpr_parser::parse_file;
 use stahl_interpreter::Interpreter;
 use stahl_modules::Module;
+use stahl_parser::parse_file;
 use stahl_util::SharedPath;
 use std::{path::PathBuf, sync::Arc};
 

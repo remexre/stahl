@@ -1,4 +1,4 @@
-use stahl_iexpr_parser::parse_file;
+use stahl_parser::parse_file;
 use std::{
     fs::read_dir,
     io::Result,
