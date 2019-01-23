@@ -48,25 +48,18 @@ Head: Vec<Value> = {
 Body: Vec<Value> = Indent <IExpr+> Dedent Newline*;
 
 SExpr: Value = {
-    "(" Whitespace <SExprListBody>,
+    "(" Newline* <SExprListBody>,
     <l:@L> "_" <r:@R> => Value::Symbol(loc.clone().span_lc(l, r), SharedString::from("_")),
     <l:@L> <n:Int> <r:@R> => Value::Int(loc.clone().span_lc(l, r), n),
     <l:@L> <s:String> <r:@R> => Value::String(loc.clone().span_lc(l, r), s),
     <l:@L> <s:Symbol> <r:@R> => Value::Symbol(loc.clone().span_lc(l, r), s),
 };
 SExprListBody: Value = {
-    <l:@L> <h:SExpr> Whitespace <t:SExprListBody> <r:@R> => Value::Cons(
+    <l:@L> <h:SExpr> Newline* <t:SExprListBody> <r:@R> => Value::Cons(
         loc.clone().span_lc(l, r),
         Box::new(h),
         Box::new(t),
     ),
-    "|" Whitespace <v:SExpr> Whitespace ")" => v,
+    "|" Newline* <v:SExpr> Newline* ")" => v,
     <l:@L> ")" <r:@R> => Value::Nil(loc.clone().span_lc(l, r)),
-};
-
-Whitespace: () = WhitespaceOne?;
-WhitespaceOne: () = {
-	Dedent Whitespace,
-	Indent Whitespace,
-	Newline Whitespace,
 };

@@ -190,11 +190,6 @@ fn simple_3() {
 
 #[test]
 fn group() {
-    // a
-    //  group
-    //   b
-    //     c
-    //   d
     let s = "a\n group\n  b\n    c\n  d\n e";
 
     assert_eq!(
@@ -255,6 +250,19 @@ fn group() {
             Value::Symbol(Location::new(), "e".into()),
         ]),
         val,
+    );
+}
+
+#[test]
+fn split() {
+    let s = "(foo\n  bar)\n";
+
+    assert_eq!(
+        Value::from_iter(vec![
+            Value::Symbol(Location::new(), "foo".into()),
+            Value::Symbol(Location::new(), "bar".into()),
+        ]),
+        parse_str_one(s, Location::new()).unwrap(),
     );
 }
 

@@ -73,10 +73,11 @@ pub struct Lexer<'src> {
     end: bool,
     iter: Peekable<PosIter<Chars<'src>>>,
     last: PointLC,
+    paren_depth: isize,
     queued: VecDeque<(PointLC, Token, PointLC)>,
     queued_nl: Option<PointLC>,
     ws: &'src str,
-    ws_levels: Vec<usize>,
+    ws_levels: Vec<(usize, bool)>,
 }
 
 impl<'src> Lexer<'src> {
@@ -88,6 +89,7 @@ impl<'src> Lexer<'src> {
                 pos: PointLC(0, 1, 1),
             }),
             last: PointLC(0, 1, 1),
+            paren_depth: 0,
             queued: VecDeque::new(),
             queued_nl: None,
             ws: "",
@@ -235,8 +237,10 @@ impl<'src> Lexer<'src> {
     ) -> Option<Result<(PointLC, Token, PointLC), LexerError>> {
         let ws = self.eat_whitespace();
         if ws == "" {
-            while let Some(_) = self.ws_levels.pop() {
-                self.queued.push_back((after_nl, Token::Dedent, self.last));
+            while let Some((_, emit)) = self.ws_levels.pop() {
+                if emit {
+                    self.queued.push_back((after_nl, Token::Dedent, self.last));
+                }
             }
             self.ws = ws;
             self.next()
@@ -244,19 +248,22 @@ impl<'src> Lexer<'src> {
             if ws.len() == self.ws.len() {
                 self.next()
             } else {
-                self.ws_levels.push(self.ws.len());
+                let emit = self.paren_depth <= 0;
+                self.ws_levels.push((self.ws.len(), emit));
                 self.ws = ws;
-                self.queued.push_back((after_nl, Token::Indent, self.last));
+                if emit {
+                    self.queued.push_back((after_nl, Token::Indent, self.last));
+                }
                 self.next()
             }
         } else if self.ws.starts_with(ws) {
             self.ws = ws;
             let mut trunc = None;
-            for (i, stop) in self.ws_levels.iter().cloned().enumerate() {
+            for (i, (stop, emit)) in self.ws_levels.iter().cloned().enumerate() {
                 if ws.len() == stop {
                     trunc = Some(i);
                 }
-                if trunc.is_some() {
+                if emit && trunc.is_some() {
                     self.queued.push_back((after_nl, Token::Dedent, self.last));
                 }
             }
@@ -306,8 +313,14 @@ impl<'src> Iterator for Lexer<'src> {
                     },
                     Some(('"', _)) => break Some(self.lex_string(self.last)),
                     Some(('\'', a)) => break Some(Ok((self.last, Token::Quote, a))),
-                    Some(('(', a)) => break Some(Ok((self.last, Token::ParenOpen, a))),
-                    Some((')', a)) => break Some(Ok((self.last, Token::ParenClose, a))),
+                    Some(('(', a)) => {
+                        self.paren_depth += 1;
+                        break Some(Ok((self.last, Token::ParenOpen, a)));
+                    }
+                    Some((')', a)) => {
+                        self.paren_depth -= 1;
+                        break Some(Ok((self.last, Token::ParenClose, a)));
+                    }
                     Some(('_', a)) => break Some(Ok((self.last, Token::Hole, a))),
                     Some(('|', a)) => break Some(Ok((self.last, Token::Pipe, a))),
                     Some((c, a)) if is_symbolish(c) => {
@@ -329,9 +342,12 @@ impl<'src> Iterator for Lexer<'src> {
                 if !self.end {
                     self.end = true;
                     Some(Ok((self.last, Token::Newline, self.last)))
-                } else if self.ws_levels.pop().is_some() {
-                    Some(Ok((self.last, Token::Dedent, self.last)))
                 } else {
+                    while let Some((_, emit)) = self.ws_levels.pop() {
+                        if emit {
+                            return Some(Ok((self.last, Token::Dedent, self.last)));
+                        }
+                    }
                     None
                 }
             }
