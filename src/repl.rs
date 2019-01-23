@@ -7,7 +7,7 @@ use stahl_ast::LibName;
 use stahl_context::{Context, ModContext};
 use stahl_cst::Expr as CstExpr;
 use stahl_errors::{Location, Result};
-use stahl_sexpr_parser::parse_str_from;
+use stahl_iexpr_parser::parse_str;
 
 /// Runs the REPL.
 pub fn run(mut ctx: Context) -> Result<()> {
@@ -70,7 +70,7 @@ pub fn run(mut ctx: Context) -> Result<()> {
 fn run_line(mod_ctx: &mut ModContext, line: &str) -> Result<()> {
     let loc = Location::new().name("the REPL".into());
 
-    let exprs = parse_str_from(&line, loc.clone())?;
+    let exprs = parse_str(&line, loc.clone())?;
     for expr in exprs {
         let expr = CstExpr::from_value_unnamed(&expr, "the REPL")?;
         let (expr, ty) = mod_ctx.elab(&expr, &CstExpr::Hole(loc.clone()))?;

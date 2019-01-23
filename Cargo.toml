@@ -5,9 +5,9 @@ members = [
 	"components/context",
 	"components/cst",
 	"components/errors",
+	"components/iexpr_parser",
 	"components/interpreter",
 	"components/modules",
-	"components/sexpr_parser",
 	"components/util",
 	"components/value"
 ]
@@ -31,7 +31,6 @@ stahl_errors = { path = "components/errors" }
 stahl_iexpr_parser = { path = "components/iexpr_parser" }
 stahl_interpreter = { path = "components/interpreter" }
 stahl_modules = { path = "components/modules" }
-stahl_sexpr_parser = { path = "components/sexpr_parser" }
 stahl_util = { path = "components/util" }
 stahl_value = { path = "components/value" }
 stderrlog = "0.4.1"

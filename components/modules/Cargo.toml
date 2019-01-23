@@ -10,6 +10,6 @@ maplit = "1.0.1"
 stahl_ast = { path = "../ast" }
 stahl_cst = { path = "../cst" }
 stahl_errors = { path = "../errors" }
-stahl_sexpr_parser = { path = "../sexpr_parser" }
+stahl_iexpr_parser = { path = "../iexpr_parser" }
 stahl_util = { path = "../util" }
 stahl_value = { path = "../value" }
