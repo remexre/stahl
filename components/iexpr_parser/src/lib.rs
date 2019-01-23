@@ -13,13 +13,11 @@ extern crate pretty_assertions;
 extern crate proptest;
 
 lalrpop_mod!(grammar);
-mod lexer;
+#[doc(hidden)]
+pub mod lexer;
 #[cfg(test)]
 pub mod tests;
 
-#[cfg(test)]
-pub use crate::lexer::{Lexer, LexerError, Token};
-#[cfg(not(test))]
 use crate::lexer::{Lexer, LexerError, Token};
 use lalrpop_util::ParseError;
 use stahl_errors::{Error, Location, PointLC, Result};

@@ -1,15 +1,16 @@
-use stahl_errors::PointLC;
+use stahl_errors::{PointLC, Position};
 use stahl_util::{fmt_string, SharedString};
 use std::{
     char::from_u32,
+    collections::VecDeque,
     fmt::{Display, Formatter, Result as FmtResult},
     str::Chars,
 };
 
 #[derive(Debug, Fail)]
 pub enum LexerError {
-    #[fail(display = "Invalid whitespace")]
-    BadWhitespace,
+    #[fail(display = "Invalid whitespace {}", _0)]
+    BadWhitespace(Position),
 
     #[fail(display = "{:?} is too large to be stored as a number", _0)]
     IntTooBig(String),
@@ -70,28 +71,28 @@ impl Display for Token {
 
 pub struct Lexer<'src> {
     end: bool,
-    indented: usize,
     iter: Peekable<PosIter<Chars<'src>>>,
     last: PointLC,
-    last_ws: &'src str,
+    queued: VecDeque<(PointLC, Token, PointLC)>,
     queued_nl: Option<PointLC>,
+    ws: &'src str,
+    ws_levels: Vec<usize>,
 }
 
 impl<'src> Lexer<'src> {
     pub fn new(s: &'src str) -> Lexer<'src> {
-        let mut l = Lexer {
+        Lexer {
             end: false,
-            indented: 0,
             iter: Peekable::new(PosIter {
                 iter: s.chars(),
                 pos: PointLC(0, 1, 1),
             }),
             last: PointLC(0, 1, 1),
-            last_ws: "",
+            queued: VecDeque::new(),
             queued_nl: None,
-        };
-        l.last_ws = l.eat_whitespace();
-        l
+            ws: "",
+            ws_levels: Vec::new(),
+        }
     }
 
     fn eat_whitespace(&mut self) -> &'src str {
@@ -103,7 +104,7 @@ impl<'src> Lexer<'src> {
             }
             self.last = self.iter.next().unwrap().1;
         }
-        dbg!(&s[..pos])
+        &s[..pos]
     }
 
     fn lex_hex_digit(&mut self) -> Result<u32, LexerError> {
@@ -233,16 +234,43 @@ impl<'src> Lexer<'src> {
         after_nl: PointLC,
     ) -> Option<Result<(PointLC, Token, PointLC), LexerError>> {
         let ws = self.eat_whitespace();
-        if ws == self.last_ws {
-            unimplemented!("ws = {:?}", ws)
-        } else if ws.starts_with(self.last_ws) {
-            self.last_ws = ws;
-            Some(Ok((after_nl, Token::Indent, self.last)))
-        } else if self.last_ws.starts_with(ws) {
-            self.last_ws = ws;
-            Some(Ok((after_nl, Token::Dedent, self.last)))
+        if ws == "" {
+            while let Some(_) = self.ws_levels.pop() {
+                self.queued.push_back((after_nl, Token::Dedent, self.last));
+            }
+            self.ws = ws;
+            self.next()
+        } else if ws.starts_with(self.ws) {
+            if ws.len() == self.ws.len() {
+                self.next()
+            } else {
+                self.ws_levels.push(self.ws.len());
+                self.ws = ws;
+                self.queued.push_back((after_nl, Token::Indent, self.last));
+                self.next()
+            }
+        } else if self.ws.starts_with(ws) {
+            let mut trunc = None;
+            for (i, stop) in self.ws_levels.iter().cloned().enumerate() {
+                if ws.len() == stop {
+                    trunc = Some(i);
+                }
+                if trunc.is_some() {
+                    self.queued.push_back((after_nl, Token::Dedent, self.last));
+                }
+            }
+            if let Some(n) = trunc {
+                self.ws_levels.drain(n..);
+                self.next()
+            } else {
+                Some(Err(LexerError::BadWhitespace(Position::SpanLC(
+                    after_nl, self.last,
+                ))))
+            }
         } else {
-            Some(Err(LexerError::BadWhitespace))
+            Some(Err(LexerError::BadWhitespace(Position::SpanLC(
+                after_nl, self.last,
+            ))))
         }
     }
 }
@@ -251,7 +279,9 @@ impl<'src> Iterator for Lexer<'src> {
     type Item = Result<(PointLC, Token, PointLC), LexerError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let res = if let Some(a) = self.queued_nl {
+        let res = if let Some(tok) = self.queued.pop_front() {
+            Some(Ok(tok))
+        } else if let Some(a) = self.queued_nl.take() {
             self.on_nl(a)
         } else {
             'outer: loop {
@@ -286,23 +316,21 @@ impl<'src> Iterator for Lexer<'src> {
         };
         match res {
             Some(Ok((b, v, a))) => {
-                if v == Token::Newline {
-                    self.end = true;
-                }
-
+                self.end = v == Token::Newline;
                 self.last = a;
                 Some(Ok((b, v, a)))
             }
-            None if self.indented > 0 => {
-                self.indented -= 1;
-                self.end = false;
-                Some(Ok((self.last, Token::Dedent, self.last)))
+            Some(Err(e)) => Some(Err(e)),
+            None => {
+                if !self.end {
+                    self.end = true;
+                    Some(Ok((self.last, Token::Newline, self.last)))
+                } else if self.ws_levels.pop().is_some() {
+                    Some(Ok((self.last, Token::Dedent, self.last)))
+                } else {
+                    None
+                }
             }
-            None if !self.end => {
-                self.end = true;
-                Some(Ok((self.last, Token::Newline, self.last)))
-            }
-            r => r,
         }
     }
 }

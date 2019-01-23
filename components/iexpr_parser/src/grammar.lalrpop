@@ -24,7 +24,8 @@ extern {
     }
 }
 
-pub IExprs = <IExpr*>;
+pub IExprs = Newline* <IExprsBody*>;
+IExprsBody = <IExpr> Newline*;
 
 pub IExpr: Value = {
 	<h:Head> <b:Body?> => {
@@ -40,15 +41,15 @@ pub IExpr: Value = {
 
 Head: Vec<Value> = {
 	Group Newline => Vec::new(),
-	<SExpr*> Newline,
+	<SExpr+> Newline,
 };
 Body: Vec<Value> = Indent <IExpr+> Dedent;
 
 SExpr: Value = {
-    // "(" <SExprListBody>,
-    // <l:@L> "_" <r:@R> => Value::Symbol(loc.clone().span_lc(l, r), SharedString::from("_")),
-    // <l:@L> <n:Int> <r:@R> => Value::Int(loc.clone().span_lc(l, r), n),
-    // <l:@L> <s:String> <r:@R> => Value::String(loc.clone().span_lc(l, r), s),
+    "(" <SExprListBody>,
+    <l:@L> "_" <r:@R> => Value::Symbol(loc.clone().span_lc(l, r), SharedString::from("_")),
+    <l:@L> <n:Int> <r:@R> => Value::Int(loc.clone().span_lc(l, r), n),
+    <l:@L> <s:String> <r:@R> => Value::String(loc.clone().span_lc(l, r), s),
     <l:@L> <s:Symbol> <r:@R> => Value::Symbol(loc.clone().span_lc(l, r), s),
 };
 
