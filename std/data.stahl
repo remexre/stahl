@@ -1,6 +1,5 @@
 (module std:data
-  Data ;cons fixnum nil string symbol)
-  )
+  Data cons fixnum nil string symbol)
 
 (import std
   (prelude

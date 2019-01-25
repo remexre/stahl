@@ -10,7 +10,7 @@ use crate::{
     ModContext,
 };
 use log::debug;
-use stahl_ast::{Decl, Effects, Expr, FQName, Intrinsic, Literal};
+use stahl_ast::{Decl, Effects, Expr, FQName, Intrinsic, Literal, TagKind};
 use stahl_cst::Expr as CstExpr;
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_util::{genint, SharedString};
@@ -133,9 +133,13 @@ impl ModContext<'_, '_> {
                         Ok((name, Decl::DefEffSet(_, _, _))) => {
                             raise!(@loc.clone(), "{} is an effect set, not a value", name)
                         }
-                        Ok((name, Decl::DefTy(_, _, _, _))) => {
-                            // TODO: Ctors?
-                            UnifExpr::Intrinsic(loc.clone(), Intrinsic::Tag(name))
+                        Ok((ref name, Decl::DefTy(_, ty_name, _, _))) => {
+                            let kind = if ty_name == &name.2 {
+                                TagKind::Type
+                            } else {
+                                TagKind::Ctor
+                            };
+                            UnifExpr::Intrinsic(loc.clone(), Intrinsic::Tag(name.clone(), kind))
                         }
                         Err(err) => {
                             return Err(
@@ -234,7 +238,7 @@ impl ModContext<'_, '_> {
                     Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
                     UnifEffs::any(),
                 )),
-                Intrinsic::Tag(ref name) => match self.get_decl(name.clone()) {
+                Intrinsic::Tag(ref name, kind) => match self.get_decl(name.clone()) {
                     Some((ref name, Decl::DefTy(decl_loc, ty_name, ty_args, ctors))) => {
                         if name.2 == **ty_name {
                             let ty = Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type));
@@ -258,15 +262,18 @@ impl ModContext<'_, '_> {
                                 ))
                             }
                         } else {
+                            let mut res = Err(
+                                err!(@loc.clone(), "{} not found in {}; this should be impossible",
+                                    name, ty_name),
+                            );
                             for (ctor_name, ctor_args, ty_args) in ctors {
                                 if name.2 == ctor_name {
                                     let ty = Rc::new(UnifExpr::Intrinsic(
                                         loc.clone(),
-                                        Intrinsic::Tag(FQName(
-                                            name.0.clone(),
-                                            name.1.clone(),
-                                            ty_name.clone(),
-                                        )),
+                                        Intrinsic::Tag(
+                                            FQName(name.0.clone(), name.1.clone(), ty_name.clone()),
+                                            TagKind::Type,
+                                        ),
                                     ));
                                     let ty = if ty_args.is_empty() {
                                         ty
@@ -293,11 +300,11 @@ impl ModContext<'_, '_> {
                                             UnifEffs::none(),
                                         ))
                                     };
-                                    return Ok(ty);
+                                    res = Ok(ty);
+                                    break;
                                 }
                             }
-                            raise!(@loc.clone(), "{} not found in {}; this should be impossible",
-                                name, ty_name)
+                            res?
                         }
                     }
                     Some((_, decl)) => {
@@ -393,7 +400,11 @@ impl ModContext<'_, '_> {
             };
             debug!("{} {}", s, c);
         }
-        debug!("]");
+        if first {
+            debug!("[]");
+        } else {
+            debug!("]");
+        }
 
         unify(expr, constraints.clone())?;
         unify(ty, constraints)?;

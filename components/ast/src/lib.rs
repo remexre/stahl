@@ -222,7 +222,7 @@ pub enum Intrinsic {
     Symbol,
 
     /// The tag for a constructor, recursion principle, or type.
-    Tag(FQName),
+    Tag(FQName, TagKind),
 
     /// The type of types.
     Type,
@@ -238,11 +238,26 @@ impl Display for Intrinsic {
             Intrinsic::FixnumAdd => fmt.write_str("FIXNUM-ADD"),
             Intrinsic::String => fmt.write_str("STRING"),
             Intrinsic::Symbol => fmt.write_str("SYMBOL"),
-            Intrinsic::Tag(name) => return write!(fmt, "{}", name),
+            Intrinsic::Tag(name, _) => return write!(fmt, "{}", name),
             Intrinsic::Type => fmt.write_str("TYPE"),
             Intrinsic::TypeOfType => fmt.write_str("TYPE-OF-TYPE"),
         }
     }
+}
+
+/// The kind of a tag.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum TagKind {
+    /// A constructor.
+    Ctor,
+
+    /// A recursion principle.
+    ///
+    /// TODO: This might be replaced by a Y combinator primitive?
+    RecursionPrinciple,
+
+    /// A user-defined type.
+    Type,
 }
 
 /// An expression.

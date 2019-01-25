@@ -10,15 +10,16 @@ extern crate stahl_errors;
 
 mod builtins;
 mod elab;
+mod inductive;
 mod types;
 mod zipper;
 
-use crate::elab::reify;
+use crate::{elab::reify, inductive::elim_type};
 pub use crate::{
     types::{UnifEffs, UnifExpr},
     zipper::Zipper,
 };
-use stahl_ast::{Decl, Expr, FQName, Intrinsic, LibName};
+use stahl_ast::{Decl, Expr, FQName, Intrinsic, LibName, TagKind};
 use stahl_cst::Decl as CstDecl;
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_modules::{Library, Module};
@@ -212,6 +213,17 @@ impl Context {
         lib.mods
             .get(&mod_name)
             .ok_or_else(|| err!("No module exists named {}", mod_name))
+    }
+
+    /// Returns the name of the standard library, if it has been loaded.
+    pub fn std(&self) -> Option<LibName> {
+        self.std.clone()
+    }
+
+    /// Returns the exports of the prelude module, if one exists.
+    pub fn prelude_exports(&self) -> Option<&HashSet<SharedString>> {
+        let m = self.get_module(self.std()?, "prelude".into()).ok()?;
+        Some(&m.exports)
     }
 }
 
@@ -408,13 +420,12 @@ impl<'c> LibContext<'c> {
         if let Some(ref std) = self.context.std {
             // We use .get() instead of .contains_key() so we know it's the same version.
             if self.library.deps.get(&std.0) == Some(std) {
-                let prelude_name = "prelude".into();
-                if let Some(ref prelude) = self.context.libs[std].mods.get(&prelude_name) {
+                if let Some(exports) = self.context.prelude_exports() {
                     imports
                         .entry(std.0.clone())
                         .or_default()
-                        .entry(prelude_name)
-                        .or_insert_with(|| prelude.exports.clone());
+                        .entry("prelude".into())
+                        .or_insert_with(|| exports.clone());
                 }
             }
         }
@@ -891,6 +902,20 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
         let ty_args = self.ty_args.take();
         let ctors = self.ctors.take();
 
+        let lib_name = self.module.lib_name.clone();
+        let mod_name = self.module.mod_name.clone();
+        warn!(
+            "TODO elim({}) = {}",
+            FQName(lib_name.clone(), mod_name.clone(), name.clone()),
+            elim_type(
+                lib_name,
+                mod_name,
+                loc.clone(),
+                name.clone(),
+                ty_args.clone(),
+                ctors.clone()
+            )
+        );
         self.module.add(Decl::DefTy(loc, name, ty_args, ctors))?;
         Ok(self.module.take())
     }
@@ -911,7 +936,7 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
         if self.ty_args.is_empty() {
             ty
         } else {
-            unimplemented!("{:?}", self.ty_args)
+            unimplemented!("kind of {:?}", self.ty_args)
         }
     }
 
@@ -928,7 +953,7 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
     fn ty(&self) -> Rc<UnifExpr> {
         Rc::new(UnifExpr::Intrinsic(
             self.loc.clone(),
-            Intrinsic::Tag(self.name()),
+            Intrinsic::Tag(self.name(), TagKind::Type),
         ))
     }
 
@@ -1015,19 +1040,22 @@ impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
 
                 (ctor_args, &**ret)
             }
-            Expr::Call(_, _, _) | Expr::Intrinsic(_, Intrinsic::Tag(_)) => {
+            Expr::Call(_, _, _) | Expr::Intrinsic(_, Intrinsic::Tag(_, _)) => {
+                // TODO: Check this!
                 (Vec::new(), &*ctor_type)
             }
             _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
         };
         let ty_args = match ret {
             Expr::Call(_, func, args) if !args.is_empty() => match **func {
-                Expr::Intrinsic(_, Intrinsic::Tag(ref name)) if name == &ty_name => {
+                Expr::Intrinsic(_, Intrinsic::Tag(ref name, TagKind::Type)) if name == &ty_name => {
                     unimplemented!()
                 }
                 _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
             },
-            Expr::Intrinsic(_, Intrinsic::Tag(name)) if name == &ty_name => Vec::new(),
+            Expr::Intrinsic(_, Intrinsic::Tag(name, TagKind::Type)) if name == &ty_name => {
+                Vec::new()
+            }
             _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
         };
 
