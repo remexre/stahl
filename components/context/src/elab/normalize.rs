@@ -33,7 +33,6 @@ impl ModContext<'_, '_> {
     /// Normalizes an expression under an evaluation context. Stops when the expression is normal,
     /// or when an error is encountered.
     pub fn normalize(&self, expr: &mut Rc<UnifExpr>, env: &mut NormalizeEnv) {
-        println!("Before: {}", expr);
         loop {
             if expr.is_normal(env) {
                 debug!("Fully normalized: {}", expr);
@@ -47,7 +46,6 @@ impl ModContext<'_, '_> {
                 }
             }
         }
-        println!(" After: {}", expr);
     }
 
     /// Normalizes the given expression by a single step.
@@ -119,10 +117,7 @@ impl ModContext<'_, '_> {
                 env.ext.truncate(old_env_len);
                 Ok(UnifExpr::Pi(loc, args, body, effs))
             }
-            expr => {
-                // raise!(@expr.loc(), "{} is already normal!", expr)
-                panic!("{} is already normal!", expr)
-            }
+            expr => panic!("{} is already normal!", expr),
         }
     }
 }
