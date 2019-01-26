@@ -1,7 +1,7 @@
 stahl
 =====
 
-[![Dependency Status](https://deps.rs/repo/github/remexre/stahl/status.svg)](https://deps.rs/repo/github/remexre/stahl)
+[![Build Status](https://travis-ci.org/remexre/stahl.svg?branch=master)](https://travis-ci.org/remexre/stahl) [![Dependency Status](https://deps.rs/repo/github/remexre/stahl/status.svg)](https://deps.rs/repo/github/remexre/stahl)
 
 A dependently typed Lisp with algebraic effects.
 
@@ -10,12 +10,13 @@ Goals
 
 -	[x] Typechecking for core language
 -	[x] Modules
--	[ ] ADTs
+-	[x] ADTs
 -	[ ] Recursion principles
 -	[ ] CPDT arithmetic interpreter example
--	[ ] Interfaces
--	[ ] Typechecking with effects
--	[ ] Full (and fast) Interpreter
+-	[ ] Interfaces/Typeclasses/Traits
+-	[ ] Group theory in `std`
+-	[ ] Effects
+-	[ ] Fast interpreter
 -	[ ] Compile to WebAssembly
 -	[ ] Elaborator scripts
 -	[ ] Elaborator reflection
