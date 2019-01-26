@@ -181,10 +181,13 @@ fn replace(name: &str, expr: &mut Rc<UnifExpr>, to: Rc<UnifExpr>) {
             }
         }
         UnifExpr::Pi(_, args, body, _) => {
-            for arg in args.iter_mut() {
-                unimplemented!();
+            for (n, arg) in args.iter_mut() {
+                replace(name, arg, to.clone());
+                if name == n {
+                    return;
+                }
             }
-            unimplemented!();
+            replace(name, body, to)
         }
         UnifExpr::Const(_, _)
         | UnifExpr::GlobalVar(_, _)

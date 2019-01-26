@@ -16,6 +16,7 @@ members = [
 authors = ["Nathan Ringo <remexre@gmail.com>"]
 description = "A dependently typed Lisp with algebraic effects."
 edition = "2018"
+license = "Apache-2.0/MIT"
 name = "stahl"
 version = "0.1.0"
 
