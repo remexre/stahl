@@ -47,14 +47,13 @@ pub struct Context {
 
 impl Context {
     /// Creates a new `Context`.
-    pub fn new<II, P>(load_std: bool, search_paths: II) -> Result<Context>
+    pub fn new<II>(load_std: bool, search_paths: II) -> Result<Context>
     where
-        II: IntoIterator<Item = P>,
-        P: Into<SharedPath>,
+        II: IntoIterator<Item = SharedPath>,
     {
         let mut ctx = Context {
             libs: HashMap::new(),
-            search_paths: search_paths.into_iter().map(Into::into).collect(),
+            search_paths: search_paths.into_iter().collect(),
             std: None,
         };
         builtins::add_to(&mut ctx, load_std)?;

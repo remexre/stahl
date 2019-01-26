@@ -14,22 +14,22 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 macro_rules! ensure {
     ($c:expr) => {
         if !$c {
-            raise!(concat!("Ensurance failed: ", stringify!($c)))
+            $crate::raise!(concat!("Ensurance failed: ", stringify!($c)))
         }
     };
     ($c:expr, @$l:expr) => {
         if !$c {
-            raise!(@$l, concat!("Ensurance failed: ", stringify!($c)))
+            $crate::raise!(@$l, concat!("Ensurance failed: ", stringify!($c)))
         }
     };
     ($c:expr, $($e:expr),+) => {
         if !$c {
-            raise!($($e),+)
+            $crate::raise!($($e),+)
         }
     };
     ($c:expr, @$l:expr, $($e:expr),+) => {
         if !$c {
-            raise!(@$l, $($e),+)
+            $crate::raise!(@$l, $($e),+)
         }
     };
 }
@@ -37,15 +37,15 @@ macro_rules! ensure {
 /// The equivalent of `assert_eq!`, but using `raise!` instead of `panic!`.
 #[macro_export]
 macro_rules! ensure_eq {
-    ($a:expr, $b:expr) => { ensure!($a == $b) };
-    ($a:expr, $b:expr, $($tt:tt)*) => { ensure!($a == $b, $($tt)*) };
+    ($a:expr, $b:expr) => { $crate::ensure!($a == $b) };
+    ($a:expr, $b:expr, $($tt:tt)*) => { $crate::ensure!($a == $b, $($tt)*) };
 }
 
 /// The equivalent of `assert_ne!`, but using `raise!` instead of `panic!`.
 #[macro_export]
 macro_rules! ensure_ne {
-    ($a:expr, $b:expr) => { ensure!($a != $b) };
-    ($a:expr, $b:expr, $($tt:tt)*) => { ensure!($a != $b, $($tt)*) };
+    ($a:expr, $b:expr) => { $crate::ensure!($a != $b) };
+    ($a:expr, $b:expr, $($tt:tt)*) => { $crate::ensure!($a != $b, $($tt)*) };
 }
 
 /// Evaluates to an `Error` constructed from a formatting expression.
@@ -64,10 +64,10 @@ macro_rules! err {
 #[macro_export]
 macro_rules! raise {
     ($($e:expr),+) => {
-        return std::result::Result::Err(err!($($e),+));
+        return std::result::Result::Err($crate::err!($($e),+));
     };
     (@$l:expr, $($e:expr),+) => {
-        return std::result::Result::Err(err!(@$l, $($e),+));
+        return std::result::Result::Err($crate::err!(@$l, $($e),+));
     };
 }
 
@@ -75,16 +75,16 @@ macro_rules! raise {
 #[macro_export]
 macro_rules! todo {
     () => {
-        raise!("TODO at {}:{}", file!(), line!())
+        $crate::raise!("TODO at {}:{}", file!(), line!())
     };
     (@$l:expr) => {
-        raise!(@$l, "TODO at {}:{}", file!(), line!())
+        $crate::raise!(@$l, "TODO at {}:{}", file!(), line!())
     };
     ($f:expr $(, $a:expr)* $(,)*) => {
-        raise!(concat!("TODO at {}:{}, ", $f), file!(), line!(), $($a),*)
+        $crate::raise!(concat!("TODO at {}:{}, ", $f), file!(), line!(), $($a),*)
     };
     (@$l:expr, $f:expr $(, $a:expr)* $(,)*) => {
-        raise!(@$l, concat!("TODO at {}:{}, ", $f), file!(), line!() $(, $a)*)
+        $crate::raise!(@$l, concat!("TODO at {}:{}, ", $f), file!(), line!() $(, $a)*)
     };
 }
 
