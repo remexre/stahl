@@ -5,7 +5,7 @@
   ; Eq refl
   id
   ; List nil-List cons-List
-  Nat zero succ
+  Nat zero succ S Z
   String
   Symbol
   the
@@ -18,17 +18,17 @@
 (import compiler-builtins
   Fixnum fixnum-add String Symbol TYPE)
 
-(def const (pi ((T TYPE) (U TYPE) (_ T)) (pi ((_ U)) T))
-  (fn (_ _ x) (fn (_) x)))
+def const (pi ((T TYPE) (U TYPE) (_ T)) (pi ((_ U)) T))
+  fn (_ _ x) (fn (_) x)
 
-(def id (pi ((T TYPE) (_ T)) T)
-  (fn (_ x) x))
+def id (pi ((T TYPE) (_ T)) T)
+  fn (_ x) x
 
-(def the (pi ((T TYPE) (_ T)) T)
-  (fn (_ x) x))
+def the (pi ((T TYPE) (_ T)) T)
+  fn (_ x) x
 
-(def type-of (pi ((T TYPE) (_ T)) TYPE)
-  (fn (T _) T))
+def type-of (pi ((T TYPE) (_ T)) TYPE)
+  fn (T _) T
 
 (defty Void TYPE)
 
@@ -42,6 +42,9 @@
 (defty Nat TYPE
   zero Nat
   succ (pi ((_ Nat)) Nat))
+
+def S succ
+def Z zero
 
 ; (defty List (pi ((T TYPE)) TYPE)
 ;   nil-List  (pi ((T TYPE))                    (List T))

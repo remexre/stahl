@@ -415,21 +415,6 @@ impl<'c> LibContext<'c> {
                 name, mod_name);
         }
 
-        // If std has been loaded, the library depends on std, std:prelude exists, and the module
-        // doesn't depend on std:prelude, insert an import for all exports of std:prelude.
-        if let Some(ref std) = self.context.std {
-            // We use .get() instead of .contains_key() so we know it's the same version.
-            if self.library.deps.get(&std.0) == Some(std) {
-                if let Some(exports) = self.context.prelude_exports() {
-                    imports
-                        .entry(std.0.clone())
-                        .or_default()
-                        .entry("prelude".into())
-                        .or_insert_with(|| exports.clone());
-                }
-            }
-        }
-
         // Load all the dependencies.
         if let Some(internal_imports) = imports.get(&self.name.0) {
             for mod_name in internal_imports.keys() {
@@ -446,6 +431,7 @@ impl<'c> LibContext<'c> {
 
         // Load the module in.
         self.with_mod(name, exports, imports, |mod_ctx| {
+            mod_ctx.add_prelude_import(false)?;
             decls
                 .into_iter()
                 .map(|decl| mod_ctx.add_cst_decl(decl))
@@ -722,6 +708,39 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
             self.get_decl(name.clone())
                 .ok_or_else(|| err!("No definition for {} exists", name))
         }
+    }
+
+    /// Adds an import for the prelude, if it exists. If `strict` is true, an error will be
+    /// returned if the library does not import `std`.
+    pub fn add_prelude_import(&mut self, strict: bool) -> Result<()> {
+        if let Some(std) = self.library.context.std() {
+            if self.library.deps.get(&std.0).as_ref() == Some(&&std) {
+                let exports = self
+                    .library
+                    .context
+                    .prelude_exports()
+                    .ok_or_else(|| err!("Couldn't find prelude module"))?
+                    .clone();
+                self.imports
+                    .entry(std)
+                    .or_default()
+                    .entry("prelude".into())
+                    .or_insert_with(|| exports);
+            } else if strict {
+                raise!(
+                    "{} does not import the standard library ({})",
+                    self.library.name,
+                    std
+                )
+            }
+        } else if strict {
+            raise!(
+                "No standard library for {} import prelude from",
+                self.name()
+            )
+        }
+
+        Ok(())
     }
 }
 

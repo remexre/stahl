@@ -19,15 +19,15 @@ pub fn run(mut ctx: Context, main: PathBuf, _args: Vec<String>) -> Result<()> {
         raise!(@Location::new().path(main), "A script module must be named main");
     }
 
+    let std = ctx.std().unwrap();
     ctx.with_lib(
         LibName("main".into(), 0, 0, 0),
-        hashmap! {
-            "compiler-builtins".into() => LibName("compiler-builtins".into(), 0, 0, 0),
-        },
+        hashmap! { std.0.clone() => std },
         None,
         |lib_ctx| {
             lib_ctx
                 .with_mod("".into(), exports, imports, |mod_ctx| {
+                    mod_ctx.add_prelude_import(true)?;
                     decls
                         .into_iter()
                         .map(|decl| mod_ctx.add_cst_decl(decl))

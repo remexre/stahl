@@ -27,18 +27,14 @@ pub fn run(mut ctx: Context) -> Result<()> {
     }
 
     let std = ctx.std().unwrap();
-    let prelude_exports = ctx.prelude_exports().unwrap().clone();
 
     let mut lib_ctx = ctx.create_lib(
         LibName("#repl#".into(), 0, 0, 0),
-        hashmap! { std.0.clone() => std.clone() },
+        hashmap! { std.0.clone() => std },
         None,
     );
-    let mut mod_ctx = lib_ctx.create_mod(
-        "".into(),
-        hashset! {},
-        hashmap! { std.0 => hashmap! { "prelude".into() => prelude_exports } },
-    )?;
+    let mut mod_ctx = lib_ctx.create_mod("".into(), hashset! {}, hashmap! {})?;
+    mod_ctx.add_prelude_import(true)?;
 
     while let Ok(line) = rl.readline("\u{03bb}> ") {
         if let Err(e) = run_line(&mut mod_ctx, &line) {
