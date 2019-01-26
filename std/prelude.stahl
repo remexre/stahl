@@ -30,29 +30,29 @@ def the (pi ((T TYPE) (_ T)) T)
 def type-of (pi ((T TYPE) (_ T)) TYPE)
   fn (T _) T
 
-(defty Void TYPE)
+defty Void TYPE
 
-(defty Unit TYPE
-  unit Unit)
+defty Unit TYPE
+  unit Unit
 
-(defty Bool TYPE
+defty Bool TYPE
   false Bool
-  true Bool)
+  true Bool
 
-(defty Nat TYPE
+defty Nat TYPE
   zero Nat
-  succ (pi ((_ Nat)) Nat))
+  succ (pi ((_ Nat)) Nat)
 
 def S succ
 def Z zero
 
-; (defty List (pi ((T TYPE)) TYPE)
+; defty List (pi ((T TYPE)) TYPE)
 ;   nil-List  (pi ((T TYPE))                    (List T))
-;   cons-List (pi ((T TYPE) (_ T) (_ (List T))) (List T)))
+;   cons-List (pi ((T TYPE) (_ T) (_ (List T))) (List T))
 
-; (defty Vect (pi ((T TYPE) (_ Nat)) TYPE)
+; defty Vect (pi ((T TYPE) (_ Nat)) TYPE)
 ;   nil-Vect  (pi ((T TYPE))                              (Vect T zero))
-;   cons-Vect (pi ((T TYPE) (n Nat) (_ T) (_ (Vect T n))) (Vect T (succ n))))
+;   cons-Vect (pi ((T TYPE) (n Nat) (_ T) (_ (Vect T n))) (Vect T (succ n)))
 
 defty Eq (pi ((T TYPE) (_ T) (_ T)) TYPE)
   refl (pi ((T TYPE) (a T)) (Eq T a a))

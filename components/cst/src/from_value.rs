@@ -72,7 +72,7 @@ impl Decl {
             },
             "defty" => {
                 if let (l, Value::Nil(_)) = t.clone().as_list() {
-                    if l.len() < 2 || l.len() % 2 == 1 {
+                    if l.len() < 2 {
                         raise!(@val.loc(), "Invalid defty: {}", val)
                     }
                     let name = match &l[0] {
@@ -81,15 +81,27 @@ impl Decl {
                     };
                     let kind = Expr::from_value_unnamed(&l[1], "The kind of a type")?;
                     let ctors = l[2..]
-                        .chunks(2)
-                        .map(|chunk| {
-                            let name = match &chunk[0] {
-                                Value::Symbol(_, name) => name.clone(),
-                                val => raise!(@val.loc(), "Invalid constructor name: {}", val),
-                            };
-                            let ty =
-                                Expr::from_value_unnamed(&chunk[1], "The type of a constructor")?;
-                            Ok((name, ty))
+                        .iter()
+                        .map(|ctor| {
+                            if let (l, Value::Nil(_)) = ctor.clone().as_list() {
+                                if l.len() == 2 {
+                                    let name = match &l[0] {
+                                        Value::Symbol(_, name) => name.clone(),
+                                        val => {
+                                            raise!(@val.loc(), "Invalid constructor name: {}", val)
+                                        }
+                                    };
+                                    let ty = Expr::from_value_unnamed(
+                                        &l[1],
+                                        "The type of a constructor",
+                                    )?;
+                                    Ok((name, ty))
+                                } else {
+                                    Err(err!(@ctor.loc(), "Invalid constructor: {}", loc))
+                                }
+                            } else {
+                                Err(err!(@ctor.loc(), "Invalid constructor: {}", loc))
+                            }
                         })
                         .collect::<Result<_>>()?;
                     Ok(Decl::DefTy(loc, name, kind, ctors))
