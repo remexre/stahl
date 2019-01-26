@@ -147,6 +147,18 @@ impl From<String> for SharedString {
     }
 }
 
+impl PartialEq<SharedString> for str {
+    fn eq(&self, other: &SharedString) -> bool {
+        *self == **other
+    }
+}
+
+impl PartialEq<SharedString> for &str {
+    fn eq(&self, other: &SharedString) -> bool {
+        **self == **other
+    }
+}
+
 impl PartialEq<str> for SharedString {
     fn eq(&self, other: &str) -> bool {
         **self == *other

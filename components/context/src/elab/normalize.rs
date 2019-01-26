@@ -33,6 +33,7 @@ impl ModContext<'_, '_> {
     /// Normalizes an expression under an evaluation context. Stops when the expression is normal,
     /// or when an error is encountered.
     pub fn normalize(&self, expr: &mut Rc<UnifExpr>, env: &mut NormalizeEnv) {
+        println!("Before: {}", expr);
         loop {
             if expr.is_normal(env) {
                 debug!("Fully normalized: {}", expr);
@@ -46,6 +47,7 @@ impl ModContext<'_, '_> {
                 }
             }
         }
+        println!(" After: {}", expr);
     }
 
     /// Normalizes the given expression by a single step.
@@ -64,17 +66,16 @@ impl ModContext<'_, '_> {
                                 func, call_args.len(), args.len());
                         }
 
-                        let old_env_len = env.ext.len();
-                        env.ext
-                            .extend(args.iter().cloned().zip(call_args.into_iter().map(Some)));
-
                         let mut body = body.clone();
                         let mut last = body.pop().expect("An empty lambda slipped in").2;
 
                         assert_eq!(body.len(), 0); // TODO handle lambdas with bodies
 
+                        for i in 0..args.len() {
+                            replace(&args[i], &mut last, call_args[i].clone());
+                        }
+
                         self.normalize(&mut last, env);
-                        env.ext.truncate(old_env_len);
                         Ok(unwrap_rc(last))
                     }
                     UnifExpr::Intrinsic(_, Intrinsic::Tag(_, _)) => {
@@ -158,5 +159,42 @@ impl UnifExpr {
             }
             UnifExpr::UnifVar(_, _) => true,
         }
+    }
+}
+
+fn replace(name: &str, expr: &mut Rc<UnifExpr>, to: Rc<UnifExpr>) {
+    let expr_ref = Rc::make_mut(expr);
+    match expr_ref {
+        UnifExpr::Call(_, func, args) => {
+            for arg in args.iter_mut() {
+                replace(name, arg, to.clone());
+            }
+            replace(name, func, to);
+        }
+        UnifExpr::LocalVar(_, ref n) if name == n.as_str() => *expr = to,
+        UnifExpr::Lam(_, args, body) => {
+            if !args.iter().any(|a| a == name) {
+                for (def_name, def_ty, expr, _effs) in body.iter_mut() {
+                    replace(name, def_ty, to.clone());
+                    replace(name, expr, to.clone());
+                    if let Some(def_name) = def_name {
+                        if name == def_name {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        UnifExpr::Pi(_, args, body, _) => {
+            for arg in args.iter_mut() {
+                unimplemented!();
+            }
+            unimplemented!();
+        }
+        UnifExpr::Const(_, _)
+        | UnifExpr::GlobalVar(_, _)
+        | UnifExpr::Intrinsic(_, _)
+        | UnifExpr::LocalVar(_, _)
+        | UnifExpr::UnifVar(_, _) => {}
     }
 }

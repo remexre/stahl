@@ -6,5 +6,6 @@ def id-test-1
   (id _ S) Z
 
 ; Got panic "x not found"
+; Last present in 5ca1ee1
 def const-test-1
   (const _ _ 1) 2
