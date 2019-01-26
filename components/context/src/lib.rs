@@ -397,7 +397,7 @@ impl<'c> LibContext<'c> {
 
         // Parse the module.
         let vals = parse_file(path.clone())?;
-        let (mod_name, exports, mut imports, decls) =
+        let (mod_name, exports, imports, decls) =
             Module::from_values(vals, Location::new().path(path.clone()))?;
         let l = self.name.0.len();
         let name_ok = if name == "" {

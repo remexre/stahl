@@ -172,34 +172,56 @@ impl ModContext<'_, '_> {
         });
 
         let mut inf_ty = match expr {
-            UnifExpr::Call(loc, func, args) => match &*self.tyck(func, constraints, None, env)? {
-                UnifExpr::Pi(_, arg_tys, body, _) => {
-                    if args.len() != arg_tys.len() {
-                        raise!(@loc.clone(), "{} takes {} arguments, but {} were provided", func,
+            UnifExpr::Call(loc, func, args) => {
+                let ty = self.tyck(func, constraints, None, env)?;
+                match &*ty {
+                    UnifExpr::Pi(_, arg_tys, body, _) => {
+                        if args.len() != arg_tys.len() {
+                            raise!(@loc.clone(), "{} takes {} arguments, but {} were provided", func,
                             arg_tys.len(), args.len());
-                    }
-
-                    let mut arg_tys = arg_tys.clone();
-                    let mut body = body.clone();
-                    let old_env_len = env.len();
-                    for arg in args {
-                        let (name, ty) = arg_tys.remove(0);
-                        let ty = self.tyck(arg, constraints, Some(ty), env)?;
-                        env.push((name.clone(), ty.clone(), Some(arg.clone())));
-                        for (n, arg_ty) in &mut arg_tys {
-                            if *n == name {
-                                break;
-                            }
-                            UnifExpr::beta(arg_ty, &name, arg.clone())
                         }
-                        UnifExpr::beta(&mut body, &name, arg.clone());
-                    }
-                    env.truncate(old_env_len);
 
-                    body
+                        let mut arg_tys = arg_tys.clone();
+                        let mut body = body.clone();
+                        let old_env_len = env.len();
+                        for arg in args {
+                            let (name, ty) = arg_tys.remove(0);
+                            let ty = self.tyck(arg, constraints, Some(ty), env)?;
+                            env.push((name.clone(), ty.clone(), Some(arg.clone())));
+                            for (n, arg_ty) in &mut arg_tys {
+                                if *n == name {
+                                    break;
+                                }
+                                UnifExpr::beta(arg_ty, &name, arg.clone())
+                            }
+                            UnifExpr::beta(&mut body, &name, arg.clone());
+                        }
+                        env.truncate(old_env_len);
+
+                        body
+                    }
+                    _ => {
+                        let arg_vars = args
+                            .into_iter()
+                            .map(|arg| self.tyck(arg, constraints, None, env))
+                            .map(|r| r.map(|ty| (SharedString::gensym_anon(), ty)))
+                            .collect::<Result<_>>()?;
+                        let body_var = UnifExpr::hole(loc.clone());
+                        let ty_loc = ty.loc();
+                        constraints.push(Constraint::ExprEq(
+                            loc.clone(),
+                            ty,
+                            Rc::new(UnifExpr::Pi(
+                                ty_loc,
+                                arg_vars,
+                                body_var.clone(),
+                                UnifEffs::any(),
+                            )),
+                        ));
+                        body_var
+                    }
                 }
-                ty => raise!(@loc.clone(), "The target of a call must be a function, not {}", ty),
-            },
+            }
             UnifExpr::Const(_, val) => {
                 let intr = match val {
                     Literal::Int(_, _) => Intrinsic::Fixnum,

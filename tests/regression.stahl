@@ -1,0 +1,10 @@
+module main
+
+; Got error "The target of a call must be a function, not #VAR:83#"
+; Last present in 52fad86
+def id-test-1
+  (id _ S) Z
+
+; Got panic "x not found"
+def const-test-1
+  (const _ _ 1) 2
