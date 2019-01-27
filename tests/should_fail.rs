@@ -6,11 +6,18 @@ use std::path::PathBuf;
 fn should_fail() {
     let mut ctx = Context::new(true, Some(PathBuf::from(".").into())).unwrap();
 
-    let paths = &[(
-        "tests/should_fail/negative_position_in_ctor.stahl",
-        Some(Position::SpanLC(PointLC(111, 6, 1), PointLC(116, 6, 6))),
-        "Bad cannot appear in a negative position",
-    )];
+    let paths = &[
+        (
+            "tests/should_fail/two_plus_two.stahl",
+            Some(Position::SpanLC(PointLC(111, 6, 1), PointLC(116, 6, 6))),
+            "Bad cannot appear in a negative position",
+        ),
+        (
+            "tests/should_fail/negative_position_in_ctor.stahl",
+            Some(Position::SpanLC(PointLC(111, 6, 1), PointLC(116, 6, 6))),
+            "Bad cannot appear in a negative position",
+        ),
+    ];
 
     for (path, pos, msg) in paths {
         let r = stahl::run_script(&mut ctx, path.into(), Vec::new());

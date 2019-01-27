@@ -1,0 +1,5 @@
+module main
+  two-plus-two-is-five
+
+def two-plus-two-is-five (Eq (+ 2 2) 5)
+  refl _ _
