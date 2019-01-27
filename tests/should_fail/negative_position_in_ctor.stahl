@@ -7,5 +7,11 @@ defty Bad TYPE
   bad (pi ((_ (pi ((_ Bad)) Bad))) Bad)
 
 def get-fun (pi ((_ Bad)) (pi ((_ Bad)) Bad))
-  fn (bad)
+  fn (b)
   	elim-Bad TODO
+
+def omega (pi ((_ Bad)) Bad)
+  fn (b)
+    ((get-fun b) b)
+
+def loop (omega (bad omega))
