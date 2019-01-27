@@ -1,0 +1,11 @@
+module main
+  main
+
+; Based on https://wiki.portal.chalmers.se/agda/pmwiki.php?n=ReferenceManual.BadInHaskell
+
+defty Bad TYPE
+  bad (pi ((_ (pi ((_ Bad)) Bad))) Bad)
+
+def get-fun (pi ((_ Bad)) (pi ((_ Bad)) Bad))
+  fn (bad)
+  	elim-Bad TODO

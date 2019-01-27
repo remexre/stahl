@@ -1,14 +1,10 @@
 #[macro_use]
 extern crate log;
 #[macro_use]
-extern crate stahl_errors;
-#[macro_use]
 extern crate structopt;
 
-mod interpret;
 mod options;
 mod repl;
-mod script;
 #[cfg(test)]
 mod tests;
 
@@ -43,17 +39,17 @@ fn main() {
     search_paths.extend(options.search_paths.iter().cloned().map(SharedPath::from));
 
     let r = Context::new(true, search_paths)
-        .and_then(|ctx| run(options.command.unwrap_or(Command::Repl), ctx));
+        .and_then(|mut ctx| run(options.command.unwrap_or(Command::Repl), &mut ctx));
     if let Err(err) = r {
         error!("{}", err);
         exit(1);
     }
 }
 
-fn run(command: Command, ctx: Context) -> Result<()> {
+fn run(command: Command, ctx: &mut Context) -> Result<()> {
     match command {
-        Command::Interpret { main, args } => interpret::run(ctx, main, args),
+        Command::Interpret { main, args } => stahl::run_package(ctx, main, args),
         Command::Repl => repl::run(ctx),
-        Command::Script { main, args } => script::run(ctx, main, args),
+        Command::Script { main, args } => stahl::run_script(ctx, main, args),
     }
 }

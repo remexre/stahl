@@ -10,7 +10,7 @@ use stahl_errors::{Location, Result};
 use stahl_parser::parse_str;
 
 /// Runs the REPL.
-pub fn run(mut ctx: Context) -> Result<()> {
+pub fn run(ctx: &mut Context) -> Result<()> {
     let config = Config::builder()
         .auto_add_history(true)
         .edit_mode(EditMode::Emacs)

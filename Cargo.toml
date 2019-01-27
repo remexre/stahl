@@ -5,9 +5,9 @@ members = [
 	"components/context",
 	"components/cst",
 	"components/errors",
-	"components/parser",
 	"components/interpreter",
 	"components/modules",
+	"components/parser",
 	"components/util",
 	"components/value"
 ]
