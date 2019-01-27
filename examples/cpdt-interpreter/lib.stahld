@@ -1,0 +1,3 @@
+(name cpdt-interpreter)
+(description "A simple language interpreter, based on section 2.2 of CPDT.")
+(version (0 0 0))

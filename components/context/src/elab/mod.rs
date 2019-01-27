@@ -168,7 +168,7 @@ impl ModContext<'_, '_> {
                 base: env,
                 ext: Vec::new(),
             };
-            self.normalize(chk_ty, &mut env);
+            self.normalize(chk_ty, Some(&mut env));
         });
 
         let mut inf_ty = match expr {
@@ -386,10 +386,10 @@ impl ModContext<'_, '_> {
         };
         self.normalize(
             &mut inf_ty,
-            &mut NormalizeEnv {
+            Some(&mut NormalizeEnv {
                 base: env,
                 ext: Vec::new(),
-            },
+            }),
         );
 
         if let Some(chk_ty) = chk_ty {
@@ -431,8 +431,8 @@ impl ModContext<'_, '_> {
         unify(expr, constraints.clone())?;
         unify(ty, constraints)?;
 
-        self.normalize(expr, &mut NormalizeEnv::new(env));
-        self.normalize(ty, &mut NormalizeEnv::new(env));
+        self.normalize(expr, Some(&mut NormalizeEnv::new(env)));
+        self.normalize(ty, Some(&mut NormalizeEnv::new(env)));
 
         Ok(())
     }

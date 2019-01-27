@@ -1,0 +1,21 @@
+module cpdt-interpreter
+  main
+
+defty Ty TYPE
+  TyBool
+  TyNat
+
+defty BinOp (pi ((_ Ty) (_ Ty) (_ Ty)) TYPE)
+  Plus  (BinOp TyNat TyNat TyNat)
+  Times (BinOp TyNat TyNat TyNat)
+  Eq    (pi ((t Ty)) (BinOp t t TyBool))
+  Lt    (BinOp TyNat TyNat TyBool)
+
+defty Expr (pi ((_ Ty)) TYPE)
+  BConst (pi ((_ Bool)) (Expr TyBool))
+  NConst (pi ((_ Nat))  (Expr TyNat))
+  Binop  (pi ((l Ty) (r Ty) (t Ty) (_ (BinOp l r t)) (_ (Expr l)) (_ (Expr r))) (Expr t))
+
+def main ; foo
+  fn ()
+    0

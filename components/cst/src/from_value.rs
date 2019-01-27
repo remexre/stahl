@@ -82,8 +82,8 @@ impl Decl {
                     let kind = Expr::from_value_unnamed(&l[1], "The kind of a type")?;
                     let ctors = l[2..]
                         .iter()
-                        .map(|ctor| {
-                            if let (l, Value::Nil(_)) = ctor.clone().as_list() {
+                        .map(|ctor| match ctor.clone().as_list() {
+                            (l, Value::Nil(_)) => {
                                 if l.len() == 2 {
                                     let name = match &l[0] {
                                         Value::Symbol(_, name) => name.clone(),
@@ -95,13 +95,15 @@ impl Decl {
                                         &l[1],
                                         "The type of a constructor",
                                     )?;
-                                    Ok((name, ty))
+                                    Ok((ctor.loc(), name, Some(ty)))
                                 } else {
-                                    Err(err!(@ctor.loc(), "Invalid constructor: {}", loc))
+                                    Err(err!(@ctor.loc(), "Invalid constructor form: {}", loc))
                                 }
-                            } else {
-                                Err(err!(@ctor.loc(), "Invalid constructor: {}", loc))
                             }
+                            (ref l, Value::Symbol(_, ref name)) if l.is_empty() => {
+                                Ok((ctor.loc(), name.clone(), None))
+                            }
+                            _ => Err(err!(@ctor.loc(), "Invalid constructor form: {}", loc)),
                         })
                         .collect::<Result<_>>()?;
                     Ok(Decl::DefTy(loc, name, kind, ctors))

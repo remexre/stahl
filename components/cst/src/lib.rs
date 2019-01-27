@@ -52,7 +52,7 @@ pub enum Decl {
         #[derivative(Debug = "ignore")] Location,
         SharedString,
         Arc<Expr>,
-        Vec<(SharedString, Arc<Expr>)>,
+        Vec<(Location, SharedString, Option<Arc<Expr>>)>,
     ),
 }
 
@@ -95,8 +95,12 @@ impl Display for Decl {
             }
             Decl::DefTy(_, name, kind, ctors) => {
                 write!(fmt, "(defty {} {}", name, kind)?;
-                for (name, ctor) in ctors {
-                    write!(fmt, " {} {}", name, ctor)?;
+                for (_, name, ctor) in ctors {
+                    if let Some(ctor) = ctor {
+                        write!(fmt, " ({} {})", name, ctor)?;
+                    } else {
+                        write!(fmt, " {}", name)?;
+                    }
                 }
                 write!(fmt, ")")
             }

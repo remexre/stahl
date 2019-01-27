@@ -32,7 +32,12 @@ impl<'a> NormalizeEnv<'a> {
 impl ModContext<'_, '_> {
     /// Normalizes an expression under an evaluation context. Stops when the expression is normal,
     /// or when an error is encountered.
-    pub fn normalize(&self, expr: &mut Rc<UnifExpr>, env: &mut NormalizeEnv) {
+    pub(crate) fn normalize(&self, expr: &mut Rc<UnifExpr>, env: Option<&mut NormalizeEnv>) {
+        let mut default_env = NormalizeEnv {
+            base: &[],
+            ext: Vec::new(),
+        };
+        let env = env.unwrap_or(&mut default_env);
         loop {
             if expr.is_normal(env) {
                 debug!("Fully normalized: {}", expr);
@@ -52,9 +57,9 @@ impl ModContext<'_, '_> {
     fn normalize_step(&self, expr: UnifExpr, env: &mut NormalizeEnv) -> Result<UnifExpr> {
         match expr {
             UnifExpr::Call(loc, mut func, mut call_args) => {
-                self.normalize(&mut func, env);
+                self.normalize(&mut func, Some(env));
                 for args in call_args.iter_mut() {
-                    self.normalize(args, env);
+                    self.normalize(args, Some(env));
                 }
 
                 match *func {
@@ -73,7 +78,7 @@ impl ModContext<'_, '_> {
                             replace(&args[i], &mut last, call_args[i].clone());
                         }
 
-                        self.normalize(&mut last, env);
+                        self.normalize(&mut last, Some(env));
                         Ok(unwrap_rc(last))
                     }
                     UnifExpr::Intrinsic(_, Intrinsic::Tag(_, _)) => {
@@ -110,10 +115,10 @@ impl ModContext<'_, '_> {
             UnifExpr::Pi(loc, mut args, mut body, effs) => {
                 let old_env_len = env.ext.len();
                 for (ref name, ref mut arg) in &mut args {
-                    self.normalize(arg, env);
+                    self.normalize(arg, Some(env));
                     env.ext.push((name.clone(), None));
                 }
-                self.normalize(&mut body, env);
+                self.normalize(&mut body, Some(env));
                 env.ext.truncate(old_env_len);
                 Ok(UnifExpr::Pi(loc, args, body, effs))
             }

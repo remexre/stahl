@@ -8,6 +8,7 @@ use std::{
     borrow::Borrow,
     ffi::OsStr,
     fmt::{Debug, Display, Formatter, Result as FmtResult},
+    marker::PhantomData,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     rc::Rc,
@@ -16,6 +17,34 @@ use std::{
         Arc,
     },
 };
+
+/// Returns a Display for printing a `Vec`.
+pub fn display_vec<T, U>(vec: T) -> impl Display
+where
+    T: AsRef<[U]>,
+    U: Display,
+{
+    struct DisplayVec<T: AsRef<[U]>, U: Display>(T, PhantomData<U>);
+
+    impl<T: AsRef<[U]>, U: Display> Display for DisplayVec<T, U> {
+        fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+            write!(fmt, "[")?;
+            let mut first = true;
+            let slice = self.0.as_ref();
+            for x in slice {
+                if first {
+                    first = false;
+                } else {
+                    write!(fmt, ", ")?;
+                }
+                write!(fmt, "{}", x)?;
+            }
+            write!(fmt, "]")
+        }
+    }
+
+    DisplayVec(vec, PhantomData)
+}
 
 /// A path whose backing storage is shared (via a reference count).
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]

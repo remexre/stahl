@@ -19,12 +19,12 @@ pub use crate::{
     types::{UnifEffs, UnifExpr},
     zipper::Zipper,
 };
-use stahl_ast::{Decl, Expr, FQName, Intrinsic, LibName, TagKind};
+use stahl_ast::{Decl, Effects, Expr, FQName, Intrinsic, LibName, TagKind};
 use stahl_cst::Decl as CstDecl;
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_modules::{Library, Module};
 use stahl_parser::parse_file;
-use stahl_util::{genint, SharedPath, SharedString, Taker};
+use stahl_util::{display_vec, genint, SharedPath, SharedString, Taker};
 use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
@@ -527,20 +527,38 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
             }
             CstDecl::DefTy(loc, ty_name, kind, ctors) => {
                 let mut locals = Vec::new();
+                let mut kind = self.cst_to_unif(&kind, &mut locals)?;
+                self.normalize(&mut kind, None);
+                let is_simple = if let UnifExpr::Intrinsic(_, Intrinsic::Type) = *kind {
+                    true
+                } else {
+                    false
+                };
+                let ty_name_var = Rc::new(UnifExpr::LocalVar(loc.clone(), ty_name.clone()));
+
                 self.with_defty(
                     loc,
                     ty_name.clone(),
                     |defty_kind_ctx| {
-                        let kind = defty_kind_ctx.module.cst_to_unif(&kind, &mut Vec::new())?;
                         defty_kind_ctx.kind_zipper().fill(kind);
                         Ok(())
                     },
                     |defty_ctors_ctx| {
                         locals.push(ty_name);
-                        for (name, ty) in ctors {
+                        for (loc, name, ty) in ctors {
+                            let ctor_ty = match ty {
+                                Some(ty) => defty_ctors_ctx.module.cst_to_unif(&ty, &mut locals)?,
+                                None => {
+                                    if is_simple {
+                                        ty_name_var.clone()
+                                    } else {
+                                        raise!(@loc, concat!("Cannot use simple constructor ",
+                                                             "syntax for a parameterized type"))
+                                    }
+                                }
+                            };
                             defty_ctors_ctx.with_ctor(name, |ctor_ctx| {
-                                let ty = ctor_ctx.defty.module.cst_to_unif(&ty, &mut locals)?;
-                                ctor_ctx.zipper().fill(ty);
+                                ctor_ctx.zipper().fill(ctor_ty);
                                 Ok(())
                             })?;
                         }
@@ -949,12 +967,21 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
     }
 
     /// Returns the kind of the type being defined.
-    fn kind(&self) -> Rc<UnifExpr> {
-        let ty = Rc::new(UnifExpr::Intrinsic(self.loc.clone(), Intrinsic::Type));
+    fn kind(&self) -> Arc<Expr> {
+        let ty = Arc::new(Expr::Intrinsic(self.loc.clone(), Intrinsic::Type));
         if self.ty_args.is_empty() {
             ty
         } else {
-            unimplemented!("kind of {:?}", self.ty_args)
+            let args = self
+                .ty_args
+                .iter()
+                .cloned()
+                .map(|(name, arg)| {
+                    let name = name.unwrap_or_else(SharedString::gensym_anon);
+                    (name, arg)
+                })
+                .collect();
+            Arc::new(Expr::Pi(self.loc.clone(), args, ty, Effects::default()))
         }
     }
 
@@ -1040,7 +1067,7 @@ impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
         let mut ctor_type = Rc::new(self.zipper.take().into_expr());
         let mut env = vec![(
             self.defty.name.clone(),
-            self.defty.kind(),
+            Rc::new(self.defty.kind().into()),
             Some(self.defty.ty()),
         )];
         self.defty
@@ -1067,7 +1094,7 @@ impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
         let ty_args = match ret {
             Expr::Call(_, func, args) if !args.is_empty() => match **func {
                 Expr::Intrinsic(_, Intrinsic::Tag(ref name, TagKind::Type)) if name == &ty_name => {
-                    unimplemented!()
+                    args.clone()
                 }
                 _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
             },

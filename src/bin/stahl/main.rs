@@ -38,8 +38,12 @@ fn main() {
     }
     search_paths.extend(options.search_paths.iter().cloned().map(SharedPath::from));
 
-    let r = Context::new(true, search_paths)
-        .and_then(|mut ctx| run(options.command.unwrap_or(Command::Repl), &mut ctx));
+    let r = Context::new(true, search_paths).and_then(|mut ctx| {
+        run(
+            options.command.unwrap_or(Command::Repl { main: None }),
+            &mut ctx,
+        )
+    });
     if let Err(err) = r {
         error!("{}", err);
         exit(1);
@@ -49,7 +53,7 @@ fn main() {
 fn run(command: Command, ctx: &mut Context) -> Result<()> {
     match command {
         Command::Interpret { main, args } => stahl::run_package(ctx, main, args),
-        Command::Repl => repl::run(ctx),
+        Command::Repl { main } => repl::run(ctx, main),
         Command::Script { main, args } => stahl::run_script(ctx, main, args),
     }
 }

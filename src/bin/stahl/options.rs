@@ -41,7 +41,7 @@ pub enum Command {
     /// Runs a package's main function.
     #[structopt(name = "interpret")]
     Interpret {
-        /// The file being interpreted.
+        /// The package being interpreted.
         #[structopt(name = "main_package")]
         main: String,
 
@@ -52,7 +52,11 @@ pub enum Command {
 
     /// Starts a REPL.
     #[structopt(name = "repl")]
-    Repl,
+    Repl {
+        /// The package being interpreted.
+        #[structopt(name = "main_package")]
+        main: Option<String>,
+    },
 
     /// Interprets a single file.
     #[structopt(name = "script")]

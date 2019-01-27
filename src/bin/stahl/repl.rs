@@ -10,7 +10,7 @@ use stahl_errors::{Location, Result};
 use stahl_parser::parse_str;
 
 /// Runs the REPL.
-pub fn run(ctx: &mut Context) -> Result<()> {
+pub fn run(ctx: &mut Context, main: Option<String>) -> Result<()> {
     let config = Config::builder()
         .auto_add_history(true)
         .edit_mode(EditMode::Emacs)
@@ -27,13 +27,30 @@ pub fn run(ctx: &mut Context) -> Result<()> {
     }
 
     let std = ctx.std().unwrap();
+    let mut import_libs = hashmap! { std.0.clone() => std };
+    let mut import_mods = hashmap! {};
+    if let Some(main) = main {
+        let i = main.find(':').unwrap_or_else(|| main.len());
+        let library = &main[..i];
+        let module = if let Some(i) = main.find(':') {
+            &main[i + 1..]
+        } else {
+            ""
+        };
 
-    let mut lib_ctx = ctx.create_lib(
-        LibName("#repl#".into(), 0, 0, 0),
-        hashmap! { std.0.clone() => std },
-        None,
-    );
-    let mut mod_ctx = lib_ctx.create_mod("".into(), hashset! {}, hashmap! {})?;
+        let main = ctx.load_lib_highest_version(library.into())?;
+        let exports = ctx.get_module(main.clone(), module.into())?.exports.clone();
+        import_libs.insert(main.0.clone(), main.clone());
+        import_mods.insert(
+            main.0,
+            hashmap! {
+                "".into() => exports,
+            },
+        );
+    }
+
+    let mut lib_ctx = ctx.create_lib(LibName("#repl#".into(), 0, 0, 0), import_libs, None);
+    let mut mod_ctx = lib_ctx.create_mod("".into(), hashset! {}, import_mods)?;
     mod_ctx.add_prelude_import(true)?;
 
     while let Ok(line) = rl.readline("\u{03bb}> ") {

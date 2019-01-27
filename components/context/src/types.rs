@@ -5,6 +5,7 @@ use std::{
     collections::HashSet,
     fmt::{Display, Formatter, Result as FmtResult},
     rc::Rc,
+    sync::Arc,
 };
 
 /// A set of effects which can undergo unification.
@@ -183,6 +184,12 @@ impl Display for UnifExpr {
     }
 }
 
+impl From<Expr> for UnifExpr {
+    fn from(expr: Expr) -> UnifExpr {
+        (&expr).into()
+    }
+}
+
 impl From<&Expr> for UnifExpr {
     fn from(expr: &Expr) -> UnifExpr {
         match expr {
@@ -218,5 +225,11 @@ impl From<&Expr> for UnifExpr {
                 effs.clone().into(),
             ),
         }
+    }
+}
+
+impl From<Arc<Expr>> for UnifExpr {
+    fn from(expr: Arc<Expr>) -> UnifExpr {
+        (&*expr as &Expr).into()
     }
 }
