@@ -1,0 +1,7 @@
+(module std:group-theory
+  ; Abelian-Group abelian-group-comm
+  ; Group inverse group-inv
+  ; Monoid identity monoid-ident
+  ; Magma <>
+  ; Semigroup semigroup-assoc
+  )

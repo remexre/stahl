@@ -76,11 +76,19 @@ impl Library {
             for entry in read_dir(dir)? {
                 let entry = entry?;
                 let path = entry.path();
+                let stem = path.file_stem().and_then(|s| s.to_str()).ok_or_else(|| {
+                    err!(@Location::new().path(path.clone().into()), "{:?} is not a valid name",
+                            path.file_stem())
+                })?;
+                let old_len = mod_name.len();
+                mod_name.push(':');
+                *mod_name += stem;
                 if entry.file_type()?.is_dir() {
                     find_modules_in(&entry.path(), mod_name, mods)?;
                 } else if path.extension() == Some("stahl".as_ref()) {
-                    unimplemented!()
+                    mods.insert((&mod_name as &str).into(), path.into());
                 }
+                mod_name.truncate(old_len);
             }
             Ok(())
         }
@@ -94,10 +102,14 @@ impl Library {
             let entry = entry?;
             let path = entry.path();
             if entry.file_type()?.is_dir() {
-                let mut name = path.to_str().map(|s| s.to_string()).ok_or_else(|| {
-                    err!(@Location::new().path(path.clone().into()), "{:?} is not a valid name",
+                let mut name = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| {
+                        err!(@Location::new().path(path.clone().into()), "{:?} is not a valid name",
                             path.file_stem())
-                })?;
+                    })?;
                 find_modules_in(&entry.path(), &mut name, &mut mods)?;
             } else if path.extension() == Some("stahl".as_ref()) {
                 if path.file_stem() == Some(self.name.0.as_ref()) {

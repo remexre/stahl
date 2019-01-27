@@ -1,0 +1,19 @@
+(module std:group-theory:theorems
+  ;exp-by-sqr exp-by-sqr-sound
+  )
+
+; import std
+;   group-theory <> Semigroup semigroup-assoc
+;   prelude Bool Nat elim-Nat TYPE
+
+; def odd? (pi ((n Nat)) Bool)
+;   elim-Nat
+;     fn () Bool
+;     false
+;     fn (_ prev) (not prev)
+;     n
+
+; def exp-by-sqr
+;   pi ((T TYPE) (_ (Semigroup T)))
+;     pi ((x T) (n Nat)) T
+;   'todo

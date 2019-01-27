@@ -260,7 +260,7 @@ impl ModContext<'_, '_> {
                     Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
                     UnifEffs::any(),
                 )),
-                Intrinsic::Tag(ref name, kind) => match self.get_decl(name.clone()) {
+                Intrinsic::Tag(ref name, _kind) => match self.get_decl(name.clone()) {
                     Some((ref name, Decl::DefTy(decl_loc, ty_name, ty_args, ctors))) => {
                         if name.2 == **ty_name {
                             let ty = Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type));

@@ -8,12 +8,12 @@ fn should_fail() {
 
     let paths = &[
         (
-            "tests/should_fail/two_plus_two.stahl",
+            "tests/should_fail/two-plus-two.stahl",
             Some(Position::SpanLC(PointLC(111, 6, 1), PointLC(116, 6, 6))),
-            "Bad cannot appear in a negative position",
+            "2 + 2 =/= 4",
         ),
         (
-            "tests/should_fail/negative_position_in_ctor.stahl",
+            "tests/should_fail/negative-position-in-ctor.stahl",
             Some(Position::SpanLC(PointLC(111, 6, 1), PointLC(116, 6, 6))),
             "Bad cannot appear in a negative position",
         ),

@@ -24,7 +24,7 @@ use stahl_cst::Decl as CstDecl;
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_modules::{Library, Module};
 use stahl_parser::parse_file;
-use stahl_util::{display_vec, genint, SharedPath, SharedString, Taker};
+use stahl_util::{genint, SharedPath, SharedString, Taker};
 use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},

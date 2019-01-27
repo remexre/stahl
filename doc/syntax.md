@@ -4,13 +4,13 @@ Syntax
 IExprs
 ------
 
+**TODO**: Get this under testing!
+
 Stahl uses a modified version of [SRFI49 IExprs](https://srfi.schemers.org/srfi-49/srfi-49.html).
 
 The following examples serve as a quick introduction.
 
-**TODO**: Get this under testing!
-
-```
+```stahl
 foo
 ; This is equivalent to foo
 
@@ -30,6 +30,10 @@ foo
 
 foo
   bar baz
+; This is equivalent to (foo (bar baz))
+
+foo
+  (bar baz)
 ; This is equivalent to (foo (bar baz))
 
 foo
