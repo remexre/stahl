@@ -111,7 +111,7 @@ impl Decl {
                     raise!(@val.loc(), "Invalid defty: {}", val)
                 }
             }
-            decl_type => raise!(@loc, "{} is not a declaration type", decl_type),
+            decl_type => raise!(@loc, "{} is not a declaration", decl_type),
         }
     }
 }

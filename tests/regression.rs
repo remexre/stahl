@@ -1,3 +1,5 @@
+//! Regression tests for specific bugs.
+
 use stahl_context::Context;
 use std::path::PathBuf;
 

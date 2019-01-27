@@ -5,7 +5,7 @@
   Eq refl
   id
   ; List nil-List cons-List
-  Nat zero succ S Z ; plus-Nat
+  Nat zero succ S Z elim-Nat plus-Nat
   String
   Symbol
   the
@@ -43,13 +43,13 @@ defty Nat TYPE
   zero Nat
   succ (pi ((_ Nat)) Nat)
 
-; def plus-Nat (pi ((_ Nat) (_ Nat)) Nat)
-;   fn (x y)
-;     elim-Nat
-;       fn (_) Nat
-;       y
-;       fn (_ prev) (s prev)
-;       x
+def plus-Nat (pi ((_ Nat) (_ Nat)) Nat)
+  fn (x y)
+    elim-Nat
+      fn (_) Nat
+      y
+      fn (_ prev) (s prev)
+      x
 
 def S succ
 def Z zero
