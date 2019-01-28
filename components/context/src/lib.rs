@@ -926,6 +926,7 @@ pub struct DefTyCtorsContext<'m, 'l, 'c> {
 impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
     /// Adds this `defty` to the module.
     pub fn finish(mut self) -> Result<&'m mut ModContext<'l, 'c>> {
+        let kind = self.kind();
         let loc = self.loc.take();
         let name = self.name.take();
         let ty_args = self.ty_args.take();
@@ -933,19 +934,32 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
 
         let lib_name = self.module.lib_name.clone();
         let mod_name = self.module.mod_name.clone();
+
+        let ty = Arc::new(Expr::Atom(
+            loc.clone(),
+            FQName(lib_name.clone(), mod_name.clone(), name.clone()),
+            kind.clone(),
+        ));
+        self.module
+            .add(Decl::Def(loc.clone(), name.clone(), kind, ty))?;
+
+        for ctor in &ctors {
+            unimplemented!("ctor {:?}", ctor)
+        }
+
         warn!(
             "TODO elim({}) = {}",
             FQName(lib_name.clone(), mod_name.clone(), name.clone()),
             elim_type(
                 lib_name,
                 mod_name,
-                loc.clone(),
-                name.clone(),
+                loc,
+                name,
                 ty_args.clone(),
                 ctors.clone()
             )
         );
-        unimplemented!("self.module.add(Decl::DefTy(loc, name, ty_args, ctors))?");
+
         Ok(self.module.take())
     }
 
