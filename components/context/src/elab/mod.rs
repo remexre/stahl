@@ -10,7 +10,7 @@ use crate::{
     ModContext,
 };
 use log::debug;
-use stahl_ast::{Decl, Effects, Expr, FQName, Intrinsic, Literal, TagKind};
+use stahl_ast::{Decl, Effects, Expr, Intrinsic, Literal};
 use stahl_cst::Expr as CstExpr;
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_util::{genint, SharedString};
@@ -113,9 +113,6 @@ impl ModContext<'_, '_> {
                         Ok((name, Decl::Def(_, _, _, _))) => {
                             raise!(@loc.clone(), "{} is a value, not an effect", name)
                         }
-                        Ok((name, Decl::DefTy(_, _, _, _))) => {
-                            raise!(@loc.clone(), "{} is a type, not an effect", name)
-                        }
                         Err(err) => Err(err),
                     })
                     .collect::<Result<_>>()?;
@@ -132,14 +129,6 @@ impl ModContext<'_, '_> {
                         }
                         Ok((name, Decl::DefEffSet(_, _, _))) => {
                             raise!(@loc.clone(), "{} is an effect set, not a value", name)
-                        }
-                        Ok((ref name, Decl::DefTy(_, ty_name, _, _))) => {
-                            let kind = if ty_name == &name.2 {
-                                TagKind::Type
-                            } else {
-                                TagKind::Ctor
-                            };
-                            UnifExpr::Intrinsic(loc.clone(), Intrinsic::Tag(name.clone(), kind))
                         }
                         Err(err) => {
                             return Err(
@@ -172,6 +161,7 @@ impl ModContext<'_, '_> {
         });
 
         let mut inf_ty = match expr {
+            UnifExpr::Atom(_, _, ty) => ty.clone(),
             UnifExpr::Call(loc, func, args) => {
                 let ty = self.tyck(func, constraints, None, env)?;
                 match &*ty {
@@ -238,7 +228,6 @@ impl ModContext<'_, '_> {
                 Some((_, Decl::DefEffSet(_, _, _))) => {
                     raise!(@loc.clone(), "{} is an effect set, not a value", name)
                 }
-                Some((_, Decl::DefTy(_, _, _, _))) => unimplemented!(),
                 None => raise!(@loc.clone(), "Undefined global variable {}", name),
             },
             UnifExpr::Intrinsic(loc, i) => match *i {
@@ -260,80 +249,6 @@ impl ModContext<'_, '_> {
                     Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Fixnum)),
                     UnifEffs::any(),
                 )),
-                Intrinsic::Tag(ref name, _kind) => match self.get_decl(name.clone()) {
-                    Some((ref name, Decl::DefTy(decl_loc, ty_name, ty_args, ctors))) => {
-                        if name.2 == **ty_name {
-                            let ty = Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type));
-                            if ty_args.is_empty() {
-                                ty
-                            } else {
-                                let ty_args = ty_args
-                                    .iter()
-                                    .map(|(name, ty)| {
-                                        (
-                                            name.clone().unwrap_or_else(SharedString::gensym_anon),
-                                            Rc::new((&**ty).into()),
-                                        )
-                                    })
-                                    .collect();
-                                Rc::new(UnifExpr::Pi(
-                                    decl_loc.clone(),
-                                    ty_args,
-                                    ty,
-                                    UnifEffs::none(),
-                                ))
-                            }
-                        } else {
-                            let mut res = Err(
-                                err!(@loc.clone(), "{} not found in {}; this should be impossible",
-                                    name, ty_name),
-                            );
-                            for (ctor_name, ctor_args, ty_args) in ctors {
-                                if name.2 == ctor_name {
-                                    let ty = Rc::new(UnifExpr::Intrinsic(
-                                        loc.clone(),
-                                        Intrinsic::Tag(
-                                            FQName(name.0.clone(), name.1.clone(), ty_name.clone()),
-                                            TagKind::Type,
-                                        ),
-                                    ));
-                                    let ty = if ty_args.is_empty() {
-                                        ty
-                                    } else {
-                                        let ty_args = ty_args
-                                            .iter()
-                                            .map(|ty| Rc::new((&**ty).into()))
-                                            .collect();
-                                        Rc::new(UnifExpr::Call(decl_loc.clone(), ty, ty_args))
-                                    };
-                                    let ty = if ctor_args.is_empty() {
-                                        ty
-                                    } else {
-                                        let ctor_args = ctor_args
-                                            .iter()
-                                            .map(|(name, ty)| {
-                                                (name.clone(), Rc::new((&**ty).into()))
-                                            })
-                                            .collect();
-                                        Rc::new(UnifExpr::Pi(
-                                            decl_loc.clone(),
-                                            ctor_args,
-                                            ty,
-                                            UnifEffs::none(),
-                                        ))
-                                    };
-                                    res = Ok(ty);
-                                    break;
-                                }
-                            }
-                            res?
-                        }
-                    }
-                    Some((_, decl)) => {
-                        raise!(@decl.loc(), "Found tag for non-type, non-ctor {}", name)
-                    }
-                    None => raise!(@loc.clone(), "Found tag for nonexistent {}", name),
-                },
                 Intrinsic::Type => Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::TypeOfType)),
                 Intrinsic::TypeOfType => {
                     raise!(@loc.clone(), "The type of type shouldn't be typechecked")
@@ -441,6 +356,9 @@ impl ModContext<'_, '_> {
 pub fn reify(expr: &UnifExpr) -> Result<Arc<Expr>> {
     debug!("About to reify {}", expr);
     match expr {
+        UnifExpr::Atom(loc, name, ty) => {
+            Ok(Arc::new(Expr::Atom(loc.clone(), name.clone(), reify(&ty)?)))
+        }
         UnifExpr::Call(loc, func, args) => {
             let func = reify(func).chain(|| err!(@expr.loc(), "in {}", expr))?;
             let args = args
@@ -524,7 +442,8 @@ impl UnifExpr {
                 }
                 UnifExpr::beta(body, from, to.clone());
             }
-            UnifExpr::Const(_, _)
+            UnifExpr::Atom(_, _, _)
+            | UnifExpr::Const(_, _)
             | UnifExpr::GlobalVar(_, _)
             | UnifExpr::Intrinsic(_, _)
             | UnifExpr::UnifVar(_, _) => {}

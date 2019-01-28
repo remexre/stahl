@@ -39,7 +39,10 @@ impl<'c> Interpreter<'c> {
     /// The actual evaluator.
     fn eval_step(&mut self, expr: Arc<Expr>) -> Arc<Expr> {
         match *expr {
-            Expr::Const(_, _) | Expr::Intrinsic(_, _) | Expr::Lam(_, _, _) => {
+            Expr::Atom(_, _, _)
+            | Expr::Const(_, _)
+            | Expr::Intrinsic(_, _)
+            | Expr::Lam(_, _, _) => {
                 warn!("{} is already normal; this may be a bug.", expr);
                 expr
             }
@@ -65,6 +68,7 @@ impl<'c> Interpreter<'c> {
                     .map(|a| self.eval(a.clone()))
                     .collect::<Vec<_>>();
                 match *func {
+                    Expr::Atom(_, _, _) => Arc::new(Expr::Call(loc.clone(), func, call_args)),
                     Expr::Lam(_, ref args, ref body) => {
                         if args.len() != call_args.len() {
                             panic!(
@@ -92,9 +96,6 @@ impl<'c> Interpreter<'c> {
                         self.env.truncate(old_env_len);
                         val
                     }
-                    Expr::Intrinsic(_, Intrinsic::Tag(_, _)) => {
-                        Arc::new(Expr::Call(loc.clone(), func, call_args))
-                    }
                     Expr::Intrinsic(_, Intrinsic::FixnumAdd) => match &*call_args {
                         [l, r] => match (&**l, &**r) {
                             (
@@ -116,12 +117,15 @@ impl<'c> Interpreter<'c> {
     /// Returns whether the given expression is normal.
     fn is_normal(&mut self, expr: &Expr) -> bool {
         match expr {
-            Expr::Const(_, _) | Expr::Intrinsic(_, _) | Expr::Lam(_, _, _) => true,
+            Expr::Atom(_, _, _)
+            | Expr::Const(_, _)
+            | Expr::Intrinsic(_, _)
+            | Expr::Lam(_, _, _) => true,
             Expr::GlobalVar(_, _) | Expr::LocalVar(_, _) => false,
             Expr::Call(_, func, args) => {
                 if args.iter().all(|a| self.is_normal(a)) {
                     match &**func {
-                        Expr::Intrinsic(_, Intrinsic::Tag(_, _)) => true,
+                        Expr::Atom(_, _, _) => true,
                         _ => false,
                     }
                 } else {

@@ -1,5 +1,5 @@
 use crate::{types::UnifExpr, ModContext};
-use log::debug;
+use log::{debug, error};
 use stahl_ast::{Decl, Intrinsic, Literal};
 use stahl_errors::Result;
 use stahl_util::{unwrap_rc, SharedString};
@@ -25,7 +25,18 @@ impl<'a> NormalizeEnv<'a> {
         iter.filter(|(name, _)| name == &n)
             .map(|(_, val)| val.clone())
             .next()
-            .unwrap_or_else(|| panic!("{} not found", n))
+            .unwrap_or_else(|| {
+                error!("{} not found", n);
+                error!("self.base:");
+                for (name, _, _) in self.base.iter() {
+                    error!("  {}", name);
+                }
+                error!("self.ext:");
+                for (name, _) in self.ext.iter() {
+                    error!("  {}", name);
+                }
+                panic!("{} not found", n)
+            })
     }
 }
 
@@ -63,6 +74,7 @@ impl ModContext<'_, '_> {
                 }
 
                 match *func {
+                    UnifExpr::Atom(_, _, _) => Ok(UnifExpr::Call(loc, func, call_args)),
                     UnifExpr::Lam(_, ref args, ref body) => {
                         if args.len() != call_args.len() {
                             raise!(@loc.clone(), "{} is being passed {} args but expects {}",
@@ -80,9 +92,6 @@ impl ModContext<'_, '_> {
 
                         self.normalize(&mut last, Some(env));
                         Ok(unwrap_rc(last))
-                    }
-                    UnifExpr::Intrinsic(_, Intrinsic::Tag(_, _)) => {
-                        Ok(UnifExpr::Call(loc, func, call_args))
                     }
                     UnifExpr::Intrinsic(_, Intrinsic::FixnumAdd) => match &*call_args {
                         [l, r] => match (&**l, &**r) {
@@ -105,7 +114,6 @@ impl ModContext<'_, '_> {
                 Some((_, Decl::DefEffSet(_, _, _))) => {
                     raise!(@loc.clone(), "{} is an effect set, not a value", name)
                 }
-                Some((_, Decl::DefTy(_, _, _, _))) => unimplemented!(),
                 None => raise!(@loc.clone(), "{} is not defined", name),
             },
             UnifExpr::LocalVar(loc, name) => env
@@ -131,10 +139,11 @@ impl UnifExpr {
     /// Checks if an expression is normal under an evaluation context.
     pub fn is_normal(&self, env: &mut NormalizeEnv) -> bool {
         match self {
+            UnifExpr::Atom(_, _, _) => true,
             UnifExpr::Call(_, func, args) => {
                 if args.iter().all(|arg| arg.is_normal(env)) {
                     match **func {
-                        UnifExpr::Intrinsic(_, Intrinsic::Tag(_, _)) => true,
+                        UnifExpr::Atom(_, _, _) => true,
                         _ => false,
                     }
                 } else {
@@ -194,7 +203,8 @@ fn replace(name: &str, expr: &mut Rc<UnifExpr>, to: Rc<UnifExpr>) {
             }
             replace(name, body, to)
         }
-        UnifExpr::Const(_, _)
+        UnifExpr::Atom(_, _, _)
+        | UnifExpr::Const(_, _)
         | UnifExpr::GlobalVar(_, _)
         | UnifExpr::Intrinsic(_, _)
         | UnifExpr::LocalVar(_, _)

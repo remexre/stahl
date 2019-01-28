@@ -48,7 +48,7 @@ def plus-Nat (pi ((_ Nat) (_ Nat)) Nat)
     elim-Nat
       fn (_) Nat
       y
-      fn (_ prev) (s prev)
+      fn (_ prev) (succ prev)
       x
 
 def S succ

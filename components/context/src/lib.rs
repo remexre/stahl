@@ -19,7 +19,7 @@ pub use crate::{
     types::{UnifEffs, UnifExpr},
     zipper::Zipper,
 };
-use stahl_ast::{Decl, Effects, Expr, FQName, Intrinsic, LibName, TagKind};
+use stahl_ast::{Decl, Effects, Expr, FQName, Intrinsic, LibName};
 use stahl_cst::Decl as CstDecl;
 use stahl_errors::{Location, Result, ResultExt};
 use stahl_modules::{Library, Module};
@@ -180,7 +180,7 @@ impl Context {
         }
 
         for decl in &module.decls {
-            if decl.names().contains(&name.2) {
+            if decl.name() == &name.2 {
                 return Ok((name, decl));
             }
         }
@@ -315,7 +315,7 @@ impl<'c> LibContext<'c> {
         let mut decl_names = module
             .decls
             .iter()
-            .flat_map(|d| d.names())
+            .map(|d| d.name())
             .collect::<HashSet<_>>();
         for (lib_name, mods) in &module.imports {
             for (mod_name, names) in mods {
@@ -361,7 +361,7 @@ impl<'c> LibContext<'c> {
             let module = self.mods.get(&name.1)?;
 
             for decl in &module.decls {
-                if decl.names().contains(&name.2) {
+                if decl.name() == &name.2 {
                     return Some((name, decl));
                 }
             }
@@ -484,16 +484,15 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
 
     /// Adds a new declaration.
     pub fn add(&mut self, decl: Decl) -> Result<()> {
-        for name in decl.names() {
-            if self.module.decls.iter().any(|d| d.names().contains(&name)) {
-                raise!(
-                    @decl.loc(),
-                    "Module {}:{} already declares {}",
-                    self.library.library.name,
-                    self.module.mod_name,
-                    name
-                )
-            }
+        let name = decl.name();
+        if self.module.decls.iter().any(|d| d.name() == name) {
+            raise!(
+                @decl.loc(),
+                "Module {}:{} already declares {}",
+                self.library.library.name,
+                self.module.mod_name,
+                name
+            )
         }
 
         self.module.decls.push(decl);
@@ -502,6 +501,7 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
 
     /// Adds a new CST declaration.
     pub fn add_cst_decl(&mut self, decl: CstDecl) -> Result<()> {
+        println!("Adding {}", decl);
         match decl {
             CstDecl::Def(loc, name, ty, expr) => {
                 let (expr, ty) = self.elab(&expr, &ty)?;
@@ -516,9 +516,6 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                         Ok((_name, Decl::DefEffSet(_, _, _))) => todo!(@loc.clone()),
                         Ok((name, Decl::Def(_, _, _, _))) => {
                             raise!(@loc.clone(), "{} is a value, not an effect", name)
-                        }
-                        Ok((name, Decl::DefTy(_, _, _, _))) => {
-                            raise!(@loc.clone(), "{} is a type, not an effect", name)
                         }
                         Err(err) => Err(err),
                     })
@@ -658,7 +655,7 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
     pub fn get_decl(&self, name: FQName) -> Option<(FQName, &Decl)> {
         if self.module.lib_name == name.0 && self.mod_name == name.1 {
             for decl in &self.module.decls {
-                if decl.names().contains(&name.2) {
+                if decl.name() == &name.2 {
                     return Some((name, decl));
                 }
             }
@@ -675,18 +672,14 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                 Some(name) => {
                     if name.0 == self.module.lib_name {
                         if name.1 == self.module.mod_name {
-                            match self
-                                .decls
-                                .iter()
-                                .find(|decl| decl.names().contains(&name.2))
-                            {
+                            match self.decls.iter().find(|decl| decl.name() == &name.2) {
                                 Some(decl) => Ok((name, decl)),
                                 None => panic!("resolve() lied about {} being local", name),
                             }
                         } else {
                             if let Some(m) = self.library.library.mods.get(&name.1) {
                                 if let Some(decl) =
-                                    m.decls.iter().find(|decl| decl.names().contains(&name.2))
+                                    m.decls.iter().find(|decl| decl.name() == &name.2)
                                 {
                                     if true {
                                         Ok((name, decl))
@@ -952,7 +945,7 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
                 ctors.clone()
             )
         );
-        self.module.add(Decl::DefTy(loc, name, ty_args, ctors))?;
+        unimplemented!("self.module.add(Decl::DefTy(loc, name, ty_args, ctors))?");
         Ok(self.module.take())
     }
 
@@ -996,9 +989,10 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
 
     /// Returns the UnifExpr corresponding to the type being defined.
     fn ty(&self) -> Rc<UnifExpr> {
-        Rc::new(UnifExpr::Intrinsic(
+        Rc::new(UnifExpr::Atom(
             self.loc.clone(),
-            Intrinsic::Tag(self.name(), TagKind::Type),
+            self.name(),
+            Rc::new(self.kind().into()),
         ))
     }
 
@@ -1077,7 +1071,7 @@ impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
         let (ctor_args, ret) = match &*ctor_type {
             Expr::Pi(_, args, ret, effs) if !args.is_empty() => {
                 if !effs.0.is_empty() {
-                    raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type);
+                    raise!(@ctor_type.loc(), "Invalid type for constructor {}: {}", name, ctor_type);
                 }
 
                 let ctor_args = args.clone();
@@ -1085,23 +1079,21 @@ impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
 
                 (ctor_args, &**ret)
             }
-            Expr::Call(_, _, _) | Expr::Intrinsic(_, Intrinsic::Tag(_, _)) => {
+            Expr::Call(_, _, _) | Expr::Atom(_, _, _) => {
                 // TODO: Check this!
                 (Vec::new(), &*ctor_type)
             }
-            _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
+            _ => raise!(@ctor_type.loc(), "Invalid type for constructor {}: {}", name, ctor_type),
         };
         let ty_args = match ret {
             Expr::Call(_, func, args) if !args.is_empty() => match **func {
-                Expr::Intrinsic(_, Intrinsic::Tag(ref name, TagKind::Type)) if name == &ty_name => {
-                    args.clone()
+                Expr::Atom(_, ref name, _) if name == &ty_name => args.clone(),
+                _ => {
+                    raise!(@ctor_type.loc(), "Invalid type for constructor {}: {}", name, ctor_type)
                 }
-                _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
             },
-            Expr::Intrinsic(_, Intrinsic::Tag(name, TagKind::Type)) if name == &ty_name => {
-                Vec::new()
-            }
-            _ => raise!(@ctor_type.loc(), "Invalid type for {}: {}", name, ctor_type),
+            Expr::Atom(_, name, _) if name == &ty_name => Vec::new(),
+            _ => raise!(@ctor_type.loc(), "Invalid type for constructor {}: {}", name, ctor_type),
         };
 
         self.defty.ctors.push((name, ctor_args, ty_args));

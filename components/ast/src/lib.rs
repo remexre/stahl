@@ -3,8 +3,6 @@
 
 #[macro_use]
 extern crate derivative;
-#[macro_use]
-extern crate stahl_errors;
 
 use stahl_errors::{raise, Error, Location, Result};
 use stahl_util::{fmt_iter, fmt_string, SharedString};
@@ -110,64 +108,24 @@ pub enum Decl {
         SharedString,
         Vec<FQName>,
     ),
-
-    /// A type definition.
-    ///
-    /// The second argument is the name of the type being defined. The third argument is a list of
-    /// the types of arguments to the type, which are pairs of argument name (if the argument is
-    /// not an index) and argument type. The fourth argument is the list of constructors, which are
-    /// triples of the constructor name, a list of the types of arguments to the constructor, and a
-    /// list of arguments to the type of the value produced by the constructor.
-    ///
-    /// For example, the traditional `Vect` type would be represented as:
-    ///
-    /// ```ignore
-    /// // In the module foo:bar
-    /// DefTy(_, "Vect",
-    ///     [(None,      Intrinsic(_, Type)         ),
-    ///      (Some("n"), GlobalVar(_, FQName("std", "", "nat")))],
-    ///     [("nil",  [("T", Intrinsic(_, Type))],
-    ///               [LocalVar(_, "T"), GlobalVar(_, FQName("std", "", "zero"))]),
-    ///      ("cons", [("T", Intrinsic(_, Type)),
-    ///                ("n", GlobalVar(_, FQName("std", "", "Nat"))),
-    ///                ("h", LocalVar(_, "T")),
-    ///                ("t", Call(_, GlobalVar(_, FQName("foo", "bar", "Vect")),
-    ///                           [LocalVar(_, "T"),
-    ///                            LocalVar(_, "n")]))],
-    ///               [LocalVar(_, "T"),
-    ///                Call(_, GlobalVar(_, FQName("std", "", "succ")),
-    ///                     [LocalVar(_, "n")])])])
-    /// ```
-    DefTy(
-        #[derivative(Debug = "ignore")] Location,
-        SharedString,
-        Vec<(Option<SharedString>, Arc<Expr>)>,
-        Vec<(SharedString, Vec<(SharedString, Arc<Expr>)>, Vec<Arc<Expr>>)>,
-    ),
 }
 
 impl Decl {
     /// Returns the location at which the declaration is.
     pub fn loc(&self) -> Location {
         match self {
-            Decl::Def(loc, _, _, _)
-            | Decl::DefEff(loc, _, _, _)
-            | Decl::DefEffSet(loc, _, _)
-            | Decl::DefTy(loc, _, _, _) => loc.clone(),
+            Decl::Def(loc, _, _, _) | Decl::DefEff(loc, _, _, _) | Decl::DefEffSet(loc, _, _) => {
+                loc.clone()
+            }
         }
     }
 
-    /// Returns the names introduced by the declaration.
-    pub fn names(&self) -> Vec<SharedString> {
+    /// Returns the name introduced by the declaration.
+    pub fn name(&self) -> SharedString {
         match self {
             Decl::Def(_, name, _, _)
             | Decl::DefEff(_, name, _, _)
-            | Decl::DefEffSet(_, name, _) => vec![name.clone()],
-            Decl::DefTy(_, name, _, ctors) => {
-                let mut names = ctors.iter().map(|ctor| ctor.0.clone()).collect::<Vec<_>>();
-                names.push(name.clone());
-                names
-            }
+            | Decl::DefEffSet(_, name, _) => name.clone(),
         }
     }
 }
@@ -186,9 +144,6 @@ impl Display for Decl {
                     write!(fmt, " {}", eff)?;
                 }
                 write!(fmt, ")")
-            }
-            Decl::DefTy(_, name, ty_args, ctors) => {
-                unimplemented!();
             }
         }
     }
@@ -221,9 +176,6 @@ pub enum Intrinsic {
     /// The type of symbols.
     Symbol,
 
-    /// The tag for a constructor, recursion principle, or type.
-    Tag(FQName, TagKind),
-
     /// The type of types.
     Type,
 
@@ -238,32 +190,19 @@ impl Display for Intrinsic {
             Intrinsic::FixnumAdd => fmt.write_str("FIXNUM-ADD"),
             Intrinsic::String => fmt.write_str("STRING"),
             Intrinsic::Symbol => fmt.write_str("SYMBOL"),
-            Intrinsic::Tag(name, _) => return write!(fmt, "{}", name),
             Intrinsic::Type => fmt.write_str("TYPE"),
             Intrinsic::TypeOfType => fmt.write_str("TYPE-OF-TYPE"),
         }
     }
 }
 
-/// The kind of a tag.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum TagKind {
-    /// A constructor.
-    Ctor,
-
-    /// A recursion principle.
-    ///
-    /// TODO: This might be replaced by a Y combinator primitive?
-    RecursionPrinciple,
-
-    /// A user-defined type.
-    Type,
-}
-
 /// An expression.
 #[derive(Clone, Derivative, Eq, PartialEq)]
 #[derivative(Debug)]
 pub enum Expr {
+    /// A type or constructor literal.
+    Atom(#[derivative(Debug = "ignore")] Location, FQName, Arc<Expr>),
+
     /// A call to a function with a given number of arguments.
     Call(
         #[derivative(Debug = "ignore")] Location,
@@ -303,7 +242,8 @@ impl Expr {
     /// Returns the location at which the expression is.
     pub fn loc(&self) -> Location {
         match self {
-            Expr::Call(loc, _, _)
+            Expr::Atom(loc, _, _)
+            | Expr::Call(loc, _, _)
             | Expr::Const(loc, _)
             | Expr::GlobalVar(loc, _)
             | Expr::Intrinsic(loc, _)
@@ -317,6 +257,7 @@ impl Expr {
 impl Display for Expr {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
+            Expr::Atom(_, name, _) => write!(fmt, "{}", name),
             Expr::Call(_, func, args) => {
                 write!(fmt, "({} ", func)?;
                 fmt_iter(fmt, args)?;

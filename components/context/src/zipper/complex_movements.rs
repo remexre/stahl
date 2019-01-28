@@ -108,7 +108,8 @@ impl Zipper {
                 self.go_to_pi_arg(0);
                 true
             }
-            UnifExpr::Const(_, _)
+            UnifExpr::Atom(_, _, _)
+            | UnifExpr::Const(_, _)
             | UnifExpr::GlobalVar(_, _)
             | UnifExpr::Intrinsic(_, _)
             | UnifExpr::LocalVar(_, _)

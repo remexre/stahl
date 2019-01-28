@@ -1,4 +1,4 @@
-use stahl_ast::{Effects, Expr, FQName, Intrinsic, LibName, TagKind};
+use stahl_ast::{Effects, Expr, FQName, Intrinsic, LibName};
 use stahl_errors::Location;
 use stahl_util::SharedString;
 use std::sync::Arc;
@@ -12,6 +12,10 @@ pub fn elim_type(
     ty_args: Vec<(Option<SharedString>, Arc<Expr>)>,
     ctors: Vec<(SharedString, Vec<(SharedString, Arc<Expr>)>, Vec<Arc<Expr>>)>,
 ) -> Arc<Expr> {
+    let type_var = Arc::new(Expr::GlobalVar(
+        loc.clone(),
+        FQName(lib_name.clone(), mod_name.clone(), name.clone()),
+    ));
     let ty_args = ty_args
         .into_iter()
         .map(|(name, ty)| {
@@ -37,11 +41,11 @@ pub fn elim_type(
 
     let val_name = SharedString::gensym();
     let val_ty = if ty_args.is_empty() {
-        Arc::new(Expr::LocalVar(loc.clone(), name))
+        type_var.clone()
     } else {
         Arc::new(Expr::Call(
             loc.clone(),
-            Arc::new(Expr::LocalVar(loc.clone(), name)),
+            type_var.clone(),
             ty_args
                 .iter()
                 .map(|(name, _, _)| Arc::new(Expr::LocalVar(loc.clone(), name.clone())))
@@ -63,21 +67,16 @@ pub fn elim_type(
             Arc::new(Expr::Call(
                 loc.clone(),
                 Arc::new(Expr::LocalVar(loc.clone(), motive_name.clone())),
-                vec![Arc::new(Expr::Intrinsic(
+                vec![Arc::new(Expr::GlobalVar(
                     loc.clone(),
-                    Intrinsic::Tag(
-                        FQName(lib_name.clone(), mod_name.clone(), name.clone()),
-                        TagKind::Ctor,
-                    ),
+                    FQName(lib_name.clone(), mod_name.clone(), name.clone()),
                 ))],
             ))
         } else {
-            Arc::new(Expr::Intrinsic(
+            Arc::new(Expr::Atom(
                 loc.clone(),
-                Intrinsic::Tag(
-                    FQName(LibName("TODO".into(), 0, 0, 0), "".into(), "TODO".into()),
-                    TagKind::Ctor,
-                ),
+                FQName(LibName("TODO".into(), 0, 0, 0), "".into(), "TODO".into()),
+                unimplemented!(),
             ))
         };
         (ctor_case_name, ty)

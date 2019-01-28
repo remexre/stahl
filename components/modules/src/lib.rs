@@ -162,7 +162,7 @@ impl Module {
 
         // Check declarations in the module.
         for decl in &self.decls {
-            if decl.names().contains(&name) {
+            if decl.name() == name {
                 return Some(FQName(self.lib_name.clone(), self.mod_name.clone(), name));
             }
         }

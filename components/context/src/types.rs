@@ -63,6 +63,13 @@ impl From<Effects> for UnifEffs {
 #[derive(Clone, Derivative)]
 #[derivative(Debug, PartialEq = "feature_allow_slow_enum")]
 pub enum UnifExpr {
+    /// A type or constructor literal.
+    Atom(
+        #[derivative(Debug = "ignore")] Location,
+        FQName,
+        Rc<UnifExpr>,
+    ),
+
     /// A function call.
     Call(
         #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
@@ -122,7 +129,8 @@ impl UnifExpr {
     /// Returns the location of the `UnifExpr`.
     pub fn loc(&self) -> Location {
         match self {
-            UnifExpr::Call(loc, _, _)
+            UnifExpr::Atom(loc, _, _)
+            | UnifExpr::Call(loc, _, _)
             | UnifExpr::Const(loc, _)
             | UnifExpr::GlobalVar(loc, _)
             | UnifExpr::Intrinsic(loc, _)
@@ -137,6 +145,7 @@ impl UnifExpr {
 impl Display for UnifExpr {
     fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
         match self {
+            UnifExpr::Atom(_, name, _) => write!(fmt, "{}", name),
             UnifExpr::Call(_, func, args) => {
                 write!(fmt, "({} ", func)?;
                 fmt_iter(fmt, args)?;
@@ -193,10 +202,13 @@ impl From<Expr> for UnifExpr {
 impl From<&Expr> for UnifExpr {
     fn from(expr: &Expr) -> UnifExpr {
         match expr {
+            Expr::Atom(loc, name, ty) => {
+                UnifExpr::Atom(loc.clone(), name.clone(), Rc::new(ty.into()))
+            }
             Expr::Call(loc, func, args) => UnifExpr::Call(
                 loc.clone(),
-                Rc::new((&**func).into()),
-                args.iter().map(|arg| Rc::new((&**arg).into())).collect(),
+                Rc::new(func.into()),
+                args.iter().map(|arg| Rc::new(arg.into())).collect(),
             ),
             Expr::Const(loc, lit) => UnifExpr::Const(loc.clone(), lit.clone()),
             Expr::GlobalVar(loc, name) => UnifExpr::GlobalVar(loc.clone(), name.clone()),
@@ -208,8 +220,8 @@ impl From<&Expr> for UnifExpr {
                     .map(|(name, ty, expr, effs)| {
                         (
                             name.clone(),
-                            Rc::new((&**ty).into()),
-                            Rc::new((&**expr).into()),
+                            Rc::new(ty.into()),
+                            Rc::new(expr.into()),
                             effs.clone().into(),
                         )
                     })
@@ -219,9 +231,9 @@ impl From<&Expr> for UnifExpr {
             Expr::Pi(loc, args, body, effs) => UnifExpr::Pi(
                 loc.clone(),
                 args.iter()
-                    .map(|(name, ty)| (name.clone(), Rc::new((&**ty).into())))
+                    .map(|(name, ty)| (name.clone(), Rc::new(ty.into())))
                     .collect(),
-                Rc::new((&**body).into()),
+                Rc::new(body.into()),
                 effs.clone().into(),
             ),
         }
@@ -231,5 +243,11 @@ impl From<&Expr> for UnifExpr {
 impl From<Arc<Expr>> for UnifExpr {
     fn from(expr: Arc<Expr>) -> UnifExpr {
         (&*expr as &Expr).into()
+    }
+}
+
+impl From<&Arc<Expr>> for UnifExpr {
+    fn from(expr: &Arc<Expr>) -> UnifExpr {
+        (&**expr as &Expr).into()
     }
 }
