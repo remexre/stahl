@@ -42,7 +42,8 @@ impl<'c> Interpreter<'c> {
             Expr::Atom(_, _, _)
             | Expr::Const(_, _)
             | Expr::Intrinsic(_, _)
-            | Expr::Lam(_, _, _) => {
+            | Expr::Lam(_, _, _)
+            | Expr::RecMatch(_, _, _) => {
                 warn!("{} is already normal; this may be a bug.", expr);
                 expr
             }
@@ -108,6 +109,7 @@ impl<'c> Interpreter<'c> {
                         },
                         _ => panic!("Invalid argn in call to +"),
                     },
+                    Expr::RecMatch(_, ref name, ref cases) => unimplemented!(),
                     _ => panic!("{} is not callable", func),
                 }
             }
@@ -120,7 +122,8 @@ impl<'c> Interpreter<'c> {
             Expr::Atom(_, _, _)
             | Expr::Const(_, _)
             | Expr::Intrinsic(_, _)
-            | Expr::Lam(_, _, _) => true,
+            | Expr::Lam(_, _, _)
+            | Expr::RecMatch(_, _, _) => true,
             Expr::GlobalVar(_, _) | Expr::LocalVar(_, _) => false,
             Expr::Call(_, func, args) => {
                 if args.iter().all(|a| self.is_normal(a)) {

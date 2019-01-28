@@ -166,11 +166,15 @@ impl UnifExpr {
                 env.ext.truncate(old_env_len);
                 normal
             }
+            UnifExpr::RecMatch(_, name, cases) => {
+                unimplemented!();
+            }
             UnifExpr::UnifVar(_, _) => true,
         }
     }
 }
 
+// TODO: Isn't this just UnifExpr::beta?
 fn replace(name: &str, expr: &mut Rc<UnifExpr>, to: Rc<UnifExpr>) {
     let expr_ref = Rc::make_mut(expr);
     match expr_ref {
@@ -202,6 +206,14 @@ fn replace(name: &str, expr: &mut Rc<UnifExpr>, to: Rc<UnifExpr>) {
                 }
             }
             replace(name, body, to)
+        }
+        UnifExpr::RecMatch(_, n, cases) => {
+            if name == n {
+                return;
+            }
+            for (ctor, expr) in cases.iter_mut() {
+                replace(name, expr, to.clone());
+            }
         }
         UnifExpr::Atom(_, _, _)
         | UnifExpr::Const(_, _)

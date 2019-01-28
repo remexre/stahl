@@ -108,6 +108,7 @@ impl Zipper {
                 self.go_to_pi_arg(0);
                 true
             }
+            UnifExpr::RecMatch(_, _, _) => unimplemented!(),
             UnifExpr::Atom(_, _, _)
             | UnifExpr::Const(_, _)
             | UnifExpr::GlobalVar(_, _)

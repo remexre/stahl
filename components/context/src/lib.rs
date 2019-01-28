@@ -14,7 +14,10 @@ mod inductive;
 mod types;
 mod zipper;
 
-use crate::{elab::reify, inductive::elim_type};
+use crate::{
+    elab::reify,
+    inductive::{ctor_type, elim_type},
+};
 pub use crate::{
     types::{UnifEffs, UnifExpr},
     zipper::Zipper,
@@ -554,7 +557,7 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                                     }
                                 }
                             };
-                            defty_ctors_ctx.with_ctor(name, |ctor_ctx| {
+                            defty_ctors_ctx.with_ctor(name, loc, |ctor_ctx| {
                                 ctor_ctx.zipper().fill(ctor_ty);
                                 Ok(())
                             })?;
@@ -920,7 +923,14 @@ pub struct DefTyCtorsContext<'m, 'l, 'c> {
     loc: Taker<Location>,
     name: Taker<SharedString>,
     ty_args: Taker<Vec<(Option<SharedString>, Arc<Expr>)>>,
-    ctors: Taker<Vec<(SharedString, Vec<(SharedString, Arc<Expr>)>, Vec<Arc<Expr>>)>>,
+    ctors: Taker<
+        Vec<(
+            Location,
+            SharedString,
+            Vec<(SharedString, Arc<Expr>)>,
+            Vec<Arc<Expr>>,
+        )>,
+    >,
 }
 
 impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
@@ -935,16 +945,17 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
         let lib_name = self.module.lib_name.clone();
         let mod_name = self.module.mod_name.clone();
 
-        let ty = Arc::new(Expr::Atom(
-            loc.clone(),
-            FQName(lib_name.clone(), mod_name.clone(), name.clone()),
-            kind.clone(),
-        ));
+        let ty_name = FQName(lib_name.clone(), mod_name.clone(), name.clone());
+        let ty = Arc::new(Expr::Atom(loc.clone(), ty_name.clone(), kind.clone()));
         self.module
             .add(Decl::Def(loc.clone(), name.clone(), kind, ty))?;
 
         for ctor in &ctors {
-            unimplemented!("ctor {:?}", ctor)
+            let ty = ctor_type(ty_name.clone(), ctor);
+            let ctor_name = FQName(lib_name.clone(), mod_name.clone(), ctor.1.clone());
+            let atom = Arc::new(Expr::Atom(loc.clone(), ctor_name, ty.clone()));
+            self.module
+                .add(Decl::Def(loc.clone(), ctor.1.clone(), ty, atom))?;
         }
 
         warn!(
@@ -1011,10 +1022,15 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
     }
 
     /// Begins creating a constructor.
-    pub fn create_ctor<'d>(&'d mut self, name: SharedString) -> CtorContext<'d, 'm, 'l, 'c> {
+    pub fn create_ctor<'d>(
+        &'d mut self,
+        name: SharedString,
+        loc: Location,
+    ) -> CtorContext<'d, 'm, 'l, 'c> {
         let zipper = Zipper::new(Rc::new(UnifExpr::UnifVar(self.loc.clone(), genint())));
         CtorContext {
             defty: self.into(),
+            loc: loc.into(),
             name: name.into(),
             zipper: zipper.into(),
         }
@@ -1024,12 +1040,13 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
     pub fn with_ctor<'d, F>(
         &'d mut self,
         name: SharedString,
+        loc: Location,
         f: F,
     ) -> Result<&'d mut DefTyCtorsContext<'m, 'l, 'c>>
     where
         F: FnOnce(&mut CtorContext<'d, 'm, 'l, 'c>) -> Result<()>,
     {
-        let mut ctor_ctx = self.create_ctor(name);
+        let mut ctor_ctx = self.create_ctor(name, loc);
         match f(&mut ctor_ctx) {
             Ok(()) => ctor_ctx.finish(),
             Err(err) => {
@@ -1058,6 +1075,7 @@ impl Drop for DefTyCtorsContext<'_, '_, '_> {
 #[derive(Debug)]
 pub struct CtorContext<'d, 'm, 'l, 'c> {
     defty: Taker<&'d mut DefTyCtorsContext<'m, 'l, 'c>>,
+    loc: Taker<Location>,
     name: Taker<SharedString>,
     zipper: Taker<Zipper>,
 }
@@ -1065,6 +1083,7 @@ pub struct CtorContext<'d, 'm, 'l, 'c> {
 impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
     /// Adds this constructor to the `defty`.
     pub fn finish(mut self) -> Result<&'d mut DefTyCtorsContext<'m, 'l, 'c>> {
+        let loc = self.loc.take();
         let name = self.name.take();
         let ty_name = self.defty.name();
 
@@ -1093,15 +1112,15 @@ impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
 
                 (ctor_args, &**ret)
             }
-            Expr::Call(_, _, _) | Expr::Atom(_, _, _) => {
-                // TODO: Check this!
-                (Vec::new(), &*ctor_type)
-            }
+            Expr::Call(_, _, _) | Expr::Atom(_, _, _) => (Vec::new(), &*ctor_type),
             _ => raise!(@ctor_type.loc(), "Invalid type for constructor {}: {}", name, ctor_type),
         };
         let ty_args = match ret {
             Expr::Call(_, func, args) if !args.is_empty() => match **func {
-                Expr::Atom(_, ref name, _) if name == &ty_name => args.clone(),
+                Expr::Atom(_, ref name, _) if name == &ty_name => {
+                    warn!("TODO: Check that index arguments are free");
+                    args.clone()
+                }
                 _ => {
                     raise!(@ctor_type.loc(), "Invalid type for constructor {}: {}", name, ctor_type)
                 }
@@ -1110,7 +1129,7 @@ impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
             _ => raise!(@ctor_type.loc(), "Invalid type for constructor {}: {}", name, ctor_type),
         };
 
-        self.defty.ctors.push((name, ctor_args, ty_args));
+        self.defty.ctors.push((loc, name, ctor_args, ty_args));
         Ok(self.defty.take())
     }
 

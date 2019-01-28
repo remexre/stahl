@@ -3,6 +3,38 @@ use stahl_errors::Location;
 use stahl_util::SharedString;
 use std::sync::Arc;
 
+type Ctor = (
+    Location,
+    SharedString,
+    Vec<(SharedString, Arc<Expr>)>,
+    Vec<Arc<Expr>>,
+);
+
+/// Creates the type of a constructor.
+pub fn ctor_type(ty_name: FQName, tuple: &Ctor) -> Arc<Expr> {
+    let (loc, _name, ctor_args, ret_args) = tuple;
+
+    let base = if ret_args.is_empty() {
+        Arc::new(Expr::GlobalVar(loc.clone(), ty_name))
+    } else {
+        Arc::new(Expr::Call(
+            loc.clone(),
+            Arc::new(Expr::GlobalVar(loc.clone(), ty_name)),
+            ret_args.clone(),
+        ))
+    };
+    if ctor_args.is_empty() {
+        base
+    } else {
+        Arc::new(Expr::Pi(
+            loc.clone(),
+            ctor_args.clone(),
+            base,
+            Effects::default(),
+        ))
+    }
+}
+
 /// Creates the type of the eliminator for the algebraic data type.
 pub fn elim_type(
     lib_name: LibName,
@@ -10,7 +42,7 @@ pub fn elim_type(
     loc: Location,
     name: SharedString,
     ty_args: Vec<(Option<SharedString>, Arc<Expr>)>,
-    ctors: Vec<(SharedString, Vec<(SharedString, Arc<Expr>)>, Vec<Arc<Expr>>)>,
+    ctors: Vec<Ctor>,
 ) -> Arc<Expr> {
     let type_var = Arc::new(Expr::GlobalVar(
         loc.clone(),
@@ -61,7 +93,7 @@ pub fn elim_type(
         Effects::default(),
     ));
 
-    let ctor_cases = ctors.into_iter().map(|(name, ctor_args, ret_args)| {
+    let ctor_cases = ctors.into_iter().map(|(_loc, name, ctor_args, ret_args)| {
         let ctor_case_name = SharedString::gensym();
         let ty = if ctor_args.is_empty() {
             Arc::new(Expr::Call(

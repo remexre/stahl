@@ -297,6 +297,7 @@ impl ModContext<'_, '_> {
             UnifExpr::Pi(loc, _, _, _) => {
                 Rc::new(UnifExpr::Intrinsic(loc.clone(), Intrinsic::Type))
             }
+            UnifExpr::RecMatch(loc, name, cases) => unimplemented!(),
             UnifExpr::UnifVar(loc, _) => UnifExpr::hole(loc.clone()),
         };
         self.normalize(
@@ -399,6 +400,13 @@ pub fn reify(expr: &UnifExpr) -> Result<Arc<Expr>> {
             let effs = Effects(effs.0.iter().cloned().collect());
             Ok(Arc::new(Expr::Pi(loc.clone(), args, body, effs)))
         }
+        UnifExpr::RecMatch(loc, name, cases) => {
+            let cases = cases
+                .iter()
+                .map(|(name, expr)| reify(expr).map(|expr| (name.clone(), expr)))
+                .collect::<Result<_>>()?;
+            Ok(Arc::new(Expr::RecMatch(loc.clone(), name.clone(), cases)))
+        }
         UnifExpr::UnifVar(loc, _) => raise!(@loc.clone(), "Cannot reify a hole!"),
     }
 }
@@ -441,6 +449,14 @@ impl UnifExpr {
                     UnifExpr::beta(ty, from, to.clone());
                 }
                 UnifExpr::beta(body, from, to.clone());
+            }
+            UnifExpr::RecMatch(_, ref mut name, ref mut cases) => {
+                if name == from {
+                    return;
+                }
+                for (ctor, expr) in cases.iter_mut() {
+                    UnifExpr::beta(expr, from, to.clone());
+                }
             }
             UnifExpr::Atom(_, _, _)
             | UnifExpr::Const(_, _)

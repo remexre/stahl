@@ -236,6 +236,16 @@ pub enum Expr {
         Arc<Expr>,
         Effects,
     ),
+
+    /// A recursive matching function expression. This can easily break soundness, so don't create
+    /// this unless you're 100% sure!
+    ///
+    /// The second argument is the name to bind for recursion, while the third is a list of cases.
+    RecMatch(
+        #[derivative(Debug = "ignore")] Location,
+        SharedString,
+        Vec<(FQName, Arc<Expr>)>,
+    ),
 }
 
 impl Expr {
@@ -249,7 +259,8 @@ impl Expr {
             | Expr::Intrinsic(loc, _)
             | Expr::Lam(loc, _, _)
             | Expr::LocalVar(loc, _)
-            | Expr::Pi(loc, _, _, _) => loc.clone(),
+            | Expr::Pi(loc, _, _, _)
+            | Expr::RecMatch(loc, _, _) => loc.clone(),
         }
     }
 }
@@ -297,6 +308,13 @@ impl Display for Expr {
                 write!(fmt, ") {}", body)?;
                 if !effs.0.is_empty() {
                     write!(fmt, " {}", effs)?;
+                }
+                write!(fmt, ")")
+            }
+            Expr::RecMatch(_, name, cases) => {
+                write!(fmt, "(#REC-MATCH# {}", name)?;
+                for (name, expr) in cases {
+                    write!(fmt, " ({} {})", name, expr)?;
                 }
                 write!(fmt, ")")
             }

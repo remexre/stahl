@@ -118,6 +118,16 @@ pub enum UnifExpr {
         UnifEffs,
     ),
 
+    /// A recursive matching function expression. This can easily break soundness, so don't create
+    /// this unless you're 100% sure!
+    ///
+    /// The second argument is the name to bind for recursion, while the third is a list of cases.
+    RecMatch(
+        #[derivative(Debug = "ignore")] Location,
+        SharedString,
+        Vec<(FQName, Rc<UnifExpr>)>,
+    ),
+
     /// A unification variable.
     UnifVar(
         #[derivative(Debug = "ignore", PartialEq = "ignore")] Location,
@@ -137,6 +147,7 @@ impl UnifExpr {
             | UnifExpr::Lam(loc, _, _)
             | UnifExpr::LocalVar(loc, _)
             | UnifExpr::Pi(loc, _, _, _)
+            | UnifExpr::RecMatch(loc, _, _)
             | UnifExpr::UnifVar(loc, _) => loc.clone(),
         }
     }
@@ -188,6 +199,13 @@ impl Display for UnifExpr {
                 }
                 write!(fmt, ")")
             }
+            UnifExpr::RecMatch(_, name, cases) => {
+                write!(fmt, "(#REC-MATCH# {}", name)?;
+                for (name, expr) in cases {
+                    write!(fmt, " ({} {})", name, expr)?;
+                }
+                write!(fmt, ")")
+            }
             UnifExpr::UnifVar(_, n) => write!(fmt, "#VAR:{}#", n),
         }
     }
@@ -236,6 +254,13 @@ impl From<&Expr> for UnifExpr {
                 Rc::new(body.into()),
                 effs.clone().into(),
             ),
+            Expr::RecMatch(loc, name, cases) => {
+                let cases = cases
+                    .iter()
+                    .map(|(name, expr)| (name.clone(), Rc::new(expr.into())))
+                    .collect();
+                UnifExpr::RecMatch(loc.clone(), name.clone(), cases)
+            }
         }
     }
 }
