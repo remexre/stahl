@@ -16,7 +16,7 @@ mod zipper;
 
 use crate::{
     elab::reify,
-    inductive::{ctor_type, elim_type},
+    inductive::{ctor_type, elim_type, elim_value},
 };
 pub use crate::{
     types::{UnifEffs, UnifExpr},
@@ -958,18 +958,26 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
                 .add(Decl::Def(loc.clone(), ctor.1.clone(), ty, atom))?;
         }
 
-        warn!(
-            "TODO elim({}) = {}",
-            FQName(lib_name.clone(), mod_name.clone(), name.clone()),
+        self.module.add(Decl::Def(
+            loc.clone(),
+            format!("elim-{}", name).into(),
             elim_type(
+                lib_name.clone(),
+                mod_name.clone(),
+                loc.clone(),
+                name.clone(),
+                ty_args.clone(),
+                ctors.clone(),
+            ),
+            elim_value(
                 lib_name,
                 mod_name,
                 loc,
                 name,
                 ty_args.clone(),
-                ctors.clone()
-            )
-        );
+                ctors.clone(),
+            ),
+        ))?;
 
         Ok(self.module.take())
     }

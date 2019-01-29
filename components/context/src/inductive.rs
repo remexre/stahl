@@ -133,3 +133,15 @@ pub fn elim_type(
         Effects::default(),
     ))
 }
+
+/// Creates the value of the eliminator for the algebraic data type.
+pub fn elim_value(
+    lib_name: LibName,
+    mod_name: SharedString,
+    loc: Location,
+    name: SharedString,
+    ty_args: Vec<(Option<SharedString>, Arc<Expr>)>,
+    ctors: Vec<Ctor>,
+) -> Arc<Expr> {
+    unimplemented!()
+}
