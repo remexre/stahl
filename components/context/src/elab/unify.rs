@@ -77,7 +77,13 @@ impl Constraint {
                         todo!(@loc.clone(), "EffEq({}, {})", l, r)
                     }
                 }
-                (None, None) => todo!(@loc.clone(), "EffEq({}, {})", l, r),
+                (None, None) => {
+                    if l.0 == r.0 {
+                        Ok(())
+                    } else {
+                        todo!(@loc.clone(), "EffEq({}, {})", l, r)
+                    }
+                }
             },
             Constraint::EffSuperset(loc, l, r) => match (l.1, r.1) {
                 (Some(l_tail), _) => {

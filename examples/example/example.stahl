@@ -1,9 +1,5 @@
 module example
-  main
+  bogus
 
-import geom
-  square-area
-
-def main ; foo
-  fn ()
-    square-area 5
+import compiler-builtins
+  unsafe bogus

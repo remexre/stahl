@@ -5,15 +5,16 @@ use stahl_errors::{PointLC, Position};
 use std::path::PathBuf;
 
 static TEST_CASES: &[(&str, Option<Position>, &str)] = &[
-    (
-        "tests/should_fail/two-plus-two.stahl",
-        Some(Position::SpanLC(PointLC(111, 6, 1), PointLC(116, 6, 6))),
-        "2 + 2 =/= 4",
-    ),
+    ("tests/should_fail/bogus-elim.stahl", None, "TODO"),
     (
         "tests/should_fail/negative-position-in-ctor.stahl",
         Some(Position::SpanLC(PointLC(111, 6, 1), PointLC(116, 6, 6))),
         "Bad cannot appear in a negative position",
+    ),
+    (
+        "tests/should_fail/two-plus-two.stahl",
+        Some(Position::SpanLC(PointLC(111, 6, 1), PointLC(116, 6, 6))),
+        "2 + 2 =/= 4",
     ),
 ];
 

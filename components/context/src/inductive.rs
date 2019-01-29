@@ -1,6 +1,6 @@
 use stahl_ast::{Effects, Expr, FQName, Intrinsic, LibName};
 use stahl_errors::Location;
-use stahl_util::SharedString;
+use stahl_util::{unwrap_arc, SharedString};
 use std::sync::Arc;
 
 type Ctor = (
@@ -118,17 +118,21 @@ pub fn elim_type(
     pi_args.extend(plain_args);
     pi_args.push((motive_name.clone(), motive_ty));
     pi_args.extend(ctor_cases);
-    pi_args.push((val_name.clone(), val_ty));
     Arc::new(Expr::Pi(
         loc.clone(),
         pi_args,
-        Arc::new(Expr::Call(
+        Arc::new(Expr::Pi(
             loc.clone(),
-            Arc::new(Expr::LocalVar(loc.clone(), motive_name)),
-            vec![
-                // TODO
-                Arc::new(Expr::LocalVar(loc, val_name)),
-            ],
+            vec![(val_name.clone(), val_ty)],
+            Arc::new(Expr::Call(
+                loc.clone(),
+                Arc::new(Expr::LocalVar(loc.clone(), motive_name)),
+                vec![
+                    // TODO
+                    Arc::new(Expr::LocalVar(loc, val_name)),
+                ],
+            )),
+            Effects::default(),
         )),
         Effects::default(),
     ))
@@ -143,5 +147,31 @@ pub fn elim_value(
     ty_args: Vec<(Option<SharedString>, Arc<Expr>)>,
     ctors: Vec<Ctor>,
 ) -> Arc<Expr> {
-    unimplemented!()
+    let ty_args_2 = ty_args
+        .iter()
+        .cloned()
+        .map(|(name, ty)| {
+            let (name, is_index) = if let Some(name) = name {
+                (name, true)
+            } else {
+                (SharedString::gensym(), false)
+            };
+            (name, is_index, ty)
+        })
+        .collect::<Vec<_>>();
+
+    let rec_name = SharedString::gensym();
+    let match_expr = Arc::new(Expr::RecMatch(loc.clone(), rec_name, vec![]));
+
+    let elim_type = elim_type(lib_name, mod_name, loc.clone(), name, ty_args, ctors);
+    let match_ty = match unwrap_arc(elim_type) {
+        Expr::Pi(_, _, ret, _) => ret,
+        ty => panic!("Incorrect eliminator type: {}", ty),
+    };
+
+    Arc::new(Expr::Lam(
+        loc,
+        vec![SharedString::gensym()],
+        vec![(None, match_ty, match_expr, Effects::default())],
+    ))
 }

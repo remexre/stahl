@@ -58,7 +58,10 @@ pub fn run_script(ctx: &mut Context, main: PathBuf, _args: Vec<String>) -> Resul
     let std = ctx.std().unwrap();
     ctx.with_lib(
         LibName("main".into(), 0, 0, 0),
-        hashmap! { std.0.clone() => std },
+        hashmap! {
+            "compiler-builtins".into() => LibName("compiler-builtins".into(), 0, 0, 0),
+            std.0.clone() => std
+        },
         None,
         |lib_ctx| {
             lib_ctx

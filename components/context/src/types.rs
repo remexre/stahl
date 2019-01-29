@@ -200,6 +200,7 @@ impl Display for UnifExpr {
                 write!(fmt, ")")
             }
             UnifExpr::RecMatch(_, name, cases) => {
+                return write!(fmt, "#REC-MATCH#");
                 write!(fmt, "(#REC-MATCH# {}", name)?;
                 for (ctors, expr) in cases {
                     write!(fmt, " ((")?;

@@ -7,7 +7,7 @@ extern crate stahl_errors;
 use stahl_ast::{Decl, Expr, Intrinsic, Literal};
 use stahl_context::Context;
 use stahl_util::SharedString;
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 
 /// An interpreter for Stahl. Note that this is a "slow" interpreter, i.e. one that operates
 /// directly on the AST, rather than compiling to a more efficient intermediate representation.
@@ -109,7 +109,28 @@ impl<'c> Interpreter<'c> {
                         },
                         _ => panic!("Invalid argn in call to +"),
                     },
-                    Expr::RecMatch(_, ref name, ref cases) => unimplemented!(),
+                    Expr::RecMatch(_, ref name, ref cases) => {
+                        let num_args = call_args.len();
+                        for case in cases {
+                            unimplemented!();
+                        }
+
+                        let mut msg = "Arguments (".to_string();
+                        let mut first = true;
+                        for arg in call_args {
+                            if first {
+                                first = false;
+                            } else {
+                                msg.push(' ');
+                            }
+                            write!(msg, "{}", arg).unwrap();
+                        }
+                        write!(msg, ") didn't match any of {} case(s):", cases.len()).unwrap();
+                        for (pats, _) in cases {
+                            write!(msg, "\n{:?}", pats).unwrap();
+                        }
+                        panic!("{}", msg);
+                    }
                     _ => panic!("{} is not callable", func),
                 }
             }

@@ -1,0 +1,11 @@
+module main
+  bogus-elim
+
+import compiler-builtins
+  unsafe bogus
+
+def bogus-elim Bool
+  group
+    elim-Void
+      const _ _ _
+    bogus _ _ 1

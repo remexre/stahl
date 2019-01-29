@@ -2,4 +2,4 @@
 (version (0 0 0))
 
 (deps
-  (geom (0 0 0)))
+  (compiler-builtins (0 0 0)))

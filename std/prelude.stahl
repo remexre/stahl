@@ -1,19 +1,19 @@
 (module std:prelude
-  Bool false true
+  Bool false true elim-Bool
   const
   Fixnum fixnum-add
-  Eq refl
+  ; Eq elim-Eq refl
   id
-  ; List nil-List cons-List
-  Nat zero succ S Z elim-Nat plus-Nat
+  ; List nil-List cons-List elim-List
+  ; Nat zero succ elim-Nat S Z plus-Nat
   String
   Symbol
   the
   TYPE
   type-of
-  Unit unit
-  ; Vect nil-Vect cons-Vect
-  Void)
+  Unit unit elim-Unit
+  ; Vect nil-Vect cons-Vect elim-Vect
+  Void elim-Void)
 
 (import compiler-builtins
   Fixnum fixnum-add String Symbol TYPE)
@@ -39,20 +39,20 @@ defty Bool TYPE
   false Bool
   true Bool
 
-defty Nat TYPE
-  zero Nat
-  succ (pi ((_ Nat)) Nat)
+; defty Nat TYPE
+;   zero Nat
+;   succ (pi ((_ Nat)) Nat)
 
-def plus-Nat (pi ((_ Nat) (_ Nat)) Nat)
-  fn (x y)
-    elim-Nat
-      fn (_) Nat
-      y
-      fn (_ prev) (succ prev)
-      x
+; def plus-Nat (pi ((_ Nat) (_ Nat)) Nat)
+;   fn (x y)
+;     elim-Nat
+;       fn (_) Nat
+;       y
+;       fn (_ prev) (succ prev)
+;       x
 
-def S succ
-def Z zero
+; def S succ
+; def Z zero
 
 ; defty List (pi ((T TYPE)) TYPE)
 ;   nil-List  (pi ((T TYPE))                    (List T))
@@ -62,5 +62,5 @@ def Z zero
 ;   nil-Vect  (pi ((T TYPE))                              (Vect T zero))
 ;   cons-Vect (pi ((T TYPE) (n Nat) (_ T) (_ (Vect T n))) (Vect T (succ n)))
 
-defty Eq (pi ((T TYPE) (_ T) (_ T)) TYPE)
-  refl (pi ((T TYPE) (a T)) (Eq T a a))
+; defty Eq (pi ((T TYPE) (_ T) (_ T)) TYPE)
+;   refl (pi ((T TYPE) (a T)) (Eq T a a))

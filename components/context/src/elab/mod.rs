@@ -403,7 +403,7 @@ pub fn reify(expr: &UnifExpr) -> Result<Arc<Expr>> {
         UnifExpr::RecMatch(loc, name, cases) => {
             let cases = cases
                 .iter()
-                .map(|(name, expr)| reify(expr).map(|expr| (name.clone(), expr)))
+                .map(|(ctors, expr)| reify(expr).map(|expr| (ctors.clone(), expr)))
                 .collect::<Result<_>>()?;
             Ok(Arc::new(Expr::RecMatch(loc.clone(), name.clone(), cases)))
         }
@@ -454,7 +454,7 @@ impl UnifExpr {
                 if name == from {
                     return;
                 }
-                for (ctor, expr) in cases.iter_mut() {
+                for (_ctors, expr) in cases.iter_mut() {
                     UnifExpr::beta(expr, from, to.clone());
                 }
             }

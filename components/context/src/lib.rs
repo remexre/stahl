@@ -22,6 +22,7 @@ pub use crate::{
     types::{UnifEffs, UnifExpr},
     zipper::Zipper,
 };
+use log::info;
 use stahl_ast::{Decl, Effects, Expr, FQName, Intrinsic, LibName};
 use stahl_cst::Decl as CstDecl;
 use stahl_errors::{Location, Result, ResultExt};
@@ -504,7 +505,7 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
 
     /// Adds a new CST declaration.
     pub fn add_cst_decl(&mut self, decl: CstDecl) -> Result<()> {
-        println!("Adding {}", decl);
+        info!("Adding {}", decl);
         match decl {
             CstDecl::Def(loc, name, ty, expr) => {
                 let (expr, ty) = self.elab(&expr, &ty)?;

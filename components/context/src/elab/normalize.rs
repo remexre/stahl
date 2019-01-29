@@ -1,5 +1,5 @@
 use crate::{types::UnifExpr, ModContext};
-use log::{debug, error};
+use log::{error, trace};
 use stahl_ast::{Decl, Intrinsic, Literal};
 use stahl_errors::Result;
 use stahl_util::{unwrap_rc, SharedString};
@@ -51,13 +51,13 @@ impl ModContext<'_, '_> {
         let env = env.unwrap_or(&mut default_env);
         loop {
             if expr.is_normal(env) {
-                debug!("Fully normalized: {}", expr);
+                trace!("Fully normalized: {}", expr);
                 break;
             }
             match self.normalize_step((**expr).clone(), env) {
                 Ok(e) => *Rc::make_mut(expr) = e,
                 Err(err) => {
-                    debug!("Halting normalization: {}", err);
+                    trace!("Halting normalization: {}", err);
                     break;
                 }
             }
@@ -69,8 +69,8 @@ impl ModContext<'_, '_> {
         match expr {
             UnifExpr::Call(loc, mut func, mut call_args) => {
                 self.normalize(&mut func, Some(env));
-                for args in call_args.iter_mut() {
-                    self.normalize(args, Some(env));
+                for arg in call_args.iter_mut() {
+                    self.normalize(arg, Some(env));
                 }
 
                 match *func {
@@ -93,6 +93,9 @@ impl ModContext<'_, '_> {
                         self.normalize(&mut last, Some(env));
                         Ok(unwrap_rc(last))
                     }
+                    UnifExpr::LocalVar(_, ref name) if env.get(name).is_none() => {
+                        Ok(UnifExpr::Call(loc, func, call_args))
+                    }
                     UnifExpr::Intrinsic(_, Intrinsic::FixnumAdd) => match &*call_args {
                         [l, r] => match (&**l, &**r) {
                             (
@@ -103,6 +106,7 @@ impl ModContext<'_, '_> {
                         },
                         _ => raise!(@loc.clone(), "Invalid argn in call to +"),
                     },
+                    UnifExpr::RecMatch(_, ref name, ref cases) => unimplemented!(),
                     _ => raise!(@loc.clone(), "{} is not callable", func),
                 }
             }
@@ -144,6 +148,7 @@ impl UnifExpr {
                 if args.iter().all(|arg| arg.is_normal(env)) {
                     match **func {
                         UnifExpr::Atom(_, _, _) => true,
+                        UnifExpr::LocalVar(_, ref name) => env.get(name).is_none(),
                         _ => false,
                     }
                 } else {
@@ -166,9 +171,7 @@ impl UnifExpr {
                 env.ext.truncate(old_env_len);
                 normal
             }
-            UnifExpr::RecMatch(_, name, cases) => {
-                unimplemented!();
-            }
+            UnifExpr::RecMatch(_, _, _) => true,
             UnifExpr::UnifVar(_, _) => true,
         }
     }
