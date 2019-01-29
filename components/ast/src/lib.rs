@@ -244,7 +244,7 @@ pub enum Expr {
     RecMatch(
         #[derivative(Debug = "ignore")] Location,
         SharedString,
-        Vec<(FQName, Arc<Expr>)>,
+        Vec<(Vec<(FQName, Vec<SharedString>)>, Arc<Expr>)>,
     ),
 }
 
@@ -313,8 +313,22 @@ impl Display for Expr {
             }
             Expr::RecMatch(_, name, cases) => {
                 write!(fmt, "(#REC-MATCH# {}", name)?;
-                for (name, expr) in cases {
-                    write!(fmt, " ({} {})", name, expr)?;
+                for (ctors, expr) in cases {
+                    write!(fmt, " ((")?;
+                    let mut first = false;
+                    for (name, args) in ctors {
+                        if first {
+                            first = false;
+                        } else {
+                            write!(fmt, " ")?;
+                        }
+                        write!(fmt, " ({}", name)?;
+                        for arg in args {
+                            write!(fmt, " {}", arg)?;
+                        }
+                        write!(fmt, ")")?;
+                    }
+                    write!(fmt, ") {})", expr)?;
                 }
                 write!(fmt, ")")
             }

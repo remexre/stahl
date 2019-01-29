@@ -125,7 +125,7 @@ pub enum UnifExpr {
     RecMatch(
         #[derivative(Debug = "ignore")] Location,
         SharedString,
-        Vec<(FQName, Rc<UnifExpr>)>,
+        Vec<(Vec<(FQName, Vec<SharedString>)>, Rc<UnifExpr>)>,
     ),
 
     /// A unification variable.
@@ -201,8 +201,22 @@ impl Display for UnifExpr {
             }
             UnifExpr::RecMatch(_, name, cases) => {
                 write!(fmt, "(#REC-MATCH# {}", name)?;
-                for (name, expr) in cases {
-                    write!(fmt, " ({} {})", name, expr)?;
+                for (ctors, expr) in cases {
+                    write!(fmt, " ((")?;
+                    let mut first = false;
+                    for (name, args) in ctors {
+                        if first {
+                            first = false;
+                        } else {
+                            write!(fmt, " ")?;
+                        }
+                        write!(fmt, " ({}", name)?;
+                        for arg in args {
+                            write!(fmt, " {}", arg)?;
+                        }
+                        write!(fmt, ")")?;
+                    }
+                    write!(fmt, ") {})", expr)?;
                 }
                 write!(fmt, ")")
             }
