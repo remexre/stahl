@@ -1,12 +1,9 @@
 mod completions;
 mod highlighting;
+mod hinting;
 
 use maplit::{hashmap, hashset};
-use rustyline::{
-    config::{Config, EditMode},
-    hint::Hinter,
-    Editor,
-};
+use rustyline::{CompletionType, Config, EditMode, Editor};
 use stahl_ast::LibName;
 use stahl_context::{Context, ModContext};
 use stahl_cst::Expr as CstExpr;
@@ -48,6 +45,7 @@ pub fn run(ctx: &mut Context, main: Option<String>) -> Result<()> {
     let config = Config::builder()
         .auto_add_history(true)
         .edit_mode(EditMode::Emacs)
+        .completion_type(CompletionType::List)
         .build();
     let mut rl = Editor::with_config(config);
     rl.set_helper(Some(Helper(&mod_ctx)));
@@ -104,9 +102,3 @@ fn run_line(mod_ctx: &mut ModContext, line: &str) -> Result<()> {
 struct Helper<'m, 'l, 'c>(&'m RefCell<ModContext<'l, 'c>>);
 
 impl rustyline::Helper for Helper<'_, '_, '_> {}
-
-impl Hinter for Helper<'_, '_, '_> {
-    fn hint(&self, _line: &str, _pos: usize) -> Option<String> {
-        None
-    }
-}

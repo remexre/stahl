@@ -37,6 +37,10 @@ impl Highlighter for Helper<'_, '_, '_> {
         Cow::Owned(ANSIStrings(&strs).to_string())
     }
 
+    fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
+        Cow::Owned(Style::new().dimmed().paint(hint).to_string())
+    }
+
     fn highlight_char(&self, _line: &str, _pos: usize) -> bool {
         true
     }
