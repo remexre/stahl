@@ -1,4 +1,4 @@
-all: check build test
+all: check build doc test
 
 build:
 	cargo build --all

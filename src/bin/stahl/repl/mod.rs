@@ -1,35 +1,21 @@
+mod completions;
+mod highlighting;
+
 use maplit::{hashmap, hashset};
 use rustyline::{
-    completion::Completer,
     config::{Config, EditMode},
-    highlight::Highlighter,
     hint::Hinter,
-    Editor, Result as RLResult,
+    Editor,
 };
 use stahl_ast::LibName;
 use stahl_context::{Context, ModContext};
 use stahl_cst::Expr as CstExpr;
 use stahl_errors::{Location, Result};
 use stahl_parser::parse_str;
+use std::cell::RefCell;
 
 /// Runs the REPL.
 pub fn run(ctx: &mut Context, main: Option<String>) -> Result<()> {
-    let config = Config::builder()
-        .auto_add_history(true)
-        .edit_mode(EditMode::Emacs)
-        .build();
-    let mut rl = Editor::with_config(config);
-    rl.set_helper(Some(Helper));
-
-    let history_path = dirs::data_dir().map(|path| path.join("stahl").join("history"));
-    if let Some(path) = history_path.as_ref() {
-        if path.exists() {
-            if let Err(e) = rl.load_history(path) {
-                error!("When loading history: {}", e);
-            }
-        }
-    }
-
     let std = ctx.std().unwrap();
     let mut import_libs = hashmap! { std.0.clone() => std };
     let mut import_mods = hashmap! {};
@@ -57,14 +43,29 @@ pub fn run(ctx: &mut Context, main: Option<String>) -> Result<()> {
     let mut mod_ctx = lib_ctx.create_mod("".into(), hashset! {}, import_mods)?;
     mod_ctx.add_prelude_import(true)?;
 
-    while let Ok(line) = rl.readline("\u{03bb}> ") {
-        if let Err(e) = run_line(&mut mod_ctx, &line) {
-            error!("{}", e);
+    let mod_ctx = RefCell::new(mod_ctx);
+
+    let config = Config::builder()
+        .auto_add_history(true)
+        .edit_mode(EditMode::Emacs)
+        .build();
+    let mut rl = Editor::with_config(config);
+    rl.set_helper(Some(Helper(&mod_ctx)));
+
+    let history_path = dirs::data_dir().map(|path| path.join("stahl").join("history"));
+    if let Some(path) = history_path.as_ref() {
+        if path.exists() {
+            if let Err(e) = rl.load_history(path) {
+                error!("When loading history: {}", e);
+            }
         }
     }
 
-    mod_ctx.discard();
-    lib_ctx.discard();
+    while let Ok(line) = rl.readline("\u{03bb}> ") {
+        if let Err(e) = run_line(&mut *mod_ctx.borrow_mut(), &line) {
+            error!("{}", e);
+        }
+    }
 
     if let Some(path) = history_path.as_ref() {
         if let Some(dir) = path.parent() {
@@ -76,6 +77,9 @@ pub fn run(ctx: &mut Context, main: Option<String>) -> Result<()> {
             error!("When saving history: {}", e);
         }
     }
+
+    mod_ctx.into_inner().discard();
+    lib_ctx.discard();
 
     Ok(())
 }
@@ -97,21 +101,12 @@ fn run_line(mod_ctx: &mut ModContext, line: &str) -> Result<()> {
     Ok(())
 }
 
-struct Helper;
+struct Helper<'m, 'l, 'c>(&'m RefCell<ModContext<'l, 'c>>);
 
-impl Completer for Helper {
-    type Candidate = String;
-    fn complete(&self, line: &str, pos: usize) -> RLResult<(usize, Vec<String>)> {
-        Ok((pos, Vec::new()))
-    }
-}
+impl rustyline::Helper for Helper<'_, '_, '_> {}
 
-impl rustyline::Helper for Helper {}
-
-impl Hinter for Helper {
-    fn hint(&self, line: &str, pos: usize) -> Option<String> {
+impl Hinter for Helper<'_, '_, '_> {
+    fn hint(&self, _line: &str, _pos: usize) -> Option<String> {
         None
     }
 }
-
-impl Highlighter for Helper {}

@@ -669,7 +669,17 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
         }
     }
 
-    /// Resolves the name of a definition the module context, returning its declaration.
+    /// Returns an iterator over names that are locally visible.
+    pub fn local_name_iter<'m>(&'m self) -> impl 'm + Iterator<Item = SharedString> {
+        self.imports
+            .values()
+            .flat_map(|l| l.values())
+            .flat_map(|m| m.iter())
+            .cloned()
+            .chain(self.decls.iter().map(|d| d.name()))
+    }
+
+    /// Resolves the name of a definition in the module context, returning its declaration.
     pub fn resolve(&self, name: SharedString) -> Result<(FQName, &Decl)> {
         if !name.contains(':') {
             match self.module.resolve(name.clone()) {

@@ -18,7 +18,7 @@ pub mod lexer;
 #[cfg(test)]
 pub mod tests;
 
-use crate::lexer::{Lexer, LexerError, Token};
+pub use crate::lexer::{Lexer, LexerError, Token};
 use lalrpop_util::ParseError;
 use stahl_errors::{Error, Location, PointLC, Result};
 use stahl_util::SharedPath;

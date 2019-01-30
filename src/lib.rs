@@ -2,6 +2,7 @@
 //!
 //! This library contains higher-level functions; lower-level functionality is available in the
 //! crates this one reexports.
+#![deny(missing_docs)]
 
 pub use stahl_ast as ast;
 pub use stahl_context as context;

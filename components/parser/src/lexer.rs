@@ -7,33 +7,43 @@ use std::{
     str::Chars,
 };
 
+/// An error from the lexer.
 #[derive(Debug, Fail)]
 pub enum LexerError {
+    /// Whitespace was found that left the indentation level ambiguous.
     #[fail(display = "Invalid whitespace {}", _0)]
     BadWhitespace(Position),
 
+    /// A number was found that couldn't fit in a numeric type.
     #[fail(display = "{:?} is too large to be stored as a number", _0)]
     IntTooBig(String),
 
+    /// An invalid escape sequence was found.
     #[fail(display = "\"\\{}\" is not a valid escape sequence", _0)]
     InvalidEscape(char),
 
+    /// An invalid hex digit in an escape sequence was found.
     #[fail(display = "{} is not a valid hex digit", _0)]
     InvalidHexEscape(char),
 
+    /// `-0` was found.
     #[fail(display = "{} should be written 0", _0)]
     NegativeZero(String),
 
+    /// A unicode escape was found that doesn't map to any known Unicode scalar value.
     #[fail(display = "U+{:04X} is not a valid Unicode scalar value", _0)]
     NotUnicodeChar(u32),
 
+    /// A string literal that had no ending quote mark.
     #[fail(display = "A string literal wasn't closed")]
     UnclosedString,
 
+    /// An unexpected character was found.
     #[fail(display = "Unexpected character {:?}", _0)]
     Unexpected(char),
 }
 
+/// A lexical token.
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Dedent,
@@ -69,6 +79,32 @@ impl Display for Token {
     }
 }
 
+/// The Stahl lexer.
+///
+/// The lexer is a relatively straightforward iterator over
+/// `Result<(PointLC, Token, PointLC), LexerError>` values, where the two points correspond to the
+/// beginning and end of the token in the input string. Note that once an error is returned, it is
+/// illegal to continue lexing.
+///
+/// ## Example
+///
+/// ```
+/// # use stahl_errors::PointLC;
+/// # use stahl_parser::{Lexer, Token};
+/// # fn main() {
+/// let src = "foo bar | 'baz";
+/// let mut lexer = Lexer::new(src);
+/// let tokens = lexer.collect::<Result<Vec<_>, _>>().unwrap();
+/// assert_eq!(tokens, vec![
+///     (PointLC(0, 1, 1), Token::Symbol("foo".into()), PointLC(3, 1, 4)),
+///     (PointLC(4, 1, 5), Token::Symbol("bar".into()), PointLC(7, 1, 8)),
+///     (PointLC(8, 1, 9), Token::Pipe, PointLC(9, 1, 10)),
+///     (PointLC(10, 1, 11), Token::Quote, PointLC(11, 1, 12)),
+///     (PointLC(11, 1, 12), Token::Symbol("baz".into()), PointLC(14, 1, 15)),
+///     (PointLC(14, 1, 15), Token::Newline, PointLC(14, 1, 15)),
+/// ]);
+/// # }
+/// ```
 pub struct Lexer<'src> {
     end: bool,
     iter: Peekable<PosIter<Chars<'src>>>,
@@ -81,6 +117,10 @@ pub struct Lexer<'src> {
 }
 
 impl<'src> Lexer<'src> {
+    /// Creates a new instance of the lexer for the given string.
+    ///
+    /// The lexer is not yet capable of lexing streaming input, although such a change would be
+    /// relatively straightforward.
     pub fn new(s: &'src str) -> Lexer<'src> {
         Lexer {
             end: false,

@@ -27,6 +27,11 @@ Goals
 -	[ ] Compile to native code
 -	[ ] Rewrite the world!
 
+Rainy-Day TODOs
+---------------
+
+-	[ ] Rainbow parentheses in REPL
+
 License
 -------
 
