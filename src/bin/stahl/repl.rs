@@ -1,7 +1,10 @@
 use maplit::{hashmap, hashset};
 use rustyline::{
+    completion::Completer,
     config::{Config, EditMode},
-    Editor,
+    highlight::Highlighter,
+    hint::Hinter,
+    Editor, Result as RLResult,
 };
 use stahl_ast::LibName;
 use stahl_context::{Context, ModContext};
@@ -15,7 +18,8 @@ pub fn run(ctx: &mut Context, main: Option<String>) -> Result<()> {
         .auto_add_history(true)
         .edit_mode(EditMode::Emacs)
         .build();
-    let mut rl = Editor::<()>::with_config(config);
+    let mut rl = Editor::with_config(config);
+    rl.set_helper(Some(Helper));
 
     let history_path = dirs::data_dir().map(|path| path.join("stahl").join("history"));
     if let Some(path) = history_path.as_ref() {
@@ -92,3 +96,22 @@ fn run_line(mod_ctx: &mut ModContext, line: &str) -> Result<()> {
 
     Ok(())
 }
+
+struct Helper;
+
+impl Completer for Helper {
+    type Candidate = String;
+    fn complete(&self, line: &str, pos: usize) -> RLResult<(usize, Vec<String>)> {
+        Ok((pos, Vec::new()))
+    }
+}
+
+impl rustyline::Helper for Helper {}
+
+impl Hinter for Helper {
+    fn hint(&self, line: &str, pos: usize) -> Option<String> {
+        None
+    }
+}
+
+impl Highlighter for Helper {}
