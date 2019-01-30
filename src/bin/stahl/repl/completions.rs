@@ -44,6 +44,7 @@ impl Helper<'_, '_, '_> {
             .borrow()
             .local_name_iter()
             .filter(|s| s.starts_with(partial))
+            .filter(|s| s != partial)
             .map(|s| s.to_string())
             .collect()
     }
