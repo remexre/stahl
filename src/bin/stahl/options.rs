@@ -29,6 +29,22 @@ impl Options {
     /// Sets up logging as specified by the `-q` and `-v` flags.
     pub fn start_logger(&self) {
         stderrlog::new()
+            .modules(
+                [
+                    "stahl",
+                    "stahl_ast",
+                    "stahl_context",
+                    "stahl_cst",
+                    "stahl_errors",
+                    "stahl_interpreter",
+                    "stahl_modules",
+                    "stahl_parser",
+                    "stahl_util",
+                    "stahl_value",
+                ]
+                .iter()
+                .cloned(),
+            )
             .verbosity(self.verbose + 1)
             .quiet(self.quiet)
             .init()
