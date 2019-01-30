@@ -1,8 +1,8 @@
 use crate::repl::Helper;
-use rustyline::hint::Hinter;
+use rustyline::{completion::Completer, hint::Hinter};
 
 impl Hinter for Helper<'_, '_, '_> {
-    fn hint(&self, line: &str, _pos: usize) -> Option<String> {
+    fn hint(&self, line: &str, pos: usize) -> Option<String> {
         let mut open_parens = 0usize;
         let mut close_parens = 0usize;
         let mut quotes = 0usize;
@@ -17,6 +17,18 @@ impl Hinter for Helper<'_, '_, '_> {
         }
 
         let mut hint = String::new();
+
+        if pos == line.len() {
+            if let Ok((p, mut v)) = self.complete(line, pos) {
+                if v.len() == 1 {
+                    let mut completion = v.pop().unwrap();
+                    let start = pos - p;
+                    completion.drain(..start);
+                    hint = completion;
+                }
+            }
+        }
+
         if quotes % 2 == 1 {
             hint.push('"');
         }
