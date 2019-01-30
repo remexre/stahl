@@ -1,5 +1,5 @@
 use crate::repl::Helper;
-use rustyline::{completion::Completer, hint::Hinter};
+use rustyline::hint::Hinter;
 
 impl Hinter for Helper<'_, '_, '_> {
     fn hint(&self, line: &str, pos: usize) -> Option<String> {
@@ -19,13 +19,12 @@ impl Hinter for Helper<'_, '_, '_> {
         let mut hint = String::new();
 
         if pos == line.len() {
-            if let Ok((p, mut v)) = self.complete(line, pos) {
-                if v.len() == 1 {
-                    let mut completion = v.pop().unwrap();
-                    let start = pos - p;
-                    completion.drain(..start);
-                    hint = completion;
-                }
+            let (p, mut v) = self.completions(line, pos);
+            if v.len() == 1 {
+                let mut completion = v.pop().unwrap();
+                let start = pos - p;
+                completion.drain(..start);
+                hint = completion;
             }
         }
 
