@@ -11,4 +11,8 @@ def id-test-1
 def const-test-1
   (const _ _ 1) 2
 
+; Got panic "#G:47# not found" where #G:47# the name of the motive in the type of elim-Unit.
+def pi-test-1
+  ((const _ _ elim-Unit) 1) _ _
+
 def main (fn () 0)
