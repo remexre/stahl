@@ -97,6 +97,7 @@ impl<'l, 'c: 'l> ModContext<'l, 'c> {
                     },
                     |defty_ctors_ctx| {
                         locals.push(ty_name);
+                        locals.extend(defty_ctors_ctx.ty_args.iter().filter_map(|p| p.0.clone()));
                         for (loc, name, ty) in ctors {
                             let ctor_ty = match ty {
                                 Some(ty) => defty_ctors_ctx.module.cst_to_unif(&ty, &mut locals)?,

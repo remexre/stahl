@@ -93,7 +93,7 @@ pub struct DefTyCtorsContext<'m, 'l, 'c> {
     pub(crate) module: Taker<&'m mut ModContext<'l, 'c>>,
     loc: Taker<Location>,
     name: Taker<SharedString>,
-    ty_args: Taker<Vec<(Option<SharedString>, Arc<Expr>)>>,
+    pub(crate) ty_args: Taker<Vec<(Option<SharedString>, Arc<Expr>)>>,
     ctors: Taker<
         Vec<(
             Location,
@@ -107,11 +107,12 @@ pub struct DefTyCtorsContext<'m, 'l, 'c> {
 impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
     /// Adds this `defty` to the module.
     pub fn finish(mut self) -> Result<&'m mut ModContext<'l, 'c>> {
+        let nonindex_args = self.nonindex_args();
         let kind = self.kind();
         let loc = self.loc.take();
         let name = self.name.take();
         let ty_args = self.ty_args.take();
-        let ctors = self.ctors.take();
+        let mut ctors = self.ctors.take();
 
         let lib_name = self.module.lib_name.clone();
         let mod_name = self.module.mod_name.clone();
@@ -121,7 +122,10 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
         self.module
             .add(Decl::Def(loc.clone(), name.clone(), kind, ty))?;
 
-        for ctor in &ctors {
+        for ctor in &mut ctors {
+            let ctor_args = &mut ctor.2;
+            ctor_args.splice(..0, nonindex_args.clone());
+
             let ty = ctor_type(ty_name.clone(), ctor);
             let ctor_name = FQName(lib_name.clone(), mod_name.clone(), ctor.1.clone());
             let atom = Arc::new(Expr::Atom(loc.clone(), ctor_name, ty.clone()));
@@ -189,6 +193,15 @@ impl<'m, 'l: 'm, 'c: 'l> DefTyCtorsContext<'m, 'l, 'c> {
             self.module.mod_name.clone(),
             self.name.clone(),
         )
+    }
+
+    /// Returns the arguments that are *not* index arguments.
+    fn nonindex_args(&self) -> Vec<(SharedString, Arc<Expr>)> {
+        self.ty_args
+            .iter()
+            .cloned()
+            .filter_map(|(n, e)| n.map(|n| (n, e)))
+            .collect::<Vec<_>>()
     }
 
     /// Returns the UnifExpr corresponding to the type being defined.
@@ -276,6 +289,12 @@ impl<'d, 'm: 'd, 'l: 'm, 'c: 'l> CtorContext<'d, 'm, 'l, 'c> {
             Rc::new(self.defty.kind().into()),
             Some(self.defty.ty()),
         )];
+        env.extend(
+            self.defty
+                .nonindex_args()
+                .into_iter()
+                .map(|(name, ty)| (name, Rc::new(ty.into()), None)),
+        );
         self.defty
             .module
             .unify_ty_expr(&mut ctor_kind, &mut ctor_type, &mut env)?;
