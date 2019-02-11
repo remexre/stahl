@@ -7,6 +7,6 @@ version = "0.1.0"
 
 [dependencies]
 derivative = "1.0.2"
-proptest = { version = "0.8.7", optional = true }
+proptest = { version = "0.9.1", optional = true }
 stahl_errors = { path = "../errors" }
 stahl_util = { path = "../util" }
