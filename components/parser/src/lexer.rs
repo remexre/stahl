@@ -44,7 +44,7 @@ pub enum LexerError {
 }
 
 /// A lexical token.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     Dedent,
     Group,

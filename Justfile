@@ -15,7 +15,7 @@ run +ARGS="":
 test:
 	cargo test --all -- --nocapture
 watch +TARGETS="all":
-	watchexec -cre lalrpop,rs,stahl,stahld -- just {{TARGETS}}
+	watchexec -cre lalrpop,rs,stahl,stahld,toml -- just {{TARGETS}}
 
 open-docs: doc
 	cargo doc --open --package stahl

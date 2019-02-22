@@ -4,7 +4,6 @@
 #[macro_use]
 extern crate derivative;
 #[cfg(feature = "proptest")]
-#[macro_use]
 extern crate proptest;
 
 #[cfg(feature = "proptest")]
