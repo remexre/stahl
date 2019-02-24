@@ -19,7 +19,7 @@ watch +TARGETS="all":
 
 open-docs: doc
 	cargo doc --open --package stahl
-twelf:
-	cd metatheory && watchexec -cre elf "echo make | twelf-server"
-twelf-repl:
-	cd metatheory && rlwrap -P make twelf-server
+twelf-repl NAME:
+	cd metatheory/{{NAME}} && rlwrap -P make twelf-server
+twelf-watch NAME:
+	cd metatheory/{{NAME}} && watchexec -cre elf "echo make | twelf-server"
