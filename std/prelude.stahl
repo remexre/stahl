@@ -18,51 +18,52 @@
 (import compiler-builtins
   Fixnum fixnum-add String Symbol TYPE)
 
-; def const (pi ((T TYPE) (U TYPE) (_ T)) (pi ((_ U)) T))
-;   fn (_ _ x) (fn (_) x)
+def const (pi ((T TYPE) (U TYPE) (_ T)) (pi ((_ U)) T))
+  fn (_ _ x) (fn (_) x)
 
-; def id (pi ((T TYPE)) (pi ((_ T)) T))
-;   fn (_)
-;     fn (x) x
+def id (pi ((T TYPE)) (pi ((_ T)) T))
+  fn (_)
+    fn (x) x
 
-; def the (pi ((T TYPE) (_ T)) T)
-;   fn (_ x) x
+def the (pi ((T TYPE) (_ T)) T)
+  fn (_ x) x
 
-; def type-of (pi ((T TYPE) (_ T)) TYPE)
-;   fn (T _) T
+def type-of (pi ((T TYPE) (_ T)) TYPE)
+  fn (T _) T
 
-; defty Void TYPE
+defty Void TYPE
 
-; defty Unit TYPE
-;   unit Unit
+defty Unit TYPE
+  unit Unit
 
-; defty Bool TYPE
-;   false Bool
-;   true Bool
+defty Bool TYPE
+  false Bool
+  true Bool
 
-defty Option (pi ((T TYPE)) TYPE)
-  none             (Option T)
-  some (pi ((_ T)) (Option T))
+; defty Option (pi ((T TYPE)) TYPE)
+;   none             (Option T)
+;   some (pi ((_ T)) (Option T))
 
-def fmap-Option (pi ((T TYPE) (U TYPE) (f (pi ((_ T)) U)) (_ (Option T))) (Option U))
-  fn (T U f o)
-    elim-Option T (const _ _ (Option U))
-      none U
-      fn (t)
-        some U (f t)
-      o
-def pure-Option none
+; def fmap-Option (pi ((T TYPE) (U TYPE) (f (pi ((_ T)) U)) (_ (Option T))) (Option U))
+;   fn (T U f o)
+;     elim-Option T (const _ _ (Option U))
+;       none U
+;       fn (t)
+;         some U (f t)
+;       o
+;
+; def pure-Option none
 
-defty Either (pi ((L TYPE) (R TYPE)) TYPE)
-  left  L
-  right R
+; defty Either (pi ((L TYPE) (R TYPE)) TYPE)
+;   left  L
+;   right R
 
-def unify-Either (pi ((T TYPE) (_ (Either T T))) T)
-  fn (T e)
-    elim-Either T T (const _ _ T)
-      id _
-      id _
-      e
+; def unify-Either (pi ((T TYPE) (_ (Either T T))) T)
+;   fn (T e)
+;     elim-Either T T (const _ _ T)
+;       id _
+;       id _
+;       e
 
 ; defty Nat TYPE
 ;   zero Nat

@@ -3,8 +3,8 @@ module main
 
 ; Got error "The target of a call must be a function, not #VAR:83#"
 ; Last present in 52fad86
-def id-test-1
-  (id _ S) Z
+; def id-test-1
+;   (id _ S) Z
 
 ; Got panic "x not found"
 ; Last present in 5ca1ee1
@@ -12,7 +12,7 @@ def const-test-1
   (const _ _ 1) 2
 
 ; Got panic "#G:47# not found" where #G:47# the name of the motive in the type of elim-Unit.
-def pi-test-1
-  ((const _ _ elim-Unit) 1) _ _
+; def pi-test-1
+;   ((const _ _ elim-Unit) 1) _ _
 
 def main (fn () 0)
