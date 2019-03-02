@@ -25,7 +25,7 @@ deploy:
 - provider: pages
   skip-cleanup: true
   github-token: $GITHUB_TOKEN
-  local-dir: target/doc
+  local-dir: docs/book
   keep-history: false
   on:
     branch: master
