@@ -20,7 +20,7 @@ script:
 
 before_deploy:
 - /tmp/mdbook build docs
-- rsync -a target/doc/ docs/book/
+- rsync -a target/doc/ docs/book/api/
 deploy:
 - provider: pages
   skip-cleanup: true
