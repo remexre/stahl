@@ -2,7 +2,8 @@
 !.gitignore
 !.travis.yml
 
-target/
+/docs/book/
+/target/
 
 *.glob
 *.vo

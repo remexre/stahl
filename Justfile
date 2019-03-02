@@ -9,7 +9,9 @@ check:
 clippy:
 	cargo clippy --all
 doc:
+	mdbook build docs
 	cargo doc --all
+	rsync -a target/doc/ docs/book/api/
 run +ARGS="":
 	cargo run -- -I . -I examples {{ARGS}}
 test:

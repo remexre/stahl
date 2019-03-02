@@ -61,11 +61,12 @@ Inductive value : tm -> Prop :=
 
 Hint Constructors value.
 
-Reserved Notation "'[' x ':=' s ']' t" (at level 20).
-
-Fixpoint subst (x : string) (s : tm) (t : tm) : tm :=
+Fixpoint subst (n : string) (s : tm) (t : tm) : tm :=
   match t with
-  | t => t
+  | App f x    => App (subst n s f) (subst n s x)
+  | Lam n' t b => Lam n' t (if string_dec n n' then b else subst n s b)
+  | UnitV      => UnitV
+  | Var n'     => if string_dec n n' then t else Var n'
   end.
 
 Notation "'[' x ':=' s ']' t" := (subst x s t) (at level 20).
@@ -83,7 +84,8 @@ Theorem progress : forall e T,
 Proof.
   intros e T H.
   induction H; auto.
-  - admit.
+  - right.
+    admit.
   - admit.
 Admitted.
 
@@ -102,4 +104,7 @@ Theorem preservation : forall e e' T,
 Proof.
   intros e e' T Step Ty.
   induction Step; auto.
-  - apply (TypingApp _ _).
+  - admit.
+  - admit.
+  - admit.
+Admitted.
