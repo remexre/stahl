@@ -5,6 +5,7 @@
   ; Eq elim-Eq refl
   id
   ; List nil-List cons-List elim-List
+  Option none some elim-Option
   ; Nat zero succ elim-Nat S Z plus-Nat
   String
   Symbol
@@ -40,9 +41,9 @@ defty Bool TYPE
   false Bool
   true Bool
 
-; defty Option (pi ((T TYPE)) TYPE)
-;   none             (Option T)
-;   some (pi ((_ T)) (Option T))
+defty Option (pi ((T TYPE)) TYPE)
+  none             (Option T)
+  some (pi ((_ T)) (Option T))
 
 ; def fmap-Option (pi ((T TYPE) (U TYPE) (f (pi ((_ T)) U)) (_ (Option T))) (Option U))
 ;   fn (T U f o)
