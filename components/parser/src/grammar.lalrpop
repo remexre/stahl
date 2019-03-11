@@ -3,6 +3,7 @@ use stahl_errors::{Location, PointLC};
 use stahl_value::Value;
 use stahl_util::{SharedString};
 
+#[LALR]
 grammar(loc: &Location);
 
 extern {

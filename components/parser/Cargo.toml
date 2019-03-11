@@ -18,6 +18,6 @@ stahl_value = { path = "../value" }
 lalrpop = "0.16.2"
 
 [dev-dependencies]
+pretty_assertions = "0.6.1"
 proptest = "0.9.1"
 stahl_value = { features = ["proptest"], path = "../value"  }
-pretty_assertions = "0.6.1"

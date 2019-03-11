@@ -4,12 +4,49 @@ mod hinting;
 
 use maplit::{hashmap, hashset};
 use rustyline::{CompletionType, Config, EditMode, Editor};
-use stahl_ast::LibName;
+use stahl_ast::{Decl, LibName};
 use stahl_context::{Context, ModContext};
 use stahl_cst::Expr as CstExpr;
-use stahl_errors::{Location, Result};
-use stahl_parser::parse_str;
-use std::cell::RefCell;
+use stahl_errors::{raise, Location, Result};
+use stahl_parser::parse_str_one;
+use stahl_util::SharedString;
+use std::{cell::RefCell, sync::Arc};
+
+/// A command entered at the REPL.
+#[derive(Debug)]
+enum ReplCommand {
+    /// Evaluates a value, showing its type and normal form.
+    Eval(Arc<CstExpr>),
+
+    /// Quits the REPL.
+    Quit,
+
+    /// Returns the type of an expression.
+    TypeOf(Arc<CstExpr>),
+
+    /// Returns the type of a variable.
+    TypeOfName(SharedString),
+}
+
+impl ReplCommand {
+    fn parse_str(s: &str, loc: Location) -> Result<ReplCommand> {
+        let s = s.trim();
+
+        if s.starts_with(":q") {
+            Ok(ReplCommand::Quit)
+        } else if s.starts_with(":t ") {
+            parse_str_one(&s[3..], loc)
+                .and_then(|val| CstExpr::from_value_unnamed(&val, "the REPL"))
+                .map(ReplCommand::TypeOf)
+        } else if s.starts_with(":tname ") {
+            Ok(ReplCommand::TypeOfName(s[7..].into()))
+        } else {
+            parse_str_one(s, loc)
+                .and_then(|val| CstExpr::from_value_unnamed(&val, "the REPL"))
+                .map(ReplCommand::Eval)
+        }
+    }
+}
 
 /// Runs the REPL.
 pub fn run(ctx: &mut Context, main: Option<String>) -> Result<()> {
@@ -60,8 +97,10 @@ pub fn run(ctx: &mut Context, main: Option<String>) -> Result<()> {
     }
 
     while let Ok(line) = rl.readline("\u{03bb}> ") {
-        if let Err(e) = run_line(&mut *mod_ctx.borrow_mut(), &line) {
-            error!("{}", e);
+        match run_line(&mut *mod_ctx.borrow_mut(), &line) {
+            Ok(true) => {}
+            Ok(false) => break,
+            Err(e) => error!("{}", e),
         }
     }
 
@@ -82,21 +121,35 @@ pub fn run(ctx: &mut Context, main: Option<String>) -> Result<()> {
     Ok(())
 }
 
-fn run_line(mod_ctx: &mut ModContext, line: &str) -> Result<()> {
+fn run_line(mod_ctx: &mut ModContext, line: &str) -> Result<bool> {
     let loc = Location::new().name("the REPL".into());
 
-    let exprs = parse_str(&line, loc.clone())?;
-    for expr in exprs {
-        let expr = CstExpr::from_value_unnamed(&expr, "the REPL")?;
-        let (expr, ty) = mod_ctx.elab(&expr, &CstExpr::Hole(loc.clone()))?;
-        println!("expr = {}", expr);
-        println!("type = {}", ty);
+    match ReplCommand::parse_str(&line, loc.clone())? {
+        ReplCommand::Eval(expr) => {
+            let (expr, ty) = mod_ctx.elab(&expr, &CstExpr::Hole(loc.clone()))?;
+            println!("expr = {}", expr);
+            println!("type = {}", ty);
 
-        // let interp = Interpreter::new(&mut mod_ctx);
-        // println!("{}", interp.is_normal(&expr));
+            // let interp = Interpreter::new(&mut mod_ctx);
+            // println!("{}", interp.is_normal(&expr));
+
+            Ok(true)
+        }
+        ReplCommand::Quit => Ok(false),
+        ReplCommand::TypeOf(expr) => {
+            let (_, ty) = mod_ctx.elab(&expr, &CstExpr::Hole(loc.clone()))?;
+            println!("{}", ty);
+            Ok(true)
+        }
+        ReplCommand::TypeOfName(name) => {
+            let (_, decl) = mod_ctx.resolve(name.clone())?;
+            match decl {
+                Decl::Def(_, _, ty, _) => println!("{} : {}", name, ty),
+                _ => raise!(@decl.loc(), "{} is not a value", name),
+            }
+            Ok(true)
+        }
     }
-
-    Ok(())
 }
 
 struct Helper<'m, 'l, 'c>(&'m RefCell<ModContext<'l, 'c>>);

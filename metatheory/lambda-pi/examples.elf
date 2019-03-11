@@ -1,8 +1,0 @@
-id-ty = pi (s z) ty (pi z (var (s z)) (var (s z))).
-id-val = lam (s z) (lam z (var z)).
-%solve _ : ty-chk ty-ctx/nil id-val id-ty.
-
-const-ty = pi (s (s (s z))) ty (pi (s (s z)) ty (pi (s z) (var (s (s (s z))))
-          (pi z (var (s (s z))) (var (s (s (s z))))))).
-const-val = lam (s (s (s z))) (lam (s (s z)) (lam (s z) (lam z (var (s z))))).
-%solve _ : ty-chk ty-ctx/nil const-val const-ty.

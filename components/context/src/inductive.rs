@@ -52,9 +52,9 @@ pub fn elim_type(
         .into_iter()
         .map(|(name, ty)| {
             let (name, is_index) = if let Some(name) = name {
-                (name, true)
+                (name, false)
             } else {
-                (SharedString::gensym(), false)
+                (SharedString::gensym(), true)
             };
             (name, is_index, ty)
         })
@@ -101,16 +101,22 @@ pub fn elim_type(
                 Arc::new(Expr::LocalVar(loc.clone(), motive_name.clone())),
                 vec![Arc::new(Expr::GlobalVar(
                     loc.clone(),
-                    FQName(lib_name.clone(), mod_name.clone(), name.clone()),
+                    FQName(lib_name.clone(), mod_name.clone(), name),
                 ))],
             ))
         } else {
-            Arc::new(Expr::Atom(
+            dbg!(ctor_args);
+            dbg!(ret_args);
+            Arc::new(Expr::Call(
                 loc.clone(),
-                FQName(LibName("TODO".into(), 0, 0, 0), "".into(), "TODO".into()),
-                unimplemented!(),
+                Arc::new(Expr::LocalVar(loc.clone(), motive_name.clone())),
+                vec![Arc::new(Expr::GlobalVar(
+                    loc.clone(),
+                    FQName(lib_name.clone(), mod_name.clone(), name),
+                ))],
             ))
         };
+        println!("ty = {}", ty);
         (ctor_case_name, ty)
     });
 
