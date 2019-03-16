@@ -157,7 +157,7 @@ fn version_from_value(val: Value) -> Option<(u16, u16, u32)> {
                         && 0 <= minor
                         && minor <= u16::MAX as isize
                         && 0 <= patch
-                        && patch <= u32::MAX as isize
+                        && patch as i64 <= u32::MAX as i64
                     {
                         Some((major as u16, minor as u16, patch as u32))
                     } else {
