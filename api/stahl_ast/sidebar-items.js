@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Decl","A top-level declaration."],["Expr","An expression."],["Intrinsic","A compiler intrinsic."],["Literal","A literal value. Cons and nil are excluded, as they are converted to function calls."]],"struct":[["Effects","A set of effects."],["FQName","A fully-qualified name."],["LibName","The name of a library, including the version number."]]});

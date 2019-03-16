@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Interpreter","An interpreter for Stahl. Note that this is a \"slow\" interpreter, i.e. one that operates directly on the AST, rather than compiling to a more efficient intermediate representation."]]});
