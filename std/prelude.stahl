@@ -1,0 +1,93 @@
+(module std:prelude
+  Bool false true elim-Bool
+  const
+  Fixnum fixnum-add
+  ; Eq elim-Eq refl
+  id
+  ; List nil-List cons-List elim-List
+  Option none some elim-Option
+  ; Nat zero succ elim-Nat S Z plus-Nat
+  String
+  Symbol
+  the
+  TYPE
+  type-of
+  Unit unit elim-Unit
+  ; Vect nil-Vect cons-Vect elim-Vect
+  Void elim-Void)
+
+(import compiler-builtins
+  Fixnum fixnum-add String Symbol TYPE)
+
+def const (pi ((T TYPE) (U TYPE) (_ T)) (pi ((_ U)) T))
+  fn (_ _ x) (fn (_) x)
+
+def id (pi ((T TYPE)) (pi ((_ T)) T))
+  fn (_)
+    fn (x) x
+
+def the (pi ((T TYPE) (_ T)) T)
+  fn (_ x) x
+
+def type-of (pi ((T TYPE) (_ T)) TYPE)
+  fn (T _) T
+
+defty Void TYPE
+
+defty Unit TYPE
+  unit Unit
+
+defty Bool TYPE
+  false Bool
+  true Bool
+
+defty Option (pi ((T TYPE)) TYPE)
+  none             (Option T)
+  some (pi ((_ T)) (Option T))
+
+; def fmap-Option (pi ((T TYPE) (U TYPE) (f (pi ((_ T)) U)) (_ (Option T))) (Option U))
+;   fn (T U f o)
+;     elim-Option T (const _ _ (Option U))
+;       none U
+;       fn (t)
+;         some U (f t)
+;       o
+;
+; def pure-Option none
+
+; defty Either (pi ((L TYPE) (R TYPE)) TYPE)
+;   left  L
+;   right R
+
+; def unify-Either (pi ((T TYPE) (_ (Either T T))) T)
+;   fn (T e)
+;     elim-Either T T (const _ _ T)
+;       id _
+;       id _
+;       e
+
+; defty Nat TYPE
+;   zero Nat
+;   succ (pi ((_ Nat)) Nat)
+
+; def plus-Nat (pi ((_ Nat) (_ Nat)) Nat)
+;   fn (x y)
+;     elim-Nat
+;       fn (_) Nat
+;       y
+;       fn (_ prev) (succ prev)
+;       x
+
+; def S succ
+; def Z zero
+
+; defty List (pi ((T TYPE)) TYPE)
+;   nil-List                           (List T)
+;   cons-List (pi ((_ T) (_ (List T))) (List T))
+
+; defty Vect (pi ((T TYPE) (_ Nat)) TYPE)
+;   nil-Vect                                     (Vect T zero)
+;   cons-Vect (pi ((n Nat) (_ T) (_ (Vect T n))) (Vect T (succ n)))
+
+; defty Eq (pi ((T TYPE) (_ T) (_ T)) TYPE)
+;   refl (pi ((a T)) (Eq T a a))

@@ -1,0 +1,102 @@
+ty : type.
+arr : ty -> ty -> ty.
+o : ty.
+%freeze ty.
+
+tm : type.
+app : tm -> tm -> tm.
+i : tm.
+lam : ty -> (tm -> tm) -> tm.
+%freeze tm.
+
+% `of x y` means x is of type y.
+of : tm -> ty -> type.
+
+%  G |- f : t -> t'    G |- x : t
+% --------------------------------
+%          G |- f x : t'
+of-app : of (app F X) T'
+	  <- of X T
+      <- of F (arr T T').
+
+% ------------
+%  G |- i : o
+of-base : of i o.
+
+%       G,x:t |- e : t'
+% --------------------------
+%  G |- (\x:t. e) : t -> t'
+of-lam : of (lam T E) (arr T T')
+      <- ({x:tm} of x T -> of (E x) T').
+
+%freeze of.
+
+% `value x` means that x is a value.
+value : tm -> type.
+value-i : value i.
+value-lam : value (lam T E).
+%freeze value.
+
+% `step` is the small-step evaluation relation.
+step : tm -> tm -> type.
+
+%      f => f'
+% -----------------
+%  (f x) => (f' x)
+step-app/1 : step (app F X) (app F' X)
+          <- step F F'.
+
+%  value f    x => x'
+% --------------------
+%   (f x) => (f' x)
+step-app/2 : step (app F X) (app F X')
+          <- step X X'
+		  <- value F.
+
+%            value e'
+% ------------------------------
+%  ((\x:t. e) e') => e[x -> e']
+step-beta : step (app (lam T E) E') (E E')
+          <- value E'.
+
+%freeze step.
+
+% `preserv` is the preservation property.
+preserv : step E E' -> of E T -> of E' T -> type.
+%mode preserv +Dstep +Dof -Dof'.
+
+preserv-app/1 : preserv (step-app/1 StepF)
+                  (of-app OfF OfX)
+                  (of-app OfF' OfX)
+             <- preserv StepF OfF OfF'.
+preserv-app/2 : preserv (step-app/2 ValueF StepX)
+                  (of-app OfF OfX)
+                  (of-app OfF OfX')
+             <- preserv StepX OfX OfX'.
+preserv-beta : preserv (step-beta (_ : value X))
+                  (of-app (of-lam XToOfXToOfFX) OfX)
+                  (XToOfXToOfFX X OfX).
+
+%worlds () (preserv _ _ _).
+%total D (preserv D _ _).
+
+% `progressible e` means e is either a value or reducible to a value.
+progressible : tm -> type.
+progressible-value : progressible E <- value E.
+progressible-reducible : progressible E <- step E E'.
+%freeze progressible.
+
+% `progress` is the property that all well-typed terms are either values or can take a step.
+progress : of E T -> progressible E -> type.
+%mode progress +Dof -Dprogressible.
+
+progress-app/1 : progress (of-app OfF OfX) (progressible-reducible (step-app/1 StepX))
+             <- progress OfX (progressible-reducible StepX).
+progress-app/2 : progress (of-app OfF OfX) (progressible-reducible (step-app/2 value-lam StepX))
+             <- progress OfX (progressible-reducible StepX).
+progress-beta : progress (of-app OfF OfX) (progressible-reducible (step-beta ValueX)).
+progress-base : progress of-base (progressible-value value-i).
+progress-lam : progress (of-lam _) (progressible-value value-lam).
+
+%worlds () (progress _ _).
+%total D (progress D _).

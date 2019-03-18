@@ -1,0 +1,14 @@
+(module std:data
+  ; Data cons fixnum nil string symbol
+  )
+
+(import std
+  (prelude
+    Fixnum String Symbol TYPE))
+
+; defty Data TYPE
+;  cons   (pi ((_ Data) (_ Data)) Data)
+;  fixnum (pi ((_ Fixnum))        Data)
+;  nil                            Data
+;  string (pi ((_ String))        Data)
+;  symbol (pi ((_ Symbol))        Data)

@@ -1,0 +1,25 @@
+(module std:cat-theory
+  ; Functor map
+  ; Pointed pure
+  ; Applicative ap
+  ; Selective select
+  ; Monad bind
+  )
+
+; TODO: Add laws!
+
+; defiface Functor ((F (pi ((_ TYPE)) TYPE)))
+;   map (pi ((T TYPE) (U TYPE) (_ (pi ((_ T)) U)) (_ (F T))) (F U))
+
+; defiface Pointed ((F (pi ((_ TYPE)) TYPE)) (_ (Functor F)))
+;   pure (pi ((T TYPE) (_ T)) (F T))
+
+; defiface Applicative ((F (pi ((_ TYPE)) TYPE)) (_ (Functor F)))
+;   ap (pi ((T TYPE) (U TYPE) (_ (F (pi ((_ T)) U))) (_ (F T))) (F U))
+
+; https://www.staff.ncl.ac.uk/andrey.mokhov/selective-functors.pdf
+; defiface Selective ((F (pi ((_ TYPE)) TYPE)) (_ (Applicative F)))
+;   select (pi ((T TYPE) (U TYPE) (_ (F (Either T U))) (_ (F (pi ((_ T)) U)))) (F U))
+
+; defiface Monad ((F (pi ((_ TYPE)) TYPE)) (_ (Selective F)))
+;   bind (pi ((T TYPE) (U TYPE) (_ (F T)) (_ (pi ((_ T)) (F U)))) (F U))

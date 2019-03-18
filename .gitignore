@@ -1,0 +1,7 @@
+.*
+!.gitignore
+!.travis.yml
+
+/docs/book/
+/dist/
+/dist-newstyle/

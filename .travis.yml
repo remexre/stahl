@@ -1,0 +1,32 @@
+language: rust
+rust:
+- stable
+- beta
+- nightly
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+os: linux
+cache: cargo
+
+install:
+- curl -L 'https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-musl.tar.gz' | tar zxvC /tmp
+
+script:
+- cargo test --all
+- /tmp/mdbook test docs
+- if [[ $TRAVIS_RUST_VERSION = stable ]]; then cargo doc --all; fi
+
+before_deploy:
+- /tmp/mdbook build docs
+- rsync -a target/doc/ docs/book/api/
+deploy:
+- provider: pages
+  skip-cleanup: true
+  github-token: $GITHUB_TOKEN
+  local-dir: docs/book
+  keep-history: false
+  on:
+    branch: master
+    condition: $TRAVIS_RUST_VERSION = stable
