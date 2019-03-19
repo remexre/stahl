@@ -13,7 +13,7 @@ import Control.Lens.TH (makeLenses)
 import Control.Monad (when)
 import Control.Monad.Except (ExceptT, withExceptT)
 import Control.Monad.Writer (MonadWriter(..), execWriter)
-import Data.ByteString (ByteString)
+import Data.ByteString.UTF8 (ByteString)
 import Data.Maybe (isJust)
 
 data ErrorKind

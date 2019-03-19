@@ -4,15 +4,17 @@ module Language.Stahl.Lexer
   ( LexerError(..)
   , LexerState(..)
   , Token(..)
-  , lex
+  , lexStahl
+  , lexer
   ) where
 
 import Control.Lens.TH (makeLenses)
 import Control.Monad.Error.Class (MonadError(..))
 import Control.Monad.State.Class (MonadState(..))
-import Data.ByteString (ByteString)
+import Data.ByteString.UTF8 (ByteString)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
+import Data.Int (Int64)
 import Data.Word
   ( Word
   , Word8
@@ -26,7 +28,16 @@ data Span = S Point Point deriving (Eq, Show)
 
 data Token
   = TokEOF
-  | TokHole
+  | TokDedent
+  | TokGroup
+  | TokIndent
+  | TokInt Int64
+  | TokNewline
+  | TokParenClose
+  | TokParenOpen
+  | TokPipe
+  | TokString ByteString
+  | TokSymbol ByteString
   deriving Show
 
 data LexerError
@@ -41,7 +52,6 @@ data LexerState = LexerState
   { _chars :: [(Word8, Point)]
   , _last :: Point
   , _parenDepth :: Word
-  , _path :: ByteString
   , _queued :: Seq (Point, Span)
   , _queuedNL :: Maybe Point
   , _ws :: ByteString
@@ -50,12 +60,11 @@ data LexerState = LexerState
 
 makeLenses ''LexerState
 
-defaultLexerState :: ByteString -> ByteString -> LexerState
-defaultLexerState bs path = LexerState
+defaultLexerState :: ByteString -> LexerState
+defaultLexerState bs = LexerState
   { _chars = addPositionsToChars bs
   , _last = P 1 1
   , _parenDepth = 0
-  , _path = path
   , _queued = Seq.empty
   , _queuedNL = Nothing
   , _ws = ""
@@ -79,3 +88,9 @@ lexSymbolish start = undefined
 
 lexStringEscape :: (MonadError LexerError m, MonadState LexerState m) => m Char
 lexStringEscape = undefined
+
+lexStahl :: ByteString -> Either LexerError [Token]
+lexStahl = undefined
+
+lexer :: Monad m => (Token -> m a) -> m a
+lexer k = k TokEOF -- TODO
