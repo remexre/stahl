@@ -43,11 +43,14 @@ data Token a
 
 data LexerError
   = BadWhitespace
+  | InvalidEscape Char
   | InvalidHexChar Char
   | UnexpectedEOF
 
 instance Show LexerError where
   show BadWhitespace = "Bad whitespace"
+  show (InvalidEscape c) = "\"\\" <> [c] <> "\" is not a valid escape sequence"
+  show (InvalidHexChar c) = show c <> " is not a valid hexadecimal character"
   show UnexpectedEOF = "Unexpected EOF"
 
 instance ToError LexerError
@@ -94,35 +97,9 @@ advanceChar = do
   lexerState <- getLexerStateLens
   case ls^.chars of
     [] -> throwLexerError UnexpectedEOF
-    ((_, _):t) -> lexerState.chars .= t
-
-eatWhitespace :: M s m => m ()
-eatWhitespace = whileM_ (isWhitespace <$> peek) advanceChar
-  where isWhitespace = undefined
-
-lexHexDigit :: M s m => m Int64
-lexHexDigit = undefined
-
-lexString :: M s m => Point -> m ByteString
-lexString start = undefined
-
-lexSymbolish :: M s m => Point -> m ByteString
-lexSymbolish start = undefined
-
-lexStringEscape :: M s m => m Char
-lexStringEscape = undefined
-
-nextChar :: M s m => m (Char, Point)
-nextChar = peek <* advanceChar
-
-nextToken :: M s m => m (Token Span)
-nextToken = pure $ TokEOF (S (P 0 0) (P 0 0))
-
-nextToken' :: M s m => m (Token Location)
-nextToken' = do
-  tok <- nextToken
-  ls <- getLexerState
-  pure (spanToLocation (ls^.path) <$> tok)
+    ((_, p):t) -> do
+      lexerState.chars .= t
+      lexerState.last .= p
 
 peek :: M s m => m (Char, Point)
 peek = do
@@ -131,8 +108,73 @@ peek = do
     [] -> throwLexerError UnexpectedEOF
     (h:_) -> pure h
 
-peek' :: M s m => m Char
-peek' = fst <$> peek
+nextChar :: M s m => m (Char, Point)
+nextChar = peek <* advanceChar
+
+eatWhitespace :: M s m => m ()
+eatWhitespace = whileM_ (isWhitespace <$> peek) advanceChar
+  where isWhitespace = undefined
+
+lexHexDigit :: M s m => m Int64
+lexHexDigit = do
+  (c, _) <- nextChar
+  case c of
+    '0' -> pure 0
+    '1' -> pure 1
+    '2' -> pure 2
+    '3' -> pure 3
+    '4' -> pure 4
+    '5' -> pure 5
+    '6' -> pure 6
+    '7' -> pure 7
+    '8' -> pure 8
+    '9' -> pure 9
+    'A' -> pure 10
+    'a' -> pure 10
+    'B' -> pure 11
+    'b' -> pure 11
+    'C' -> pure 12
+    'c' -> pure 12
+    'D' -> pure 13
+    'd' -> pure 13
+    'E' -> pure 14
+    'e' -> pure 14
+    'F' -> pure 15
+    'f' -> pure 15
+    _ -> throwLexerError (InvalidHexChar c)
+
+lexStringEscape :: M s m => m Char
+lexStringEscape = do
+  (c, _) <- nextChar
+  case c of
+    '\\' -> pure '\\'
+    '"' -> pure '"'
+    'n' -> pure '\n'
+    'r' -> pure '\r'
+    't' -> pure '\t'
+    -- 'x' -> undefined
+    -- 'u' -> undefined
+    -- 'U' -> undefined
+    _ -> throwLexerError (InvalidEscape c)
+
+lexString :: M s m => Point -> m (ByteString, Span)
+lexString start = do
+  undefined
+
+lexSymbolish :: M s m => Point -> m (ByteString, Span)
+lexSymbolish start = do
+  undefined
+
+nextToken :: M s m => m (Token Span)
+nextToken = pure $ TokEOF (S (P 0 0) (P 0 0))
+  where onNL :: M s m => m ()
+        onNL = undefined
+
+nextToken' :: M s m => m (Token Location)
+nextToken' = do
+  tok <- nextToken
+  ls <- getLexerState
+  pure (spanToLocation (ls^.path) <$> tok)
 
 getLexerState :: M s m => m LexerState
 getLexerState = use =<< getLexerStateLens
