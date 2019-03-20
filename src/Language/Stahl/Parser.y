@@ -29,20 +29,23 @@ NLs :: { () }
 NLs : { () }
     | NLs NL { () }
 
+NLs1 :: { () }
+NLs1 : NLs NL { () }
+
 iexprs :: { [()] }
 iexprs : { [] }
-       | iexprs1 { $1 }
+       | iexprs iexpr { $1 <> [$2] }
 
 iexprs1 :: { [()] }
-iexprs1 : iexpr { [$1] }
+iexprs1 : iexprs iexpr { $1 <> [$2] }
 
 iexpr :: { () }
 iexpr : head { () }
       | head body { () }
 
 head :: { () }
-head : Group sexprs NLs { () }
-     | iexprs1 NLs { () }
+head : Group sexprs NLs1 { () }
+     | sexprs1 NLs1 { () }
 
 body :: { () }
 body : Indent iexprs1 Dedent NLs { () }
@@ -50,6 +53,9 @@ body : Indent iexprs1 Dedent NLs { () }
 sexprs :: { [()] }
 sexprs : { [] }
        | sexprs sexpr { $1 <> [$2] }
+
+sexprs1 :: { [()] }
+sexprs1 : sexprs sexpr { $1 <> [$2] }
 
 sexpr :: { () }
 sexpr : '(' NLs sexprListBody { $3 }
