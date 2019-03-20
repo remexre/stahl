@@ -1,4 +1,6 @@
 all: build doc test
+clean:
+	cabal v2-clean
 watch +ARGS="":
 	watchexec -cre cabal,hs,y -- just {{ARGS}}
 

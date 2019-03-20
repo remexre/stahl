@@ -1,4 +1,4 @@
-{-# LANGUAGE ConstraintKinds, DeriveFoldable, DeriveFunctor, DeriveTraversable, QuantifiedConstraints, RankNTypes #-}
+{-# LANGUAGE ConstraintKinds, DeriveFoldable, DeriveFunctor, DeriveTraversable, RankNTypes #-}
 
 module Language.Stahl.Lexer
   ( LexerError(..)

@@ -37,7 +37,6 @@ library
     , DeriveFoldable
     , DeriveFunctor
     , DeriveTraversable
-    , QuantifiedConstraints
     , RankNTypes
 
 executable stahl
