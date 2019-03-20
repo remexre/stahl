@@ -11,7 +11,8 @@ install:
 - curl -L 'https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-musl.tar.gz' | tar zxC /tmp mdbook
 
 script:
-- cabal v2-test
+- cabal new-build
+- cabal new-test
 - /tmp/mdbook test docs
 
 before_deploy:
