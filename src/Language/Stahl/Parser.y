@@ -102,8 +102,12 @@ happyError = do
 happyError = undefined
 
 -- |Parses a string, returning the corresponding 'Value's.
-parse :: MonadError Error m => FilePath -> ByteString -> m (Seq Value)
-parse path src = liftEither (evalStateT parser parserState)
+parse :: MonadError Error m => FilePath -> ByteString -> m [Value]
+parse path src = toList <$> parse' path src
+
+-- |Parses a string, returning the corresponding 'Value's in a 'Seq'.
+parse' :: MonadError Error m => FilePath -> ByteString -> m (Seq Value)
+parse' path src = liftEither (evalStateT parser parserState)
   where parserState = ParserState lexerState
         lexerState = mkLexerState path src
 
@@ -113,7 +117,7 @@ parseFile = fmap toList . parseFile'
 
 -- |Parses a file, returning the corresponding 'Value's in a 'Seq'.
 parseFile' :: (MonadError Error m, MonadIO m) => FilePath -> m (Seq Value)
-parseFile' path = parse path =<< liftIO (readFile path)
+parseFile' path = parse' path =<< liftIO (readFile path)
 
 -- vim: set ft=happy :
 }
