@@ -1,4 +1,6 @@
 language: haskell
+ghc:
+- "8.6.3"
 fast_finish: true
 os: linux
 cache:
@@ -13,7 +15,6 @@ install:
 script:
 - cabal new-build
 - cabal new-test
-- /tmp/mdbook test docs
 
 before_deploy:
 - /tmp/mdbook build docs
