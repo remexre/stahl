@@ -1,28 +1,40 @@
 {
-module Language.Stahl.Parser where
+module Language.Stahl.Parser
+  ( parse
+  , parseFile
+  ) where
 
-import Language.Stahl.Lexer
-import Language.Stahl.Value
+import Control.Lens (Lens', ReifiedLens(..), lens)
+import Control.Monad.Error.Class (MonadError(..), liftEither)
+import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.State.Strict (StateT(..), evalStateT)
+import Data.ByteString (ByteString, readFile)
+import Data.Functor.Identity (Identity(..))
+import Data.Sequence (Seq, (|>), empty)
+import Language.Stahl.Error (Error, Location)
+import Language.Stahl.Lexer (LexerState, Token(..), lexer, mkLexerState)
+import Language.Stahl.Value (Value(..))
+import Prelude hiding (readFile)
 }
 
-%lexer { lexer } { TokEOF }
-%monad { P }
+%lexer { lexer (Lens lexerState) } { TokEOF _ }
+%monad { M }
 %name parser root
-%tokentype { Token }
-%token Dedent { TokDedent }
-       Group  { TokGroup }
-       Indent { TokIndent }
-       NL  { TokNewline }
-       '(' { TokParenOpen }
-       ')' { TokParenClose }
-       '|' { TokPipe }
-       Int    { TokInt $$ }
-       String { TokString $$ }
-       Symbol { TokSymbol $$ }
+%tokentype { Token Location }
+%token Dedent { TokDedent     $$ }
+       Group  { TokGroup      $$ }
+       Indent { TokIndent     $$ }
+       NL     { TokNewline    $$ }
+       '('    { TokParenOpen  $$ }
+       ')'    { TokParenClose $$ }
+       '|'    { TokPipe       $$ }
+       Int    { TokInt        $$ }
+       String { TokString     $$ }
+       Symbol { TokSymbol     $$ }
 
 %%
 
-root :: { [()] }
+root :: { Seq Value }
 root : NLs iexprs { $2 }
 
 NLs :: { () }
@@ -32,46 +44,53 @@ NLs : { () }
 NLs1 :: { () }
 NLs1 : NLs NL { () }
 
-iexprs :: { [()] }
-iexprs : { [] }
-       | iexprs iexpr { $1 <> [$2] }
+iexprs :: { Seq Value }
+iexprs : { empty }
+       | iexprs iexpr { $1 |> $2 }
 
-iexprs1 :: { [()] }
-iexprs1 : iexprs iexpr { $1 <> [$2] }
+iexprs1 :: { Seq Value }
+iexprs1 : iexprs iexpr { $1 |> $2 }
 
-iexpr :: { () }
-iexpr : head { () }
-      | head body { () }
+iexpr :: { Value }
+iexpr : head { undefined }
+      | head body { undefined }
 
-head :: { () }
-head : Group sexprs NLs1 { () }
-     | sexprs1 NLs1 { () }
+head :: { Seq Value }
+head : Group sexprs NLs1 { $2 }
+     | sexprs1 NLs1 { $1 }
 
-body :: { () }
-body : Indent iexprs1 Dedent NLs { () }
+body :: { Seq Value }
+body : Indent iexprs1 Dedent NLs { $2 }
 
-sexprs :: { [()] }
-sexprs : { [] }
-       | sexprs sexpr { $1 <> [$2] }
+sexprs :: { Seq Value }
+sexprs : { empty }
+       | sexprs sexpr { $1 |> $2 }
 
-sexprs1 :: { [()] }
-sexprs1 : sexprs sexpr { $1 <> [$2] }
+sexprs1 :: { Seq Value }
+sexprs1 : sexprs sexpr { $1 |> $2 }
 
-sexpr :: { () }
+sexpr :: { Value }
 sexpr : '(' NLs sexprListBody { $3 }
-      | Int    { () }
-      | String { () }
-      | Symbol { () }
+      | Int    { undefined }
+      | String { undefined }
+      | Symbol { undefined }
 
-sexprListBody :: { () }
-sexprListBody : sexpr NLs sexprListBody { () }
-              | '|' NLs sexpr NLs ')' { () }
-              | ')' { () }
+sexprListBody :: { Value }
+sexprListBody : sexpr NLs sexprListBody { undefined }
+              | '|' NLs sexpr NLs ')' { undefined }
+              | ')' { undefined }
 
 {
-type P a = [a]
+type M a = StateT ParserState (Either Error) a
 
-happyError :: P a
+data ParserState = ParserState
+  { _lexerState :: LexerState
+  }
+
+lexerState :: Lens' ParserState LexerState
+lexerState = lens _lexerState notHappyAtAll
+
+happyError :: M a
 {-
 happyError = do
   toks <- get
@@ -80,6 +99,16 @@ happyError = do
     (h:_) -> throwError (Scanner.posn h, "Unexpected token " <> show h)
 -}
 happyError = undefined
+
+-- |Parses a string, returning the corresponding 'Value's.
+parse :: MonadError Error m => FilePath -> ByteString -> m (Seq Value)
+parse path src = liftEither (evalStateT parser parserState)
+  where parserState = ParserState lexerState
+        lexerState = mkLexerState path src
+
+-- |Parses a file, returning the corresponding 'Value's.
+parseFile :: (MonadError Error m, MonadIO m) => FilePath -> m (Seq Value)
+parseFile path = parse path =<< liftIO (readFile path)
 
 -- vim: set ft=happy :
 }

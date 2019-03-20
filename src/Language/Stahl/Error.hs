@@ -1,24 +1,35 @@
+-- |Error types and functions.
 module Language.Stahl.Error
   ( Error(..)
   , ErrorKind(..)
   , Location(..)
   , ToError(..)
-  , chain
+  , col
+  , colStart
+  , colEnd
+  , file
+  , line
+  , lineStart
+  , lineEnd
+  , loc
+  , kind
+  , cause
   ) where
 
 import Control.Lens ((^.))
 import Control.Lens.TH (makeLenses)
 import Control.Monad (when)
-import Control.Monad.Except (ExceptT, withExceptT)
 import Control.Monad.Writer (MonadWriter(..), execWriter)
 import Data.ByteString.UTF8 (ByteString)
 import Data.Maybe (isJust)
 
+-- |The kind of an error.
 data ErrorKind
-  = CouldntParseFile ByteString
-  | Other ByteString
+  = CouldntParseFile !FilePath
+  | Other !ByteString
   deriving Show
 
+-- |The location in source code at which an error occurred.
 data Location
   = Point
     { _file :: !FilePath
@@ -36,6 +47,7 @@ data Location
 
 makeLenses ''Location
 
+-- |An error, with an associated 'Location' and (optionally) a cause.
 data Error = Error
   { _loc :: Maybe Location
   , _kind :: ErrorKind
@@ -60,6 +72,7 @@ instance Show Error where
               Just (Right error) -> loop error
               Nothing -> pure ()
 
+-- |Values that can be converted into the 'Error' type.
 class ToError a where
   mkChainedError :: a -> Maybe Location -> ErrorKind -> Error
   default mkChainedError :: Show a => a -> Maybe Location -> ErrorKind -> Error
@@ -67,7 +80,3 @@ class ToError a where
 
 instance ToError Error where
   mkChainedError err loc kind = Error loc kind (Just (Right err))
-
--- |Chains an error based on @ErrorKind@ to the existing error.
-chain :: (ToError e, Functor m) => ExceptT e m a -> (Maybe Location, ErrorKind) -> ExceptT Error m a
-chain x (loc, kind) = withExceptT (\err -> mkChainedError err loc kind) x
