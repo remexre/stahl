@@ -1,0 +1,51 @@
+foo
+; This is equivalent to foo
+
+foo bar
+; This is equivalent to (foo bar)
+
+foo bar baz
+; This is equivalent to (foo bar baz)
+
+foo bar
+  baz
+; This is equivalent to (foo bar baz)
+
+foo
+  bar
+; This is equivalent to (foo bar)
+
+foo
+  bar baz
+; This is equivalent to (foo (bar baz))
+
+foo
+  (bar baz)
+; This is equivalent to (foo (bar baz))
+
+foo
+  bar
+  baz
+; This is equivalent to (foo bar baz)
+
+foo
+  bar
+    baz
+; This is equivalent to (foo (bar baz))
+
+group
+  foo
+  bar
+  baz
+; This is equivalent to (foo bar baz)
+
+group foo
+  bar
+  baz
+; This is equivalent to (foo bar baz)
+
+foo
+  group 
+    bar
+    baz
+; This is equivalent to (foo (bar baz))

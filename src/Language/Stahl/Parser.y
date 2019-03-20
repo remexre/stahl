@@ -9,6 +9,7 @@ import Control.Monad.Error.Class (MonadError(..), liftEither)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.State.Strict (StateT(..), evalStateT)
 import Data.ByteString (ByteString, readFile)
+import Data.Foldable (toList)
 import Data.Functor.Identity (Identity(..))
 import Data.Sequence (Seq, (|>), empty)
 import Language.Stahl.Error (Error, Location)
@@ -107,8 +108,12 @@ parse path src = liftEither (evalStateT parser parserState)
         lexerState = mkLexerState path src
 
 -- |Parses a file, returning the corresponding 'Value's.
-parseFile :: (MonadError Error m, MonadIO m) => FilePath -> m (Seq Value)
-parseFile path = parse path =<< liftIO (readFile path)
+parseFile :: (MonadError Error m, MonadIO m) => FilePath -> m [Value]
+parseFile = fmap toList . parseFile'
+
+-- |Parses a file, returning the corresponding 'Value's in a 'Seq'.
+parseFile' :: (MonadError Error m, MonadIO m) => FilePath -> m (Seq Value)
+parseFile' path = parse path =<< liftIO (readFile path)
 
 -- vim: set ft=happy :
 }
