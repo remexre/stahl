@@ -1,5 +1,3 @@
-{-# LANGUAGE DefaultSignatures, FlexibleContexts, TemplateHaskell #-}
-
 module Language.Stahl.Error
   ( Error(..)
   , ErrorKind(..)
@@ -23,12 +21,12 @@ data ErrorKind
 
 data Location
   = Point
-    { _file :: !ByteString
+    { _file :: !FilePath
     , _line :: !Word
     , _col :: !Word
     }
   | Span
-    { _file :: !ByteString
+    { _file :: !FilePath
     , _lineStart :: !Word
     , _colStart :: !Word
     , _lineEnd :: !Word
