@@ -89,7 +89,7 @@ data ParserState = ParserState
   }
 
 lexerState :: Lens' ParserState LexerState
-lexerState = lens _lexerState notHappyAtAll
+lexerState = lens _lexerState (\p l -> p { _lexerState = l })
 
 happyError :: M a
 {-

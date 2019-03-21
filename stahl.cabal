@@ -33,8 +33,7 @@ library
     , OverloadedStrings
     , TemplateHaskell
   other-extensions:
-      ConstraintKinds
-    , DeriveFoldable
+      DeriveFoldable
     , DeriveFunctor
     , DeriveTraversable
     , RankNTypes
