@@ -30,8 +30,7 @@ data Point = P Word Word deriving (Eq, Show)
 data Span = S Point Point deriving (Eq, Show)
 
 data Token a
-  = TokError
-  | TokEOF a
+  = TokEOF a
   | TokDedent a
   | TokGroup a
   | TokIndent a
