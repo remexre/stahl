@@ -101,8 +101,12 @@ mkLexerState path s = LexerState
   , _tokenBuffer = []
   }
 
-computeLineTokens :: (MonadError Error m, MonadState LexerState m) => ByteString -> ByteString -> m [Token Span]
-computeLineTokens ws line = do
+computeWSTokens :: (MonadError Error m, MonadState LexerState m) => ByteString -> m [Token Span]
+computeWSTokens ws = do
+  undefined
+
+computeLineTokens :: (MonadError Error m, MonadState LexerState m) => ByteString -> m [Token Span]
+computeLineTokens line = do
   undefined
 
 nextToken :: (MonadError Error m, MonadState LexerState m) => m (Token Span)
@@ -115,7 +119,9 @@ nextToken = use tokenBuffer >>= \case
     (lineNo, ws, line):t -> do
       srcLines .= t
       lastPoint .= P lineNo 0
-      assign tokenBuffer =<< computeLineTokens ws line
+      wsTokens <- computeWSTokens ws
+      lineTokens <- computeLineTokens line
+      tokenBuffer .= (wsTokens <> lineTokens)
       nextToken
 
 nextToken' :: (MonadError Error m, MonadState LexerState m) => m (Token Location)
