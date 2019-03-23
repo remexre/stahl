@@ -19,4 +19,4 @@ test:
 mdbook:
 	mdbook build docs
 latex:
-	cd docs/latex && tectonic semantics.tex
+	cd docs/semantics && tectonic semantics.tex

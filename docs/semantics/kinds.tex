@@ -1,0 +1,18 @@
+\begin{prooftree}
+	\AXC{}
+	\Label{Kind-Type}
+	\UIC{$\Gamma\vdash \RKind{\StahlTYPE}$}
+\end{prooftree}
+
+\begin{prooftree}
+	\AXC{$\Gamma\vdash \RHasType{\StahlName{\tau}}{\StahlTYPE}$}
+	\Label{Kind-EffNoRet}
+	\UIC{$\Gamma\vdash \RKind{\StahlEFFECTNoReturn{\StahlName{\tau}}}$}
+\end{prooftree}
+
+\begin{prooftree}
+	\AXC{$\Gamma\vdash \RHasType{\StahlName{\tau}}{\StahlTYPE}$}
+	\AXC{$\Gamma\vdash \RHasType{\StahlName{\tau'}}{\StahlTYPE}$}
+	\Label{Kind-Eff}
+	\BIC{$\Gamma\vdash \RKind{\StahlEFFECT{\StahlName{\tau}}{\StahlName{\tau'}}}$}
+\end{prooftree}

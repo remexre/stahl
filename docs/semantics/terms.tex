@@ -1,0 +1,21 @@
+\begin{multicols}{2}
+	\begin{align*}
+		\DefineTerm{decl}{\StahlDef{x}{\StahlName{\tau}}{\StahlName{e}}}
+		\Case{\StahlDefEffNoReturn{x}{\StahlName{\tau}}}
+		\Case{\StahlDefEff{x}{\StahlName{\tau}}{\StahlName{\tau'}}}
+		\Case{\StahlDefEff{x}{\StahlName{\tau}}{\StahlName{\tau'}}}
+		\Case{\StahlDefTy{x}{\StahlName{\tau}}{\StahlCtor{c}{\tau'},\ \ldots}}
+	\end{align*}\break
+	\begin{align*}
+		\DefineTerm{e, \tau, E}{\StahlName{x}}
+		\Case{\StahlApp{\StahlName{e_1}}{\StahlName{e_2}}}
+		\Case{\StahlHandle{\StahlName{E}}{\StahlName{e_1}}{\StahlName{e_2}}}
+		\Case{\StahlLambda{x}{\StahlName{e}}}
+		\Case{\StahlLet{x}{\StahlName{e_1}}{\StahlName{e_2}}}
+		\Case{\StahlPerform{\StahlName{E}}{\StahlName{e}}}
+		\Case{\StahlPi{x}{\StahlName{\tau_1}}{\StahlName{\tau_2}}}
+		\Case{\StahlEFFECT{\StahlName{\tau_1}}{\StahlName{\tau_2}}}
+		\Case{\StahlEFFECTNoReturn{\StahlName{\tau}}}
+		\Case{\StahlTYPE}
+	\end{align*}
+\end{multicols}

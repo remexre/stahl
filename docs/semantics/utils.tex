@@ -1,0 +1,33 @@
+% Misc
+\newcommand{\Label}[1]{\RightLabel{\scriptsize{(\textsc{#1})}}}
+
+% Relations
+\newcommand{\REvalsTo}[2]{#1\leadsto#2}
+\newcommand{\RHasType}[2]{#1:#2}
+\newcommand{\RKind}[1]{\mathtt{isKind}(#1)}
+\newcommand{\RTypeLike}[1]{\mathtt{isTypeLike}(#1)}
+
+% Terms
+\newcommand{\StahlDef}[3]{\mathtt{def}\,\StahlName{#1}:#2\,\texttt{=}\,#3}
+\newcommand{\StahlDefEff}[3]{\mathtt{defeff}\,\StahlName{#1}:\StahlEFFECT{#2}{#3}}
+\newcommand{\StahlDefEffNoReturn}[2]{\mathtt{defeff}\,\StahlName{#1}:\StahlEFFECTNoReturn{#2}}
+\newcommand{\StahlDefTy}[3]{\mathtt{defty}\,\StahlName{#1}:#2\ \{\,#3\,\}}
+\newcommand{\StahlCtor}[2]{\StahlName{#1}:#2}
+\newcommand{\StahlEFFECT}[2]{\mathtt{EFFECT}(#1, #2)}
+\newcommand{\StahlEFFECTNoReturn}[1]{\mathtt{EFFECT}(#1, -)}
+\newcommand{\StahlTYPE}{\mathtt{*}}
+\newcommand{\StahlName}[1]{\mathit{#1}}
+\newcommand{\StahlApp}[2]{\left(#1\;#2\right)}
+\newcommand{\StahlHandle}[3]{\left(\texttt{handle}\,#1\,\texttt{with}\,#2\,\texttt{in}\,#3\right)}
+\newcommand{\StahlLambda}[2]{\left(\lambda\StahlName{#1}.#2\right)}
+\newcommand{\StahlLet}[3]{\left(\texttt{let}\,\StahlName{#1}\,\texttt{=}\,#2\,\texttt{in}\,#3\right)}
+\newcommand{\StahlPerform}[2]{\texttt{perform}(#1, #2)}
+\newcommand{\StahlPi}[3]{\left(\Pi\StahlName{#1}:#2.#3\right)}
+
+% Library Helpers
+\newcommand{\StahlEither}[2]{\StahlApp{\StahlApp{\texttt{std:prelude:Either}}{#1}}{#2}}
+\newcommand{\StahlVoid}[0]{\texttt{std:prelude:Void}}
+
+% BNF-making commands
+\newcommand{\DefineTerm}[2]{\StahlName{#1}\Coloneqq&\ #2\\}
+\newcommand{\Case}[1]{\lvert\ &\ #1\\}
