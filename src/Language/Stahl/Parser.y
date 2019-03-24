@@ -7,6 +7,7 @@ module Language.Stahl.Parser
 import Control.Lens (Lens', ReifiedLens(..), lens)
 import Control.Monad.Error.Class (MonadError(..), liftEither)
 import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.State.Class (MonadState(..))
 import Control.Monad.State.Strict (StateT(..), evalStateT)
 import Data.ByteString (ByteString, readFile)
 import Data.Foldable (toList)
@@ -53,8 +54,8 @@ iexprs1 :: { Seq Value }
 iexprs1 : iexprs iexpr { $1 |> $2 }
 
 iexpr :: { Value }
-iexpr : head { undefined }
-      | head body { undefined }
+iexpr : head { error "TODO iexpr(head)" }
+      | head body { error "TODO iexpr(head body)" }
 
 head :: { Seq Value }
 head : Group sexprs NLs1 { $2 }
@@ -72,21 +73,21 @@ sexprs1 : sexprs sexpr { $1 |> $2 }
 
 sexpr :: { Value }
 sexpr : '(' NLs sexprListBody { $3 }
-      | Int    { undefined }
-      | String { undefined }
-      | Symbol { undefined }
+      | Int    { error "TODO sexpr(Int)" }
+      | String { error "TODO sexpr(String)" }
+      | Symbol { error "TODO sexpr(Symbol)" }
 
 sexprListBody :: { Value }
-sexprListBody : sexpr NLs sexprListBody { undefined }
-              | '|' NLs sexpr NLs ')' { undefined }
-              | ')' { undefined }
+sexprListBody : sexpr NLs sexprListBody { error "TODO sexprBody(sexpr)" }
+              | '|' NLs sexpr NLs ')' { error "TODO sexprBody(pipe)" }
+              | ')' { error "TODO sexprBody(close)" }
 
 {
 type M a = StateT ParserState (Either Error) a
 
 data ParserState = ParserState
   { _lexerState :: LexerState
-  }
+  } deriving Show
 
 lexerState :: Lens' ParserState LexerState
 lexerState = lens _lexerState (\p l -> p { _lexerState = l })
@@ -99,7 +100,7 @@ happyError = do
     (Scanner.Error p:_) -> throwError (p, "Lexer error")
     (h:_) -> throwError (Scanner.posn h, "Unexpected token " <> show h)
 -}
-happyError = undefined
+happyError = error . ("TODO happyError " <>) . show <$> get
 
 -- |Parses a string, returning the corresponding 'Value's.
 parse :: MonadError Error m => FilePath -> ByteString -> m [Value]
