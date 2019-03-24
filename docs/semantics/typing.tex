@@ -23,7 +23,7 @@
 \begin{prooftree}
 	\AXC{$\Gamma\vdash \RHasType{\StahlName{e}}{\StahlPi{x}{\StahlName{\tau}}{\StahlName{\tau'}}}$}
 	\AXC{$\Gamma\vdash \RHasType{\StahlName{e'}}{\StahlName{\tau}}$}
-	\AXC{$\Gamma\vdash \REvalsTo{[\StahlName{x}\rightarrow \StahlName{e'}]\StahlName{\tau'}}{\StahlName{\tau''}}$}
+	\AXC{$\Gamma\vdash \REvalsToMany{[\StahlName{x}\rightarrow \StahlName{e'}]\StahlName{\tau'}}{\StahlName{\tau''}}$}
 	\Label{Ty-App}
 	\TIC{$\Gamma\vdash \RHasType{\StahlApp{\StahlName{e}}{\StahlName{e'}}}{\StahlName{\tau''}}$}
 \end{prooftree}

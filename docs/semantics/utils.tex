@@ -4,6 +4,7 @@
 
 % Relations
 \newcommand{\REvalsTo}[2]{#1\leadsto#2}
+\newcommand{\REvalsToMany}[2]{#1\leadsto^*#2}
 \newcommand{\RHasType}[2]{#1:#2}
 \newcommand{\RKind}[1]{\mathtt{isKind}(#1)}
 \newcommand{\RTypeLike}[1]{\mathtt{isTypeLike}(#1)}
@@ -37,5 +38,5 @@
 \newcommand{\StahlVoid}{\StahlBuiltin{Void}}
 
 % BNF-making commands
-\newcommand{\DefineTerm}[2]{\StahlName{#1}\Coloneqq&\ #2\\}
+\newcommand{\DefineTerm}[2]{#1\Coloneqq&\ #2\\}
 \newcommand{\Case}[1]{\lvert\ &\ #1\\}
