@@ -1,24 +1,14 @@
-\begin{multicols}{3}
-	\noindent\mbox{%
-		\AXC{$\Gamma\left(\StahlName{x}\right)=\StahlName{\tau}$}
-		\Label{Ty-Var}
-		\UIC{$\Gamma\vdash \RHasType{\StahlName{x}}{\StahlName{\tau}}$}
-		\DP
-	}\break
-	\noindent\mbox{%
-		\AXC{$\Gamma,\StahlName{x}:\StahlName{\tau}\vdash \RHasType{\StahlName{e}}{\StahlName{\tau'}}$}
-		\Label{Ty-Lam}
-		\UIC{$\Gamma\vdash \RHasType{\StahlLambda{x}{\StahlName{e}}}{\StahlPi{x}{\StahlName{\tau}}{\StahlName{\tau'}}}$}
-		\DP
-	}\break
-	\noindent\mbox{%
-		\AXC{$\Gamma\vdash \RHasType{\StahlName{e}}{\StahlName{\tau}}$}
-		\AXC{$\Gamma,\StahlName{x}:\StahlName{\tau}\vdash \RHasType{\StahlName{e'}}{\StahlName{\tau'}}$}
-		\Label{Ty-Let}
-		\BIC{$\Gamma\vdash \RHasType{\StahlLet{x}{\StahlName{e}}{\StahlName{e'}}}{\StahlName{\tau'}}$}
-		\DP
-	}
-\end{multicols}
+\begin{prooftree}
+	\AXC{$\Gamma\left(\StahlName{x}\right)=\StahlName{\tau}$}
+	\Label{Ty-Var}
+	\UIC{$\Gamma\vdash \RHasType{\StahlName{x}}{\StahlName{\tau}}$}
+\end{prooftree}
+
+\begin{prooftree}
+	\AXC{$\Gamma,\StahlName{x}:\StahlName{\tau}\vdash \RHasType{\StahlName{e}}{\StahlName{\tau'}}$}
+	\Label{Ty-Lam}
+	\UIC{$\Gamma\vdash \RHasType{\StahlLambda{x}{\StahlName{e}}}{\StahlPi{x}{\StahlName{\tau}}{\StahlName{\tau'}}}$}
+\end{prooftree}
 
 \begin{prooftree}
 	\AXC{$\Gamma\vdash \RHasType{\StahlName{e}}{\StahlPi{x}{\StahlName{\tau}}{\StahlName{\tau'}}}$}

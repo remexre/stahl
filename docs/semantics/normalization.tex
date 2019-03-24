@@ -21,22 +21,6 @@
 	\UIC{$\REvalsTo{\StahlApp{\StahlLambda{x}{e_1}}{\StahlName{e_2}}}{[\StahlName{x}\rightarrow\StahlName{e_2}]\StahlName{e_1}}$}
 \end{prooftree}
 
-\begin{multicols}{2}
-	\noindent\mbox{%
-		\AXC{$\REvalsTo{e_1}{e_1'}$}
-		\Label{Norm-L1}
-		\UIC{$\REvalsTo{\StahlLet{x}{\StahlName{e_1}}{\StahlName{e_2}}}{\StahlLet{x}{\StahlName{e_1'}}{\StahlName{e_2}}}$}
-		\DP
-	}
-	\break
-	\noindent\mbox{%
-		\AXC{$\RValue{e_1}$}
-		\Label{Norm-L2}
-		\UIC{$\REvalsTo{\StahlLet{x}{\StahlName{e_1}}{\StahlName{e_2}}}{[\StahlName{x}\rightarrow\StahlName{e_1}]\StahlName{e_2}}$}
-		\DP
-	}
-\end{multicols}
-
 \begin{prooftree}
 	\AXC{$\REvalsTo{e}{e'}$}
 	\Label{Norm-P}
