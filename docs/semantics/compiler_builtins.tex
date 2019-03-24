@@ -51,11 +51,15 @@ Since \StahlBuiltin{Option} is used in the definition of \StahlBuiltin{EFFECT}, 
 	\StahlBuiltin{id} & : \StahlPi{\texttt{T}}{\StahlTYPE}{\StahlPi{\texttt{x}}{\texttt{T}}{\texttt{T}}}
 \end{align}
 
-\StahlBuiltin{unify-Either} is also needed in the normalization rule \textsc{Norm-HandlePerform2}:
+\StahlBuiltin{unify-Either} and \StahlBuiltin{unwrap-left} are also needed in the normalization rules \textsc{Norm-HP1} and \textsc{Norm-HP2}:
 
 \begin{align}
 	\StahlBuiltin{unify-Either} & : \StahlPi
 		{\texttt{T}}{\StahlTYPE}
 		{\StahlPi{\texttt{x}}{\StahlEither{\texttt{T}}{\texttt{T}}}
-		{\texttt{T}}}
+		{\texttt{T}}} \\
+	\StahlBuiltin{unwrap-left} & : \StahlPi
+		{\texttt{T}}{\StahlTYPE}
+		{\StahlPi{\texttt{x}}{\StahlEither{\texttt{T}}{\StahlVoid}}
+		{\texttt{T}}} \\
 \end{align}

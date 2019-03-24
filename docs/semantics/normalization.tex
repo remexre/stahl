@@ -1,19 +1,15 @@
-\begin{multicols}{2}
-	\noindent\mbox{%
-		\AXC{$\REvalsTo{e_1}{e_1'}$}
-		\Label{Norm-A1}
-		\UIC{$\REvalsTo{\StahlApp{\StahlName{e_1}}{\StahlName{e_2}}}{\StahlApp{\StahlName{e_1'}}{\StahlName{e_2}}}$}
-		\DP
-	}
-	\break
-	\noindent\mbox{%
-		\AXC{$\RValue{e_1}$}
-		\AXC{$\REvalsTo{e_2}{e_2'}$}
-		\Label{Norm-A2}
-		\BIC{$\REvalsTo{\StahlApp{\StahlName{e_1}}{\StahlName{e_2}}}{\StahlApp{\StahlName{e_1}}{\StahlName{e_2'}}}$}
-		\DP
-	}
-\end{multicols}
+\begin{prooftree}
+	\AXC{$\REvalsTo{e_1}{e_1'}$}
+	\Label{Norm-A1}
+	\UIC{$\REvalsTo{\StahlApp{\StahlName{e_1}}{\StahlName{e_2}}}{\StahlApp{\StahlName{e_1'}}{\StahlName{e_2}}}$}
+\end{prooftree}
+
+\begin{prooftree}
+	\AXC{$\RValue{e_1}$}
+	\AXC{$\REvalsTo{e_2}{e_2'}$}
+	\Label{Norm-A2}
+	\BIC{$\REvalsTo{\StahlApp{\StahlName{e_1}}{\StahlName{e_2}}}{\StahlApp{\StahlName{e_1}}{\StahlName{e_2'}}}$}
+\end{prooftree}
 
 \begin{prooftree}
 	\AXC{$\RValue{e_2}$}
@@ -28,28 +24,27 @@
 \end{prooftree}
 
 \begin{prooftree}
-	\AXC{$\REvalsTo{e_2}{e_2'}$}
-	\Label{Norm-H1}
-	\UIC{$\REvalsTo{\StahlHandle{E}{\StahlName{e_1}}{\StahlName{e_2}}}{\StahlHandle{E}{\StahlName{e_1}}{\StahlName{e_2'}}}$}
-\end{prooftree}
-
-\begin{prooftree}
 	\AXC{$\RValue{e_2}$}
-	\Label{Norm-H2}
+	\Label{Norm-H}
 	\UIC{$\REvalsTo{\StahlHandle{E}{\StahlName{e_1}}{\StahlName{e_2}}}{\StahlName{e_2}}$}
-\end{prooftree}
-
-\begin{prooftree}
-	\AXC{$\REvalsTo{e_2}{e_2'}$}
-	\Label{Norm-HP1}
-	\UIC{$\REvalsTo{\StahlHandle{E}{\StahlName{e_1}}{\StahlPerform{E}{\StahlName{e_2}}}} {\StahlHandle{E}{\StahlName{e_1}}{\StahlPerform{E}{\StahlName{e_2'}}}}$}
 \end{prooftree}
 
 \begin{prooftree}
 	% TODO: There should be a \Gamma context here... but then there should be one everywhere...
 	\AXC{$\RHasType{\StahlName{E}}{\StahlEFFECT{\tau}{\tau'}}$}
 	\AXC{$\RValue{e_2}$}
-	\Label{Norm-HP2}
+	\Label{Norm-HP1}
 	\BIC{$\REvalsTo{\StahlHandle{E}{\StahlName{e_1}}{\StahlPerform{E}{\StahlName{e_2}}}}
 	               {\StahlApp{\StahlBuiltin{unify-Either}}{\StahlApp{\StahlName{e_1}}{\StahlName{e_2}}}}$}
 \end{prooftree}
+
+\begin{prooftree}
+	% TODO: There should be a \Gamma context here... but then there should be one everywhere...
+	\AXC{$\RHasType{\StahlName{E}}{\StahlEFFECTNoReturn{\tau}}$}
+	\AXC{$\RValue{e_2}$}
+	\Label{Norm-HP2}
+	\BIC{$\REvalsTo{\StahlHandle{E}{\StahlName{e_1}}{\StahlPerform{E}{\StahlName{e_2}}}}
+	               {\StahlApp{\StahlBuiltin{unwrap-left}}{\StahlApp{\StahlName{e_1}}{\StahlName{e_2}}}}$}
+\end{prooftree}
+
+\textbf{TODO perform on lhs and rhs of app}
