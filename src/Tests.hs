@@ -1,4 +1,6 @@
-module Main where
+{-# LANGUAGE OverloadedStrings #-}
+
+module Main (main) where
 
 import Control.Monad.Except (runExceptT)
 import qualified Data.ByteString.Lazy as LBS
@@ -18,21 +20,26 @@ main = defaultMain tests
 
 tests = testGroup "Tests"
   [ testGroup "Parser"
-    [ testGroup "Properties"
+    [ ignoreTest $ testGroup "Properties"
       [ expectFail $
         testProperty "parse . show == id" $
         \value -> Just value == (parseOne . fromString $ show value)
       ]
     , testGroup "Unit Tests"
-      [ expectFail $
+      [ ignoreTest $ expectFail $
         goldenVsString "Syntax Guide Examples"
         "test-cases/parser.stahl.golden"
         (stringToLBS . unifyShowWith (unlines . map show) <$> (runExceptT $ parseFile "test-cases/parser.stahl"))
+      , expectFail $
+        testCase "Nil" $
+        assertEqual "" (parseOne "()") (Just $ Nil undefined)
+      , ignoreTest $ expectFail $
+        testCase "Nil via Group" $
+        assertEqual "" (parseOne "group") (Just $ Nil undefined)
       ]
     ]
-  , testGroup "Integration"
-    [ expectFail $
-      testCase "std can be imported" $
+  , expectFail $ testGroup "Integration"
+    [ testCase "std can be imported" $
       assertFailure "TODO"
     ]
   ]

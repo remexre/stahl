@@ -1,6 +1,4 @@
-module Main
-  ( main
-  ) where
+module Main (main) where
 
 import Control.Exception (ErrorCall(..), SomeException(..), try)
 import Control.Monad.Except (ExceptT, runExceptT)
