@@ -1,5 +1,3 @@
-\subsection{\texttt{compiler-builtins}}
-
 The \texttt{compiler-builtins} library defines special values that can't be defined in user code.
 As such, users of the language should not be concerned with its existence.
 The first two special values are the two kinds:
@@ -41,29 +39,23 @@ Since \StahlBuiltin{Option} is used in the definition of \StahlBuiltin{EFFECT}, 
 	\StahlBuiltin{elim-Either} & : \textbf{TODO}
 \end{align}
 
-\subsection{\texttt{std}}
-\texttt{std} is the standard library, and is implicitly imported into every library other than itself and \texttt{compiler-builtins}.
-
-\subsubsection{\texttt{std:prelude}}
-\texttt{std:prelude} is imported into every module that it does not depend on.
-These dependencies are implementation-defined, but are guaranteed to only come from the \texttt{compiler-builtins} and \texttt{std} libraries.
-Users of the language can therefore assume that it is imported into all modules.
+\StahlBuiltin{const} and \StahlBuiltin{id} are needed in the normalization rules \textbf{TODO}:
 
 \begin{align}
-	\StahlBuiltin{Unit} & : \StahlTYPE \\
-	\StahlBuiltin{unit} & : \StahlBuiltin{Unit} \\
-	\StahlBuiltin{elim-Unit} & : \textbf{TODO}
+	\StahlBuiltin{const} & : \StahlPi
+		{\texttt{T}}{\StahlTYPE}
+		{\StahlPi{\texttt{U}}{\StahlTYPE}
+		{\StahlPi{\texttt{x}}{\texttt{T}}
+		{\StahlPi{\texttt{y}}{\texttt{U}}
+		{\texttt{T}}}}} \\
+	\StahlBuiltin{id} & : \StahlPi{\texttt{T}}{\StahlTYPE}{\StahlPi{\texttt{x}}{\texttt{T}}{\texttt{T}}}
 \end{align}
 
-\begin{align}
-	\StahlBuiltin{Bool} & : \StahlTYPE \\
-	\StahlBuiltin{false} & : \StahlBuiltin{Bool} \\
-	\StahlBuiltin{true} & : \StahlBuiltin{Bool} \\
-	\StahlBuiltin{elim-Bool} & : \textbf{TODO}
-\end{align}
+\StahlBuiltin{unify-Either} is also needed in the normalization rule \textsc{Norm-HandlePerform2}:
 
 \begin{align}
-	\StahlBuiltin{Pair} & : \StahlPi{\texttt{L}}{\StahlTYPE}{\StahlPi{\texttt{R}}{\StahlTYPE}{\StahlTYPE}} \\
-	\StahlBuiltin{pair} & : \StahlPi{\texttt{L}}{\StahlTYPE}{\StahlPi{\texttt{R}}{\StahlTYPE}{\StahlPi{\texttt{l}}{\texttt{L}}{\StahlPi{\texttt{r}}{\texttt{R}}{\StahlBinary{Pair}{\texttt{L}}{\texttt{R}}}}}} \\
-	\StahlBuiltin{elim-Pair} & : \textbf{TODO}
+	\StahlBuiltin{unify-Either} & : \StahlPi
+		{\texttt{T}}{\StahlTYPE}
+		{\StahlPi{\texttt{x}}{\StahlEither{\texttt{T}}{\texttt{T}}}
+		{\texttt{T}}}
 \end{align}

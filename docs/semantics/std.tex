@@ -1,0 +1,25 @@
+\texttt{std} is the standard library, and is implicitly imported into every library other than itself and \texttt{compiler-builtins}.
+
+\subsubsection{\texttt{std:prelude}}
+\texttt{std:prelude} is imported into every module that it does not depend on.
+These dependencies are implementation-defined, but are guaranteed to only come from the \texttt{compiler-builtins} and \texttt{std} libraries.
+Users of the language can therefore assume that it is imported into all modules.
+
+\begin{align}
+	\StahlBuiltin{Unit} & : \StahlTYPE \\
+	\StahlBuiltin{unit} & : \StahlBuiltin{Unit} \\
+	\StahlBuiltin{elim-Unit} & : \textbf{TODO}
+\end{align}
+
+\begin{align}
+	\StahlBuiltin{Bool} & : \StahlTYPE \\
+	\StahlBuiltin{false} & : \StahlBuiltin{Bool} \\
+	\StahlBuiltin{true} & : \StahlBuiltin{Bool} \\
+	\StahlBuiltin{elim-Bool} & : \textbf{TODO}
+\end{align}
+
+\begin{align}
+	\StahlBuiltin{Pair} & : \StahlPi{\texttt{L}}{\StahlTYPE}{\StahlPi{\texttt{R}}{\StahlTYPE}{\StahlTYPE}} \\
+	\StahlBuiltin{pair} & : \StahlPi{\texttt{L}}{\StahlTYPE}{\StahlPi{\texttt{R}}{\StahlTYPE}{\StahlPi{\texttt{l}}{\texttt{L}}{\StahlPi{\texttt{r}}{\texttt{R}}{\StahlBinary{Pair}{\texttt{L}}{\texttt{R}}}}}} \\
+	\StahlBuiltin{elim-Pair} & : \textbf{TODO}
+\end{align}

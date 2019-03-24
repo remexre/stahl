@@ -1,8 +1,8 @@
 \begin{multicols}{3}
 	\noindent\mbox{%
-		\AXC{}
+		\AXC{$\Gamma\left(\StahlName{x}\right)=\StahlName{\tau}$}
 		\Label{Ty-Var}
-		\UIC{$\Gamma,\StahlName{x}:\StahlName{\tau},\Delta\vdash \RHasType{\StahlName{x}}{\StahlName{\tau}}$}
+		\UIC{$\Gamma\vdash \RHasType{\StahlName{x}}{\StahlName{\tau}}$}
 		\DP
 	}\break
 	\noindent\mbox{%
@@ -23,10 +23,19 @@
 \begin{prooftree}
 	\AXC{$\Gamma\vdash \RHasType{\StahlName{e}}{\StahlPi{x}{\StahlName{\tau}}{\StahlName{\tau'}}}$}
 	\AXC{$\Gamma\vdash \RHasType{\StahlName{e'}}{\StahlName{\tau}}$}
-	\AXC{$\Gamma\vdash \REvalsToMany{[\StahlName{x}\rightarrow \StahlName{e'}]\StahlName{\tau'}}{\StahlName{\tau''}}$}
+	\AXC{$\REvalsToMany{[\StahlName{x}\rightarrow\StahlName{e'}]\StahlName{\tau'}}{\StahlName{\tau''}}$}
 	\Label{Ty-App}
 	\TIC{$\Gamma\vdash \RHasType{\StahlApp{\StahlName{e}}{\StahlName{e'}}}{\StahlName{\tau''}}$}
 \end{prooftree}
+
+\begin{prooftree}
+	\AXC{$\Gamma\vdash \RTypeLike{\StahlName{\tau}}$}
+	\AXC{$\Gamma\vdash \RTypeLike{\StahlName{\tau'}}$}
+	\Label{Ty-Pi}
+	\BIC{$\Gamma\vdash \RHasType{\StahlPi{x}{\StahlName{\tau}}{\StahlName{\tau'}}}{\StahlTYPE}$}
+\end{prooftree}
+
+\vfill
 
 \begin{prooftree}
 	\AXC{$\Gamma\vdash \RHasType{\StahlName{E}}{\StahlEFFECT{\tau}{\tau'}}$}
@@ -57,11 +66,4 @@
 	\AXC{$\Gamma\vdash \RHasType{\StahlName{\tau'}}{\StahlTYPE}$}
 	\Label{Ty-PerformNoRet}
 	\TIC{$\Gamma\vdash \RHasType{\StahlPerform{\StahlName{E}}{\StahlName{e}}}{\StahlName{\tau'}}$}
-\end{prooftree}
-
-\begin{prooftree}
-	\AXC{$\Gamma\vdash \RTypeLike{\StahlName{\tau}}$}
-	\AXC{$\Gamma\vdash \RTypeLike{\StahlName{\tau'}}$}
-	\Label{Ty-Pi}
-	\BIC{$\Gamma\vdash \RHasType{\StahlPi{x}{\StahlName{\tau}}{\StahlName{\tau'}}}{\StahlTYPE}$}
 \end{prooftree}

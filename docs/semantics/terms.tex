@@ -1,29 +1,23 @@
 \begin{multicols}{2}
 	\begin{align*}
 		\DefineTerm{e, \tau}{\StahlName{x}}
-		\Case{\StahlApp{\StahlName{e_1}}{\StahlName{e_2}}}
-		\Case{\StahlHandle{\StahlName{E}}{\StahlName{e_1}}{\StahlName{e_2}}}
-		\Case{\StahlLambda{x}{\StahlName{e}}}
-		\Case{\StahlLet{x}{\StahlName{e_1}}{\StahlName{e_2}}}
-		\Case{\StahlPerform{\StahlName{E}}{\StahlName{e}}}
-		\Case{\StahlPi{x}{\StahlName{\tau_1}}{\StahlName{\tau_2}}}
-		\Case{\StahlBinary{EFFECT}{\StahlName{\tau_1}}{\StahlName{\tau_2}}}
-		\Case{\StahlTYPE}
-	\end{align*}
-	\begin{align*}
-		\DefineTerm{E}{\StahlName{x}}
-	\end{align*}
-	\break
+			\Case{\StahlApp{\StahlName{e_1}}{\StahlName{e_2}}}
+			\Case{\StahlHandle{\StahlName{E}}{\StahlName{e_1}}{\StahlName{e_2}}}
+			\Case{\StahlLambda{x}{\StahlName{e}}}
+			\Case{\StahlLet{x}{\StahlName{e_1}}{\StahlName{e_2}}}
+			\Case{\StahlPerform{\StahlName{E}}{\StahlName{e}}}
+			\Case{\StahlPi{x}{\StahlName{\tau_1}}{\StahlName{\tau_2}}}
+			\Case{\StahlBinary{EFFECT}{\StahlName{\tau_1}}{\StahlName{\tau_2}}}
+			\Case{\StahlTYPE}
+	\end{align*}\break
 	\begin{align*}
 		\DefineTerm{decl}{\StahlDef{x}{\StahlName{\tau}}{\StahlName{e}}}
-		\Case{\StahlDefEffNoReturn{E}{\StahlName{\tau}}}
-		\Case{\StahlDefEff{E}{\StahlName{\tau}}{\StahlName{\tau'}}}
-		\Case{\StahlDefEff{E}{\StahlName{\tau}}{\StahlName{\tau'}}}
-		\Case{\StahlDefTy{x}{\StahlName{\tau}}{\StahlCtor{c}{\tau'},\ \ldots}}
-	\end{align*}
-	\begin{align*}
-		\DefineTerm{\Gamma, \Delta}{\varepsilon}
+			\Case{\StahlDefEffNoReturn{E}{\StahlName{\tau}}}
+			\Case{\StahlDefEff{E}{\StahlName{\tau}}{\StahlName{\tau'}}}
+			\Case{\StahlDefEff{E}{\StahlName{\tau}}{\StahlName{\tau'}}}
+			\Case{\StahlDefTy{x}{\StahlName{\tau}}{\StahlCtor{c}{\tau'},\ \ldots}}
+		\DefineTerm{E}{\StahlName{x}}
+		\DefineTerm{\Gamma}{\varepsilon}
 		\Case{\Gamma,\StahlName{x}:\StahlName{\tau}}
-		\Case{\Gamma,\StahlName{x}=\StahlName{e}}
 	\end{align*}
 \end{multicols}

@@ -1,16 +1,14 @@
 \documentclass{article}
-\usepackage[margin=0.5in]{geometry}
+\usepackage[margin=1in]{geometry}
 \usepackage{amsfonts}
 \usepackage{amsmath}
 \usepackage{bussproofs}
 \usepackage{listings}
 \usepackage{mathtools}
 \usepackage{multicol}
-\usepackage{titlesec}
 
 \EnableBpAbbreviations
 \lstset{basicstyle=\footnotesize\ttfamily,breaklines=true}
-\newcommand{\sectionbreak}{\clearpage}
 \input{utils}
 
 \begin{document}
@@ -19,10 +17,13 @@
 	\subsection{Terms}\input{terms}
 	\subsection{Typing}\input{typing}
 	\subsection{Typelikes}\input{typelikes}
+	\clearpage
 
 \section{Dynamic Semantics}
 	\subsection{Normalization}\input{normalization}
 
-\section{Builtins}\input{builtins}
+\section{Builtins}
+	\subsection{\texttt{compiler-builtins}}\input{compiler_builtins}
+	\subsection{\texttt{std}}\input{std}
 
 \end{document}
