@@ -3,28 +3,24 @@
 \usepackage{amsfonts}
 \usepackage{amsmath}
 \usepackage{bussproofs}
+\usepackage{listings}
 \usepackage{mathtools}
 \usepackage{multicol}
 
 \EnableBpAbbreviations
+\lstset{basicstyle=\footnotesize\ttfamily,breaklines=true}
 \input{utils}
 
 \begin{document}
+
 \section{Static Semantics}
-
-\subsection{Typing}
-\input{typing}
-
-\subsection{Terms}
-\input{terms}
-
-\subsection{Kinds}
-\input{kinds}
-
-\subsection{Typelikes}
-\input{typelikes}
+	\subsection{Terms}\input{terms}
+	\subsection{Typing}\input{typing}
+	\subsection{Typelikes}\input{typelikes}
 
 \section{Dynamic Semantics}
-TODO
+	\subsection{Normalization}\input{normalization}
+
+\section{Builtins}\input{builtins}
 
 \end{document}

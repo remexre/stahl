@@ -1,0 +1,69 @@
+\subsection{\texttt{compiler-builtins}}
+
+The \texttt{compiler-builtins} library defines special values that can't be defined in user code.
+As such, users of the language should not be concerned with its existence.
+The first two special values are the two kinds:
+
+\begin{align}
+	\StahlBuiltin{TYPE} & : \StahlKIND \\
+	\StahlBuiltin{EFFECT} & : \StahlPi{\texttt{a}}{\StahlTYPE}{\StahlPi{\texttt{b}}{\StahlOption{\StahlTYPE}}{\StahlKIND}}
+\end{align}
+
+Note that $\StahlKIND$ is a special and unnameable builtin; i.e., there is no \texttt{compiler-builtins:KIND}.
+Since \StahlBuiltin{Option} is used in the definition of \StahlBuiltin{EFFECT}, it must also be defined here, along with its constructors and eliminator:
+
+\begin{align}
+	\StahlBuiltin{Option} & : \StahlPi{\texttt{T}}{\StahlTYPE}{\StahlTYPE} \\
+	\StahlBuiltin{some} & : \StahlPi{\texttt{T}}{\StahlTYPE}{\StahlPi{\texttt{x}}{\texttt{T}}{\StahlOption{\texttt{T}}}} \\
+	\StahlBuiltin{none} & : \StahlPi{\texttt{T}}{\StahlTYPE}                                 {\StahlOption{\texttt{T}}} \\
+	\StahlBuiltin{elim-Option} & : \StahlPi{\texttt{T}}{\StahlTYPE}
+		{\StahlPi{\texttt{m}}{\StahlPi{\texttt{o}}{\StahlOption{\texttt{T}}}{\StahlTYPE}}
+		{\StahlPi{\texttt{s}}{\StahlPi{\texttt{x}}{\texttt{T}}{\StahlApp{\texttt{m}}{\StahlSome{\texttt{x}}}}}
+		{\StahlPi{\texttt{n}}{\StahlApp{\texttt{m}}{\StahlNone}}
+		{\StahlPi{\texttt{o}}{\StahlOption{\texttt{T}}}
+		{\StahlApp{\texttt{m}}{\texttt{o}}}}}}}
+\end{align}
+
+\StahlBuiltin{Either} and \StahlBuiltin{Void} are needed in the typing rules \textsc{Ty-Handle} and \textsc{Ty-HandleNoRet}, so are built in here too:
+
+\begin{align}
+	\StahlBuiltin{Void} & : \StahlTYPE \\
+	\StahlBuiltin{elim-Void} & : \StahlPi
+		{\texttt{m}}
+		{\StahlPi{\texttt{v}}{\StahlBuiltin{Void}}{\StahlTYPE}}
+		{\StahlPi{\texttt{v}}{\StahlBuiltin{Void}}{\StahlApp{\texttt{m}}{\texttt{v}}}}
+\end{align}
+
+\begin{align}
+	\StahlBuiltin{Either} & : \StahlPi{\texttt{L}}{\StahlTYPE}{\StahlPi{\texttt{R}}{\StahlTYPE}{\StahlTYPE}} \\
+	\StahlBuiltin{injl} & : \StahlPi{\texttt{L}}{\StahlTYPE}{\StahlPi{\texttt{R}}{\StahlTYPE}{\StahlPi{\texttt{x}}{\texttt{L}}{\StahlEither{\texttt{L}}{\texttt{R}}}}} \\
+	\StahlBuiltin{injr} & : \StahlPi{\texttt{L}}{\StahlTYPE}{\StahlPi{\texttt{R}}{\StahlTYPE}{\StahlPi{\texttt{x}}{\texttt{R}}{\StahlEither{\texttt{L}}{\texttt{R}}}}} \\
+	\StahlBuiltin{elim-Either} & : \textbf{TODO}
+\end{align}
+
+\subsection{\texttt{std}}
+\texttt{std} is the standard library, and is implicitly imported into every library other than itself and \texttt{compiler-builtins}.
+
+\subsubsection{\texttt{std:prelude}}
+\texttt{std:prelude} is imported into every module that it does not depend on.
+These dependencies are implementation-defined, but are guaranteed to only come from the \texttt{compiler-builtins} and \texttt{std} libraries.
+Users of the language can therefore assume that it is imported into all modules.
+
+\begin{align}
+	\StahlBuiltin{Unit} & : \StahlTYPE \\
+	\StahlBuiltin{unit} & : \StahlBuiltin{Unit} \\
+	\StahlBuiltin{elim-Unit} & : \textbf{TODO}
+\end{align}
+
+\begin{align}
+	\StahlBuiltin{Bool} & : \StahlTYPE \\
+	\StahlBuiltin{false} & : \StahlBuiltin{Bool} \\
+	\StahlBuiltin{true} & : \StahlBuiltin{Bool} \\
+	\StahlBuiltin{elim-Bool} & : \textbf{TODO}
+\end{align}
+
+\begin{align}
+	\StahlBuiltin{Pair} & : \StahlPi{\texttt{L}}{\StahlTYPE}{\StahlPi{\texttt{R}}{\StahlTYPE}{\StahlTYPE}} \\
+	\StahlBuiltin{pair} & : \StahlPi{\texttt{L}}{\StahlTYPE}{\StahlPi{\texttt{R}}{\StahlTYPE}{\StahlPi{\texttt{l}}{\texttt{L}}{\StahlPi{\texttt{r}}{\texttt{R}}{\StahlBinary{Pair}{\texttt{L}}{\texttt{R}}}}}} \\
+	\StahlBuiltin{elim-Pair} & : \textbf{TODO}
+\end{align}

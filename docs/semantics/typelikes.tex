@@ -1,13 +1,16 @@
-These are the types that can be specified in the argument or result position of a Pi type. \textsc{TypeLike-IsType} intentionally does not use \texttt{isKind}, since it should not be possible to compute on effects.
+These are the types that can be specified in the argument or result position of a Pi type.
 
-\begin{prooftree}
-	\AXC{}
-	\Label{TypeLike-IsType}
-	\UIC{$\Gamma\vdash \RTypeLike{\StahlTYPE}$}
-\end{prooftree}
-
-\begin{prooftree}
-	\AXC{$\Gamma\vdash \RHasType{\StahlName{\tau}}{\StahlTYPE}$}
-	\Label{TypeLike-OfType}
-	\UIC{$\Gamma\vdash \RTypeLike{\StahlName{\tau}}$}
-\end{prooftree}
+\begin{multicols}{2}
+	\noindent\mbox{%
+		\AXC{}
+		\Label{TypeLike-IsType}
+		\UIC{$\Gamma\vdash \RTypeLike{\StahlTYPE}$}
+		\DP
+	}\break
+	\noindent\mbox{%
+		\AXC{$\Gamma\vdash \RHasType{\StahlName{\tau}}{\StahlTYPE}$}
+		\Label{TypeLike-OfType}
+		\UIC{$\Gamma\vdash \RTypeLike{\StahlName{\tau}}$}
+		\DP
+	}
+\end{multicols}

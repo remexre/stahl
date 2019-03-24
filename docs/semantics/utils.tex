@@ -1,4 +1,5 @@
 % Misc
+\newcommand{\SSI}[1]{\subsection{#1}\edef\foo{\lowercase{#1}}\def\bar{1}\expandafter\bar{input}\foo}
 \newcommand{\Label}[1]{\RightLabel{\scriptsize{(\textsc{#1})}}}
 
 % Relations
@@ -13,20 +14,27 @@
 \newcommand{\StahlDefEffNoReturn}[2]{\mathtt{defeff}\,\StahlName{#1}:\StahlEFFECTNoReturn{#2}}
 \newcommand{\StahlDefTy}[3]{\mathtt{defty}\,\StahlName{#1}:#2\ \{\,#3\,\}}
 \newcommand{\StahlCtor}[2]{\StahlName{#1}:#2}
-\newcommand{\StahlEFFECT}[2]{\mathtt{EFFECT}(#1, #2)}
-\newcommand{\StahlEFFECTNoReturn}[1]{\mathtt{EFFECT}(#1, -)}
-\newcommand{\StahlTYPE}{\mathtt{*}}
+\newcommand{\StahlEFFECT}[2]{\StahlApp{\StahlAppNP{\mathtt{EFFECT}}{#1}}{\StahlSome{#2})}}
+\newcommand{\StahlEFFECTNoReturn}[1]{\StahlApp{\StahlAppNP{\mathtt{EFFECT}}{#1}}{\StahlNone)}}
+\newcommand{\StahlKIND}{\mathbf{KIND}}
+\newcommand{\StahlTYPE}{\StahlBuiltin{TYPE}}
 \newcommand{\StahlName}[1]{\mathit{#1}}
-\newcommand{\StahlApp}[2]{\left(#1\;#2\right)}
+\newcommand{\StahlAppNP}[2]{#1\;#2}
+\newcommand{\StahlApp}[2]{\left(\StahlAppNP{#1}{#2}\right)}
 \newcommand{\StahlHandle}[3]{\left(\texttt{handle}\,#1\,\texttt{with}\,#2\,\texttt{in}\,#3\right)}
 \newcommand{\StahlLambda}[2]{\left(\lambda\StahlName{#1}.#2\right)}
 \newcommand{\StahlLet}[3]{\left(\texttt{let}\,\StahlName{#1}\,\texttt{=}\,#2\,\texttt{in}\,#3\right)}
-\newcommand{\StahlPerform}[2]{\texttt{perform}(#1, #2)}
-\newcommand{\StahlPi}[3]{\left(\Pi\StahlName{#1}:#2.#3\right)}
+\newcommand{\StahlPerform}[2]{\StahlBinary{perform}{#1}{#2}}
+\newcommand{\StahlPi}[3]{\left(\Pi\,\StahlName{#1}:#2.\ #3\right)}
 
 % Library Helpers
-\newcommand{\StahlEither}[2]{\StahlApp{\StahlApp{\texttt{std:prelude:Either}}{#1}}{#2}}
-\newcommand{\StahlVoid}[0]{\texttt{std:prelude:Void}}
+\newcommand{\StahlBuiltin}[1]{\texttt{#1}}
+\newcommand{\StahlBinary}[3]{\StahlApp{\StahlAppNP{\StahlBuiltin{#1}}{#2}}{#3}}
+\newcommand{\StahlOption}[1]{\StahlApp{\StahlBuiltin{Option}}{#1}}
+\newcommand{\StahlNone}{\StahlBuiltin{none}}
+\newcommand{\StahlSome}[1]{\StahlApp{\StahlBuiltin{some}}{#1}}
+\newcommand{\StahlEither}[2]{\StahlBinary{\StahlBuiltin{Either}}{#1}{#2}}
+\newcommand{\StahlVoid}{\StahlBuiltin{Void}}
 
 % BNF-making commands
 \newcommand{\DefineTerm}[2]{\StahlName{#1}\Coloneqq&\ #2\\}
