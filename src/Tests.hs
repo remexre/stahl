@@ -7,6 +7,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.UTF8 (ByteString, fromString)
 import Data.Either (fromRight)
 import Language.Stahl
+import Language.Stahl.Util
 import Test.QuickCheck.Arbitrary (Arbitrary(..), vector)
 import Test.QuickCheck.Gen (oneof, sized)
 import Test.Tasty
@@ -26,16 +27,28 @@ tests = testGroup "Tests"
         \value -> Just value == (parseOne . fromString $ show value)
       ]
     , testGroup "Unit Tests"
-      [ ignoreTest $ expectFail $
-        goldenVsString "Syntax Guide Examples"
-        "test-cases/parser.stahl.golden"
-        (stringToLBS . unifyShowWith (unlines . map show) <$> (runExceptT $ parseFile "test-cases/parser.stahl"))
-      , expectFail $
-        testCase "Nil" $
-        assertEqual "" (parseOne "()") (Just $ Nil undefined)
-      , ignoreTest $ expectFail $
-        testCase "Nil via Group" $
-        assertEqual "" (parseOne "group") (Just $ Nil undefined)
+      [ testGroup "Parsing"
+        [ ignoreTest $ expectFail $
+          goldenVsString "Syntax Guide Examples"
+          "test-cases/parser.stahl.golden"
+          (stringToLBS . unifyShowWith (unlines . map show) <$> (runExceptT $ parseFile "test-cases/parser.stahl"))
+        , expectFail $
+          testCase "Nil" $
+          assertEqual "" (parseOne "()") (Just $ Nil undefined)
+        , ignoreTest $ expectFail $
+          testCase "Nil via Group" $
+          assertEqual "" (parseOne "group") (Just $ Nil undefined)
+        ]
+      , testGroup "Utils"
+        [ testGroup "takeWhileBS"
+          [ testCase "all" $
+            assertEqual "" (takeWhileBS (const True) "foobar") "foobar"
+          , testCase "none" $
+            assertEqual "" (takeWhileBS (const False) "foobar") ""
+          , testCase "some" $
+            assertEqual "" (takeWhileBS (/= 'b') "foobar") "foo"
+          ]
+        ]
       ]
     ]
   , expectFail $ testGroup "Integration"

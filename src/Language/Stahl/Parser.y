@@ -4,7 +4,7 @@ module Language.Stahl.Parser
   , parseFile
   ) where
 
-import Control.Lens (Lens', ReifiedLens(..), lens)
+import Control.Lens (Lens', lens, (.=))
 import Control.Monad.Error.Class (MonadError(..), liftEither)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.State.Class (MonadState(..))
@@ -14,12 +14,12 @@ import Data.Foldable (toList)
 import Data.Functor.Identity (Identity(..))
 import Data.Sequence (Seq, (|>), empty)
 import Language.Stahl.Error (Error, Location)
-import Language.Stahl.Lexer (LexerState, Token(..), lexer, mkLexerState)
+import Language.Stahl.Lexer (LexerState, Token(..), lexOne, mkLexerState)
 import Language.Stahl.Value (Value(..))
 import Prelude hiding (readFile)
 }
 
-%lexer { lexer (Lens lexerState) } { TokEOF _ }
+%lexer { lexer } { TokEOF _ }
 %monad { M }
 %name parser root
 %tokentype { Token Location }
@@ -86,8 +86,12 @@ sexprListBody : sexpr NLs sexprListBody { error "TODO sexprBody(sexpr)" }
 type M a = StateT ParserState (Either Error) a
 
 data ParserState = ParserState
-  { _lexerState :: LexerState
+  { _lastToken :: Token Location
+  , _lexerState :: LexerState
   } deriving Show
+
+lastToken :: Lens' ParserState (Token Location)
+lastToken = lens _lastToken (\p l -> p { _lastToken = l })
 
 lexerState :: Lens' ParserState LexerState
 lexerState = lens _lexerState (\p l -> p { _lexerState = l })
@@ -109,8 +113,10 @@ parse path src = toList <$> parse' path src
 -- |Parses a string, returning the corresponding 'Value's in a 'Seq'.
 parse' :: MonadError Error m => FilePath -> ByteString -> m (Seq Value)
 parse' path src = liftEither (evalStateT parser parserState)
-  where parserState = ParserState lexerState
-        lexerState = mkLexerState path src
+  where parserState = ParserState
+                        { _lastToken = error "No last token"
+                        , _lexerState = mkLexerState path src
+                        }
 
 -- |Parses a file, returning the corresponding 'Value's.
 parseFile :: (MonadError Error m, MonadIO m) => FilePath -> m [Value]
@@ -119,6 +125,12 @@ parseFile = fmap toList . parseFile'
 -- |Parses a file, returning the corresponding 'Value's in a 'Seq'.
 parseFile' :: (MonadError Error m, MonadIO m) => FilePath -> m (Seq Value)
 parseFile' path = parse' path =<< liftIO (readFile path)
+
+lexer :: (Token Location -> M a) -> M a
+lexer k = do
+  tok <- lexOne lexerState
+  lastToken .= tok
+  k tok
 
 -- vim: set ft=happy :
 }

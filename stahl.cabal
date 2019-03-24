@@ -8,6 +8,7 @@ library
   exposed-modules:
       Language.Stahl
     , Language.Stahl.Error
+    , Language.Stahl.Util
   other-modules:
       Language.Stahl.Ast
     , Language.Stahl.Lexer

@@ -4,7 +4,7 @@ module Language.Stahl.Lexer
   ( LexerError(..)
   , LexerState
   , Token(..)
-  , lexer
+  , lexOne
   , mkLexerState
   ) where
 
@@ -24,6 +24,7 @@ import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Debug.Trace (traceShowM)
 import Language.Stahl.Error (Error, ErrorKind(..), Location(..), ToError(..))
+import Language.Stahl.Util (takeWhileBS)
 
 data Point = P !Int !Int deriving (Eq, Show)
 data Span = S !Point !Point deriving (Eq, Show)
@@ -163,6 +164,9 @@ lexString buf = peek >>= \case
   Just c -> error ("TODO lexString " <> show c)
   Nothing -> throwLexerError UnexpectedNL
 
+lexSymbolish :: (MonadError Error m, MonadState LexerState m) => m ByteString
+lexSymbolish = undefined
+
 nextToken :: (MonadError Error m, MonadState LexerState m) => m (Token Span)
 nextToken = use tokenBuffer >>= \case
   h:t -> do
@@ -201,5 +205,5 @@ throwLexerError err = do
   loc <- pointToLocation path' <$> use lastPoint
   throwError $ mkChainedError err (Just loc) (CouldntParseFile path')
 
-lexer :: (MonadError Error m, MonadState s m) => ReifiedLens' s LexerState -> (Token Location -> m a) -> m a
-lexer lexerStateLens k = k =<< runReaderT (withLexerState nextToken') lexerStateLens
+lexOne :: (MonadError Error m, MonadState s m) => Lens' s LexerState -> m (Token Location)
+lexOne l = runReaderT (withLexerState nextToken') (Lens l)
