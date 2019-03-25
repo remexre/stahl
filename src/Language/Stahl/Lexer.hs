@@ -33,10 +33,8 @@ import qualified Data.ByteString.UTF8 as BS
 import Data.ByteString.UTF8 (ByteString)
 import Data.Functor.Identity (Identity(..))
 import Data.Int (Int64)
-import Data.Maybe (maybeToList)
-import Data.Sequence (Seq)
+import Data.Sequence (Seq(Empty, (:<|)), (|>))
 import qualified Data.Sequence as Seq
-import Debug.Trace (traceShowM)
 import Language.Stahl.Error (Error, ErrorKind(..), ToError(..))
 import Language.Stahl.Util (Location(..), takeWhileBS)
 
@@ -92,7 +90,7 @@ instance ToError LexerError
 
 data LexerState = LexerState
   { _currentLine :: ByteString
-  , _indents :: [ByteString]
+  , _indents :: Seq ByteString
   , _lastPoint :: Point
   , _path :: FilePath
   , _srcLines :: [(Word, ByteString, ByteString)]
@@ -126,7 +124,7 @@ flatten2To3 (x, (y, z)) = (x, y, z)
 mkLexerState :: FilePath -> ByteString -> LexerState
 mkLexerState path s = LexerState
   { _currentLine = ""
-  , _indents = []
+  , _indents = Empty
   , _lastPoint = P 0 0
   , _path = path
   , _srcLines = map flatten2To3 $
@@ -136,19 +134,32 @@ mkLexerState path s = LexerState
   , _tokenBuffer = []
   }
 
-computeWSTokens :: (MonadError Error m, MonadState LexerState m) => ByteString -> m (Maybe (Token Span))
+computeWSTokens :: (MonadError Error m, MonadState LexerState m) => ByteString -> m [Token Span]
 computeWSTokens ws = do
   lastPoint.column .= fromIntegral (BS.length ws)
-  computeWSTokens' ws =<< use indents
+  oldIndents <- use indents
+  indents .= Empty
+  computeWSTokens' ws oldIndents
 
-computeWSTokens' :: (MonadError Error m, MonadState LexerState m) => ByteString -> [ByteString] -> m (Maybe (Token Span))
-computeWSTokens' s [] = do
+computeWSTokens' :: (MonadError Error m, MonadState LexerState m) => ByteString -> Seq ByteString -> m [Token Span]
+computeWSTokens' s Empty = do
   if BS.null s then
-    pure Nothing
+    pure []
   else do
-    indents %= (s:)
+    indents %= (|> s)
     P l e <- use lastPoint
-    pure $ Just $ TokIndent $ S (P l (e - (fromIntegral $ BS.length s))) (P l e)
+    pure [TokIndent $ S (P l (e - (fromIntegral $ BS.length s))) (P l e)]
+computeWSTokens' s (h :<| t) = do
+  if BS.null s then do
+    p <- use lastPoint
+    pure (replicate (1 + Seq.length t) (TokDedent $ S p p))
+  else do
+    let l = BS.length h
+    if h == BS.take l s then do
+      indents %= (|> h)
+      computeWSTokens' (BS.drop l s) t
+    else
+      undefined
 
 advance :: (MonadError Error m, MonadState LexerState m) => m ()
 advance = do
@@ -222,14 +233,22 @@ nextToken = use tokenBuffer >>= \case
     tokenBuffer .= t
     pure h
   [] -> use srcLines >>= \case
-    [] -> (\p -> TokEOF $ S p p) <$> use lastPoint
+    [] -> do
+      p <- use lastPoint
+      let s = S p p
+      Seq.length <$> use indents >>= \case
+        0 -> pure (TokEOF s)
+        n -> do
+          tokenBuffer .= replicate n (TokDedent s)
+          indents .= Empty
+          nextToken
     (lineNo, ws, lineS):t -> do
       srcLines .= t
       lastPoint .= P lineNo 0
       wsTokens <- computeWSTokens ws
       currentLine .= lineS
       lineTokens <- lexLine
-      tokenBuffer .= (maybeToList wsTokens <> lineTokens)
+      tokenBuffer .= (wsTokens <> lineTokens)
       nextToken
 
 nextToken' :: (MonadError Error m, MonadState LexerState m) => m (Token Location)

@@ -13,9 +13,10 @@ import Data.ByteString (ByteString, readFile)
 import Data.Foldable (toList)
 import Data.Functor.Identity (Identity(..))
 import Data.Sequence (Seq, (|>), empty)
-import Language.Stahl.Error (Error)
+-- import Debug.Trace (traceShowM)
+import Language.Stahl.Error (Error, ErrorKind(..), ToError(..))
 import Language.Stahl.Lexer (LexerState, Token(..), getTokenData, lexOne, mkLexerState)
-import Language.Stahl.Util (Location(Span), endPoint, startPoint)
+import Language.Stahl.Util (Location(Span), endPoint, file, startPoint)
 import Language.Stahl.Value (Value(..), location)
 import Prelude hiding (readFile)
 }
@@ -23,6 +24,8 @@ import Prelude hiding (readFile)
 %lexer { lexer } { TokEOF _ }
 %monad { M }
 %name parser root
+%errorhandlertype explist
+%error { happyError }
 %tokentype { Token Location }
 %token Dedent { TokDedent     $$ }
        Group  { TokGroup      $$ }
@@ -56,7 +59,7 @@ iexprs1 : iexprs iexpr { $1 |> $2 }
 
 iexpr :: { Value }
 iexpr : head {% seqToConsList' $1 }
-      | head body { error "TODO iexpr(head body)" }
+      | head body {% append `fmap` seqToConsList $1 <*> seqToConsList $2 }
 
 head :: { Seq Value }
 head : Group sexprs NLs1 { $2 }
@@ -79,8 +82,8 @@ sexpr : '(' NLs sexprListBody { $3 }
       | Symbol { uncurry (flip Symbol) $1 }
 
 sexprListBody :: { Value }
-sexprListBody : sexpr NLs sexprListBody { error "TODO sexprBody(sexpr)" }
-              | '|' NLs sexpr NLs ')' { error "TODO sexprBody(pipe)" }
+sexprListBody : sexpr NLs sexprListBody {% cons $1 $3 }
+              | '|' NLs sexpr NLs ')' { $3 }
               | ')' { Nil $1 }
 
 {
@@ -97,15 +100,10 @@ lastToken = lens _lastToken (\p l -> p { _lastToken = l })
 lexerState :: Lens' ParserState LexerState
 lexerState = lens _lexerState (\p l -> p { _lexerState = l })
 
-happyError :: M a
-{-
-happyError = do
-  toks <- get
-  case toks of
-    (Scanner.Error p:_) -> throwError (p, "Lexer error")
-    (h:_) -> throwError (Scanner.posn h, "Unexpected token " <> show h)
--}
-happyError = error . ("TODO happyError " <>) . show <$> get
+happyError :: (Token Location, [String]) -> M a
+happyError (tok, exp) = throwError (mkChainedError msg (Just loc) $ CouldntParseFile $ loc^.file)
+  where loc = getTokenData tok
+        msg = "Got " <> show tok <> ", wanted one of " <> show exp
 
 -- |Parses a string, returning the corresponding 'Value's.
 parse :: MonadError Error m => FilePath -> ByteString -> m [Value]
@@ -127,6 +125,18 @@ parseFile = fmap toList . parseFile'
 parseFile' :: (MonadError Error m, MonadIO m) => FilePath -> m (Seq Value)
 parseFile' path = parse' path =<< liftIO (readFile path)
 
+append :: Value -> Value -> Value
+append (Cons l h t) t' = Cons l h (append t t')
+append _ t' = t'
+
+cons :: Value -> Value -> M Value
+cons h t = do
+  end <- lastPoint
+  let spanBetween start end = Span f ls cs le ce
+        where (f, ls, cs) = start^.startPoint
+              (_, le, ce) = end^.endPoint
+  pure $ Cons (spanBetween (h^.location) end) h t
+
 seqToConsList :: Seq Value -> M Value
 seqToConsList seq = do
   end <- lastPoint
@@ -134,6 +144,7 @@ seqToConsList seq = do
         where (f, ls, cs) = start^.startPoint
               (_, le, ce) = end^.endPoint
   let helper h t = Cons (spanBetween (h^.location) end) h t
+  -- TODO: What's the monadic version of foldr?
   pure $ foldr helper (Nil end) seq
 
 seqToConsList' :: Seq Value -> M Value
@@ -150,6 +161,7 @@ lexer :: (Token Location -> M a) -> M a
 lexer k = do
   tok <- lexOne lexerState
   lastToken .= tok
+  -- traceShowM tok
   k tok
 
 -- vim: set ft=happy :

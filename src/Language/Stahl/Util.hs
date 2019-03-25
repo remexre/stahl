@@ -31,9 +31,13 @@ data Location
     , _lineEnd :: !Word
     , _colEnd :: !Word
     }
-  deriving (Eq, Show)
+  deriving Eq
 
 makeLenses ''Location
+
+instance Show Location where
+  show (Point f l c) = f <> ":" <> show l <> ":" <> show c
+  show (Span f ls cs le ce) = f <> ":" <> show ls <> ":" <> show cs <> "-" <> show le <> ":" <> show ce
 
 startPoint :: Lens' Location (FilePath, Word, Word)
 startPoint = lens get set

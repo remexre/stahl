@@ -54,5 +54,5 @@ instance Show Value where
   show (Cons _ h t) = '(' : show h <> showTail t
   show (Int _ n) = show n
   show (String _ s) = '"' : (escapeChar =<< BS.toString s) <> "\""
-  show (Symbol _ s) = show s
+  show (Symbol _ s) = BS.toString s
   show (Nil _) = "()"

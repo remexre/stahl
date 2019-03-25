@@ -10,7 +10,15 @@ import Data.Foldable (mapM_)
 import Language.Stahl
 import Prelude hiding (getContents)
 import Options.Applicative
-import System.IO (hPutStrLn, stderr)
+import System.Console.ANSI
+  ( Color(Red)
+  , ColorIntensity(Vivid)
+  , ConsoleLayer(Foreground)
+  , SGR(Reset, SetColor)
+  , hSetSGR
+  , hSupportsANSIColor
+  )
+import System.IO (hFlush, hPutStr, stderr, stdout)
 
 main :: IO ()
 main = execParser optParser >>= run
@@ -18,12 +26,12 @@ main = execParser optParser >>= run
 run :: Options -> IO ()
 run opts = try (runExceptT (run' opts)) >>= \case
   Right (Right ()) -> pure ()
-  Right (Left err) -> hPutStrLn stderr (show err)
+  Right (Left err) -> printError $ show err
   Left (SomeException err) ->
     let msg = case fromDynamic (toDyn err) of
           Just (ErrorCallWithLocation msg' loc) -> msg' <> "\nAt location:\n" <> loc
           Nothing -> show err
-    in hPutStrLn stderr ("\n=== INTERNAL COMPILER ERROR ===\n\n" <> msg)
+    in printError ("\n=== INTERNAL COMPILER ERROR ===\n\n" <> msg <> "\n\n--- THIS IS A COMPILER BUG! ---")
 
 run' :: Options -> ExceptT Error IO ()
 run' (ParseToSExprs inputPath outputPath) = do
@@ -33,7 +41,19 @@ run' (ParseToSExprs inputPath outputPath) = do
   let print = if outputPath == "-"
               then liftIO . putStr
               else writeFile outputPath
-  mapM_ (liftIO . print . show) vals
+  liftIO . print . unlines $ map show vals
+
+printError :: String -> IO ()
+printError err = do
+    hFlush stdout
+    hFlush stderr
+    isatty <- hSupportsANSIColor stderr
+    if' isatty $ hSetSGR stderr [SetColor Foreground Vivid Red]
+    hPutStr stderr err
+    if' isatty $ hSetSGR stderr [Reset]
+    hPutStr stderr "\n"
+  where if' True b = b
+        if' False _ = pure ()
 
 data Options =
   ParseToSExprs

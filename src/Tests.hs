@@ -28,7 +28,7 @@ tests = testGroup "Tests"
       ]
     , testGroup "Unit Tests"
       [ testGroup "Parsing"
-        [ ignoreTest $ goldenVsString "Syntax Guide Examples"
+        [ goldenVsString "Syntax Guide Examples"
           "test-cases/parser.stahl.golden"
           (stringToLBS . unifyShowWith (unlines . map show) <$> (runExceptT $ parseFile "test-cases/parser.stahl"))
         , testCase "Nil" $
