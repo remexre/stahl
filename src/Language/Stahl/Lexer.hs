@@ -115,6 +115,11 @@ stripComments s = BS.take (findCommentStart 0 $ BS.toString s) s
 isWS :: Char -> Bool
 isWS c = elem c [' ', '\n', '\r', '\t']
 
+isWSToken :: Token a -> Bool
+isWSToken (TokDedent _) = True
+isWSToken (TokIndent _) = True
+isWSToken _ = False
+
 stripTrailingWS :: ByteString -> ByteString
 stripTrailingWS s = BS.take (BS.length s - sRevWSLen) s
   where sRevWSLen = (BS.length . BS.fromString . takeWhile isWS . reverse . BS.toString) s
@@ -130,7 +135,7 @@ mkLexerState path s = LexerState
   , _path = path
   , _srcLines = map flatten2To3 $
                 filter (not . BS.null . snd . snd) $
-                map (second (BS.span isWS . stripTrailingWS . stripComments)) $
+                map (second (BS.span isWS {- . stripTrailingWS . stripComments -})) $
                 zip [1..] (BS.lines s)
   , _tokenBuffer = []
   }
@@ -197,12 +202,16 @@ lexLine = do
   Just '(' -> (:) <$> (TokParenOpen <$> advance') <*> lexLine
   Just ')' -> (:) <$> (TokParenClose <$> advance') <*> lexLine
   Just '|' -> (:) <$> (TokPipe <$> advance') <*> lexLine
+  Just ';' -> pure []
   Just c | isSymbolish c -> (:) <$> lexSymbolish <*> lexLine
   Just c -> error ("TODO lexLine " <> show c)
-  Nothing -> do
-    start <- use lastPoint
-    let end = P (start^.line + 1) 0
-    pure [TokNewline (S start end)]
+  Nothing -> pure []
+
+nextLine :: (MonadError Error m, MonadState LexerState m) => m (Token Span)
+nextLine = do
+  start <- use lastPoint
+  let end = P (start^.line + 1) 0
+  pure (TokNewline (S start end))
 
 lexString :: (MonadError Error m, MonadState LexerState m) => [Char] -> m ByteString
 lexString buf = peek >>= \case
@@ -247,10 +256,15 @@ nextToken = use tokenBuffer >>= \case
     (lineNo, ws, lineS):t -> do
       srcLines .= t
       lastPoint .= P lineNo 0
+      lastIndents <- use indents
       wsTokens <- computeWSTokens ws
       currentLine .= lineS
       lineTokens <- lexLine
-      tokenBuffer .= (wsTokens <> lineTokens)
+      nlToken <- nextLine
+      if null lineTokens then
+        indents .= lastIndents
+      else
+        tokenBuffer .= (wsTokens <> lineTokens <> [nlToken])
       nextToken
 
 nextToken' :: (MonadError Error m, MonadState LexerState m) => m (Token Location)

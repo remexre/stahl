@@ -28,7 +28,7 @@ tests = testGroup "Tests"
     , testGroup "Unit Tests"
       [ testGroup "Parsing"
         [ goldenVsString "Strings"
-          "test-cases/parser/strings.stahl.golden"
+          "test-cases/parser/strings.stahl"
           (showParseFile "test-cases/parser/strings.stahl")
         , goldenVsString "Syntax Guide Examples"
           "test-cases/parser/doc-syntax-md.stahl.golden"
@@ -84,7 +84,7 @@ instance Arbitrary Value where
                         String loc . fromString <$> vectorOf len (choose (' ', '~'))
                     , do
                         len <- choose (1, 32)
-                        let symbolish = oneof $ map pure ['x']
+                        let symbolish = oneof $ [choose ('A', 'Z'), choose ('a', 'z')]
                         Symbol loc . fromString <$> vectorOf len symbolish
                     , pure (Nil loc)
                     ]

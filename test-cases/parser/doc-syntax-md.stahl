@@ -49,3 +49,13 @@ foo
     bar
     baz
 ; This is equivalent to (foo (bar baz))
+
+foo
+  bar
+; The comment in the middle doesn't break the foo expression
+  baz
+  ; Neither does one indented here
+  quux
+    ; Or here!
+  xyzzy
+; This is equivalent to (foo bar baz quux xyzzy)
