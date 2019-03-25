@@ -8,10 +8,7 @@ module Language.Stahl
   , parseFile
   ) where
 
-import Language.Stahl.Error
-  ( Error(..)
-  , ErrorKind(..)
-  , Location(..)
-  )
+import Language.Stahl.Error (Error(..), ErrorKind(..))
 import Language.Stahl.Parser (parse, parseFile)
+import Language.Stahl.Util (Location(..))
 import Language.Stahl.Value (Value(..))

@@ -2,18 +2,10 @@
 module Language.Stahl.Error
   ( Error(..)
   , ErrorKind(..)
-  , Location(..)
   , ToError(..)
-  , col
-  , colStart
-  , colEnd
-  , file
-  , line
-  , lineStart
-  , lineEnd
-  , loc
-  , kind
   , cause
+  , kind
+  , loc
   ) where
 
 import Control.Lens ((^.))
@@ -22,30 +14,13 @@ import Control.Monad (when)
 import Control.Monad.Writer (MonadWriter(..), execWriter)
 import Data.ByteString.UTF8 (ByteString)
 import Data.Maybe (isJust)
+import Language.Stahl.Util (Location(..))
 
 -- |The kind of an error.
 data ErrorKind
   = CouldntParseFile !FilePath
   | Other !ByteString
   deriving Show
-
--- |The location in source code at which an error occurred.
-data Location
-  = Point
-    { _file :: !FilePath
-    , _line :: !Word
-    , _col :: !Word
-    }
-  | Span
-    { _file :: !FilePath
-    , _lineStart :: !Word
-    , _colStart :: !Word
-    , _lineEnd :: !Word
-    , _colEnd :: !Word
-    }
-  deriving (Eq, Show)
-
-makeLenses ''Location
 
 -- |An error, with an associated 'Location' and (optionally) a cause.
 data Error = Error

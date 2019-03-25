@@ -4,12 +4,25 @@ module Language.Stahl.Lexer
   ( LexerError(..)
   , LexerState
   , Token(..)
+  , getTokenData
   , lexOne
   , mkLexerState
   ) where
 
 import Control.Arrow (second)
-import Control.Lens (Lens', ReifiedLens(..), ReifiedLens', (+=), (.=), (<>=), lens, use)
+import Control.Lens
+  ( Lens'
+  , ReifiedLens(..)
+  , ReifiedLens'
+  , (%=)
+  , (+=)
+  , (.=)
+  , (<>=)
+  , (^.)
+  , assign
+  , lens
+  , use
+  )
 import Control.Lens.TH (makeLenses)
 import Control.Monad.Except (ExceptT(..), MonadError(..), liftEither, runExceptT)
 import Control.Monad.Loops (whileM_)
@@ -20,19 +33,20 @@ import qualified Data.ByteString.UTF8 as BS
 import Data.ByteString.UTF8 (ByteString)
 import Data.Functor.Identity (Identity(..))
 import Data.Int (Int64)
+import Data.Maybe (maybeToList)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Debug.Trace (traceShowM)
-import Language.Stahl.Error (Error, ErrorKind(..), Location(..), ToError(..))
-import Language.Stahl.Util (takeWhileBS)
+import Language.Stahl.Error (Error, ErrorKind(..), ToError(..))
+import Language.Stahl.Util (Location(..), takeWhileBS)
 
-data Point = P !Int !Int deriving (Eq, Show)
+data Point = P !Word !Word deriving (Eq, Show)
 data Span = S !Point !Point deriving (Eq, Show)
 
-line :: Lens' Point Int
+line :: Lens' Point Word
 line = lens (\(P l _) -> l) (\(P _ c) l -> P l c)
 
-column :: Lens' Point Int
+column :: Lens' Point Word
 column = lens (\(P _ c) -> c) (\(P l _) c -> P l c)
 
 data Token a
@@ -48,6 +62,19 @@ data Token a
   | TokString (ByteString, a)
   | TokSymbol (ByteString, a)
   deriving (Functor, Show)
+
+getTokenData :: Token a -> a
+getTokenData (TokEOF a) = a
+getTokenData (TokDedent a) = a
+getTokenData (TokGroup a) = a
+getTokenData (TokIndent a) = a
+getTokenData (TokNewline a) = a
+getTokenData (TokParenClose a) = a
+getTokenData (TokParenOpen a) = a
+getTokenData (TokPipe a) = a
+getTokenData (TokInt (_, a)) = a
+getTokenData (TokString (_, a)) = a
+getTokenData (TokSymbol (_, a)) = a
 
 data LexerError
   = BadWhitespace
@@ -68,17 +95,17 @@ data LexerState = LexerState
   , _indents :: [ByteString]
   , _lastPoint :: Point
   , _path :: FilePath
-  , _srcLines :: [(Int, ByteString, ByteString)]
+  , _srcLines :: [(Word, ByteString, ByteString)]
   , _tokenBuffer :: [Token Span]
   } deriving Show
 
 makeLenses ''LexerState
 
 pointToLocation :: FilePath -> Point -> Location
-pointToLocation path (P l c) = error "TODO pointToLocation"
+pointToLocation file (P l c) = Point file l c
 
 spanToLocation :: FilePath -> Span -> Location
-spanToLocation path (S (P ls cs) (P le ce)) = error "TODO spanToLocation"
+spanToLocation file (S (P ls cs) (P le ce)) = Span file ls cs le ce
 
 stripComments :: ByteString -> ByteString
 stripComments s = BS.take (findCommentStart 0 $ BS.toString s) s
@@ -109,14 +136,19 @@ mkLexerState path s = LexerState
   , _tokenBuffer = []
   }
 
-computeWSTokens :: (MonadError Error m, MonadState LexerState m) => ByteString -> m [Token Span]
+computeWSTokens :: (MonadError Error m, MonadState LexerState m) => ByteString -> m (Maybe (Token Span))
 computeWSTokens ws = do
-  last <- mconcat <$> use indents
-  if ws == last then do
-    lastPoint.column .= BS.length ws
-    pure []
+  lastPoint.column .= fromIntegral (BS.length ws)
+  computeWSTokens' ws =<< use indents
+
+computeWSTokens' :: (MonadError Error m, MonadState LexerState m) => ByteString -> [ByteString] -> m (Maybe (Token Span))
+computeWSTokens' s [] = do
+  if BS.null s then
+    pure Nothing
   else do
-    error "TODO compute ws tokens"
+    indents %= (s:)
+    P l e <- use lastPoint
+    pure $ Just $ TokIndent $ S (P l (e - (fromIntegral $ BS.length s))) (P l e)
 
 advance :: (MonadError Error m, MonadState LexerState m) => m ()
 advance = do
@@ -139,8 +171,6 @@ peek = fmap fst . BS.uncons <$> use currentLine
 
 lexLine :: (MonadError Error m, MonadState LexerState m) => m [Token Span]
 lexLine = do
- c <- peek
- traceShowM c
  peek >>= \case
   Just '\t' -> advance >> lexLine
   Just ' ' -> advance >> lexLine
@@ -155,8 +185,12 @@ lexLine = do
   Just '(' -> (:) <$> (TokParenOpen <$> advance') <*> lexLine
   Just ')' -> (:) <$> (TokParenClose <$> advance') <*> lexLine
   Just '|' -> (:) <$> (TokPipe <$> advance') <*> lexLine
+  Just c | isSymbolish c -> (:) <$> lexSymbolish <*> lexLine
   Just c -> error ("TODO lexLine " <> show c)
-  Nothing -> pure []
+  Nothing -> do
+    start <- use lastPoint
+    let end = P (start^.line + 1) 0
+    pure [TokNewline (S start end)]
 
 lexString :: (MonadError Error m, MonadState LexerState m) => [Char] -> m ByteString
 lexString buf = peek >>= \case
@@ -164,8 +198,23 @@ lexString buf = peek >>= \case
   Just c -> error ("TODO lexString " <> show c)
   Nothing -> throwLexerError UnexpectedNL
 
-lexSymbolish :: (MonadError Error m, MonadState LexerState m) => m ByteString
-lexSymbolish = undefined
+isSymbolish :: Char -> Bool
+isSymbolish c = inRange c '0' '9' || inRange c 'A' 'Z' || inRange c 'a' 'z' || c `elem` punct
+  where inRange n s e = fromEnum s <= fromEnum n && fromEnum n <= fromEnum e
+        punct = [] -- TODO
+
+lexSymbolish :: (MonadError Error m, MonadState LexerState m) => m (Token Span)
+lexSymbolish = do
+  start <- use lastPoint
+  (s, rest) <- BS.span isSymbolish <$> use currentLine
+  lastPoint.column += fromIntegral (BS.length s)
+  currentLine .= rest
+  end <- use lastPoint
+  let loc = S start end
+  pure $ if s == "group" then
+    TokGroup loc
+  else
+    TokSymbol (s, loc)
 
 nextToken :: (MonadError Error m, MonadState LexerState m) => m (Token Span)
 nextToken = use tokenBuffer >>= \case
@@ -180,14 +229,13 @@ nextToken = use tokenBuffer >>= \case
       wsTokens <- computeWSTokens ws
       currentLine .= lineS
       lineTokens <- lexLine
-      tokenBuffer .= (wsTokens <> lineTokens)
+      tokenBuffer .= (maybeToList wsTokens <> lineTokens)
       nextToken
 
 nextToken' :: (MonadError Error m, MonadState LexerState m) => m (Token Location)
 nextToken' = do
   tok <- nextToken
   path' <- use path
-  traceShowM tok
   pure (fmap (spanToLocation path') tok)
 
 withLexerState :: (MonadError Error m, MonadReader (ReifiedLens' s LexerState) m, MonadState s m) =>

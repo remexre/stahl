@@ -10,7 +10,7 @@ import qualified Data.ByteString.UTF8 as BS
 import Data.ByteString.UTF8 (ByteString)
 import Data.Int (Int64)
 import GHC.Generics (Generic)
-import Language.Stahl.Error (Location(..))
+import Language.Stahl.Util (Location(..))
 
 -- |A parsed value.
 data Value

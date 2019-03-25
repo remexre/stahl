@@ -28,16 +28,13 @@ tests = testGroup "Tests"
       ]
     , testGroup "Unit Tests"
       [ testGroup "Parsing"
-        [ ignoreTest $ expectFail $
-          goldenVsString "Syntax Guide Examples"
+        [ ignoreTest $ goldenVsString "Syntax Guide Examples"
           "test-cases/parser.stahl.golden"
           (stringToLBS . unifyShowWith (unlines . map show) <$> (runExceptT $ parseFile "test-cases/parser.stahl"))
-        , expectFail $
-          testCase "Nil" $
-          assertEqual "" (parseOne "()") (Just $ Nil undefined)
-        , ignoreTest $ expectFail $
-          testCase "Nil via Group" $
-          assertEqual "" (parseOne "group") (Just $ Nil undefined)
+        , testCase "Nil" $
+          assertEqual "" (Just $ Nil defaultLoc) (parseOne "()")
+        , testCase "Nil via Group" $
+          assertEqual "" (Just $ Nil defaultLoc) (parseOne "group")
         ]
       , testGroup "Utils"
         [ testGroup "takeWhileBS"
@@ -57,6 +54,9 @@ tests = testGroup "Tests"
     ]
   ]
 
+defaultLoc :: Location
+defaultLoc = Span "<test:tests>" 0 0 0 0
+
 parseOne :: ByteString -> Maybe Value
 parseOne = helper . parse "<test:tests>"
   where helper (Right [x]) = Just x
@@ -64,10 +64,6 @@ parseOne = helper . parse "<test:tests>"
 
 stringToLBS :: String -> LBS.ByteString
 stringToLBS = LBS.fromStrict . fromString
-
-unifyShow :: (Show a, Show b) => Either a b -> String
-unifyShow (Left e) = show e
-unifyShow (Right e) = show e
 
 unifyShowWith :: (Show e) => (a -> String) -> Either e a -> String
 unifyShowWith _ (Left e) = show e
