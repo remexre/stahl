@@ -28,18 +28,16 @@ import Control.Monad.Except (ExceptT(..), MonadError(..), liftEither, runExceptT
 import Control.Monad.Loops (whileM_)
 import Control.Monad.Reader (MonadReader(..), ReaderT(..))
 import Control.Monad.State.Strict (MonadState(..), StateT(..))
-import qualified Data.ByteString as BS (isPrefixOf, null)
+import qualified Data.ByteString as BS (null)
 import qualified Data.ByteString.UTF8 as BS
 import Data.ByteString.UTF8 (ByteString)
-import Data.Char (toLower)
 import Data.Functor.Identity (Identity(..))
 import Data.Int (Int64)
-import Data.List (elemIndex)
 import Data.Sequence (Seq(Empty, (:<|)), (|>))
 import qualified Data.Sequence as Seq
 import Language.Stahl.Error (Error, ErrorKind(..), ToError(..))
 import Language.Stahl.Util (Location(..), takeWhileBS)
-import Language.Stahl.Value (isSymbolish)
+import Language.Stahl.Value (isSymbolish, symbolishAsNumber)
 
 data Point = P !Word !Word deriving (Eq, Show)
 data Span = S !Point !Point deriving (Eq, Show)
@@ -209,7 +207,11 @@ lexLine = do
 lexString :: (MonadError Error m, MonadState LexerState m) => [Char] -> m ByteString
 lexString buf = peek >>= \case
   Just '"' -> advance >> pure (BS.fromString (reverse buf))
-  -- Just c -> error ("TODO lexString " <> show c)
+  Just '\\' -> advance >> peek >>= \case
+    Just '\\' -> advance >> lexString ('\\':buf)
+    Just '"' -> advance >> lexString ('"':buf)
+    Just c -> throwLexerError (InvalidEscape c)
+    Nothing -> throwLexerError UnexpectedNL
   Just c -> advance >> lexString (c:buf)
   Nothing -> throwLexerError UnexpectedNL
 
@@ -226,31 +228,6 @@ lexSymbolish = do
   else case symbolishAsNumber s of
     Just n -> TokInt (n, loc)
     Nothing -> TokSymbol (s, loc)
-
-symbolishAsNumber :: ByteString -> Maybe Int64
-symbolishAsNumber = parseSign . BS.fromString . map toLower . BS.toString
-  where charInBase 2 c = fromIntegral <$> (c `elemIndex` ['0', '1'])
-        charInBase 10 c = fromIntegral <$> (c `elemIndex` ['0'..'9'])
-        charInBase 16 c = fromIntegral <$> (c `elemIndex` (['0'..'9'] <> ['a'..'f']))
-        loop base n (BS.uncons -> Just (h, t)) =
-          case charInBase base h of
-            Just k -> loop base (base * n + k) t
-            Nothing -> Nothing
-        loop _ n _ = Just n
-        parseBase s =
-          if "0x" `BS.isPrefixOf` s then
-            loop 16 0 (BS.drop 2 s)
-          else if "0b" `BS.isPrefixOf` s then
-            loop 2 0 (BS.drop 2 s)
-          else
-            loop 10 0 s
-        parseSign s =
-          if "+" `BS.isPrefixOf` s then
-            parseBase (BS.drop 1 s)
-          else if "-" `BS.isPrefixOf` s then
-            negate <$> parseBase (BS.drop 1 s)
-          else
-            parseBase s
 
 nextToken :: (MonadError Error m, MonadState LexerState m) => m (Token Span)
 nextToken = use tokenBuffer >>= \case

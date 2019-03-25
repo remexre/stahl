@@ -4,12 +4,16 @@ module Language.Stahl.Value
   ( Value(..)
   , isSymbolish
   , location
+  , symbolishAsNumber
   ) where
 
 import Control.Lens (Lens', lens)
+import qualified Data.ByteString as BS (isPrefixOf)
 import qualified Data.ByteString.UTF8 as BS
 import Data.ByteString.UTF8 (ByteString)
+import Data.Char (toLower)
 import Data.Int (Int64)
+import Data.List (elemIndex)
 import GHC.Generics (Generic)
 import Language.Stahl.Util (Location(..))
 
@@ -22,16 +26,41 @@ data Value
   | Nil    !Location
   deriving Generic
 
-escapeChar :: Bool -> Char -> String
-escapeChar True '"' = "\\\""
-escapeChar False '}' = "\\}"
-escapeChar _ c = [c]
+escapeChar :: Char -> String
+escapeChar '"' = "\\\""
+escapeChar '\\' = "\\\\"
+escapeChar c = [c]
 
 isSymbolish :: Char -> Bool
 isSymbolish c = inRange c '0' '9' || inRange c 'A' 'Z' || inRange c 'a' 'z' || c `elem` punct
   where inRange n s e = fromEnum s <= fromEnum n && fromEnum n <= fromEnum e
         punct :: String
         punct = "*+-/:<=>?"
+
+symbolishAsNumber :: ByteString -> Maybe Int64
+symbolishAsNumber = parseSign . BS.fromString . map toLower . BS.toString
+  where charInBase 2 c = fromIntegral <$> (c `elemIndex` ['0', '1'])
+        charInBase 10 c = fromIntegral <$> (c `elemIndex` ['0'..'9'])
+        charInBase 16 c = fromIntegral <$> (c `elemIndex` (['0'..'9'] <> ['a'..'f']))
+        loop base n (BS.uncons -> Just (h, t)) =
+          case charInBase base h of
+            Just k -> loop base (base * n + k) t
+            Nothing -> Nothing
+        loop _ n _ = Just n
+        parseBase s =
+          if "0x" `BS.isPrefixOf` s then
+            loop 16 0 (BS.drop 2 s)
+          else if "0b" `BS.isPrefixOf` s then
+            loop 2 0 (BS.drop 2 s)
+          else
+            loop 10 0 s
+        parseSign s =
+          if "+" `BS.isPrefixOf` s then
+            parseBase (BS.drop 1 s)
+          else if "-" `BS.isPrefixOf` s then
+            negate <$> parseBase (BS.drop 1 s)
+          else
+            parseBase s
 
 location :: Lens' Value Location
 location = lens get set
@@ -62,7 +91,6 @@ instance Eq Value where
 instance Show Value where
   show (Cons _ h t) = '(' : show h <> showTail t
   show (Int _ n) = show n
-  show (String _ s) = '"' : (escapeChar True =<< BS.toString s) <> "\""
-  show (Symbol _ s) = if all isSymbolish s' && not (null s') then s' else '{' : (escapeChar False =<< s') <> "}"
-    where s' = BS.toString s
+  show (String _ s) = '"' : (escapeChar =<< BS.toString s) <> "\""
+  show (Symbol _ s) = BS.toString s
   show (Nil _) = "()"

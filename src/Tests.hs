@@ -27,9 +27,12 @@ tests = testGroup "Tests"
       ]
     , testGroup "Unit Tests"
       [ testGroup "Parsing"
-        [ goldenVsString "Syntax Guide Examples"
-          "test-cases/parser.stahl.golden"
-          (stringToLBS . unifyShowWith (unlines . map show) <$> (runExceptT $ parseFile "test-cases/parser.stahl"))
+        [ goldenVsString "Strings"
+          "test-cases/parser/strings.stahl.golden"
+          (showParseFile "test-cases/parser/strings.stahl")
+        , goldenVsString "Syntax Guide Examples"
+          "test-cases/parser/doc-syntax-md.stahl.golden"
+          (showParseFile "test-cases/parser/doc-syntax-md.stahl")
         , testCase "Nil" $
           assertEqual "" (Just $ Nil defaultLoc) (parseOne "()")
         , testCase "Nil via Group" $
@@ -56,6 +59,9 @@ tests = testGroup "Tests"
 defaultLoc :: Location
 defaultLoc = Span "<test:tests>" 0 0 0 0
 
+showParseFile :: FilePath -> IO LBS.ByteString
+showParseFile path = stringToLBS . unifyShowWith (unlines . map show) <$> (runExceptT $ parseFile path)
+
 parseOne :: ByteString -> Maybe Value
 parseOne = helper . parse "<test:tests>"
   where helper (Right [x]) = Just x
@@ -73,8 +79,13 @@ instance Arbitrary Value where
     where arbitrary' 0 = oneof clauses
           arbitrary' n = oneof ((Cons loc <$> arbitrary' (n-1) <*> arbitrary' (n-1)) : clauses)
           clauses = [ Int loc <$> arbitrary
-                    , String loc . fromString <$> arbitrary
-                    , Symbol loc . fromString <$> arbitrary
+                    , do
+                        len <- choose (0, 32)
+                        String loc . fromString <$> vectorOf len (choose (' ', '~'))
+                    , do
+                        len <- choose (1, 32)
+                        let symbolish = oneof $ map pure ['x']
+                        Symbol loc . fromString <$> vectorOf len symbolish
                     , pure (Nil loc)
                     ]
-          loc = Point "<unit tests>" 0 0
+          loc = Point "<test:tests-quickcheck>" 0 0
