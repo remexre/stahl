@@ -21,9 +21,8 @@ main = defaultMain tests
 
 tests = testGroup "Tests"
   [ testGroup "Parser"
-    [ ignoreTest $ testGroup "Properties"
-      [ expectFail $
-        testProperty "parse . show == id" $
+    [ testGroup "Properties"
+      [ testProperty "parse . show == id" $
         \value -> Just value == (parseOne . fromString $ show value)
       ]
     , testGroup "Unit Tests"

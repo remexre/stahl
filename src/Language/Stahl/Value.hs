@@ -2,6 +2,7 @@
 
 module Language.Stahl.Value
   ( Value(..)
+  , isSymbolish
   , location
   ) where
 
@@ -21,8 +22,16 @@ data Value
   | Nil    !Location
   deriving Generic
 
-escapeChar :: Char -> String
-escapeChar c = [c]
+escapeChar :: Bool -> Char -> String
+escapeChar True '"' = "\\\""
+escapeChar False '}' = "\\}"
+escapeChar _ c = [c]
+
+isSymbolish :: Char -> Bool
+isSymbolish c = inRange c '0' '9' || inRange c 'A' 'Z' || inRange c 'a' 'z' || c `elem` punct
+  where inRange n s e = fromEnum s <= fromEnum n && fromEnum n <= fromEnum e
+        punct :: String
+        punct = "*+-/:<=>?"
 
 location :: Lens' Value Location
 location = lens get set
@@ -53,6 +62,7 @@ instance Eq Value where
 instance Show Value where
   show (Cons _ h t) = '(' : show h <> showTail t
   show (Int _ n) = show n
-  show (String _ s) = '"' : (escapeChar =<< BS.toString s) <> "\""
-  show (Symbol _ s) = BS.toString s
+  show (String _ s) = '"' : (escapeChar True =<< BS.toString s) <> "\""
+  show (Symbol _ s) = if all isSymbolish s' && not (null s') then s' else '{' : (escapeChar False =<< s') <> "}"
+    where s' = BS.toString s
   show (Nil _) = "()"

@@ -13,7 +13,6 @@ import Data.ByteString (ByteString, readFile)
 import Data.Foldable (toList)
 import Data.Functor.Identity (Identity(..))
 import Data.Sequence (Seq, (|>), empty)
--- import Debug.Trace (traceShowM)
 import Language.Stahl.Error (Error, ErrorKind(..), ToError(..))
 import Language.Stahl.Lexer (LexerState, Token(..), getTokenData, lexOne, mkLexerState)
 import Language.Stahl.Util (Location(Span), endPoint, file, startPoint)
@@ -161,7 +160,6 @@ lexer :: (Token Location -> M a) -> M a
 lexer k = do
   tok <- lexOne lexerState
   lastToken .= tok
-  -- traceShowM tok
   k tok
 
 -- vim: set ft=happy :
