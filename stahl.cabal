@@ -11,6 +11,8 @@ library
     , Language.Stahl.Util
   other-modules:
       Language.Stahl.Ast
+    , Language.Stahl.Ast.Generic
+    , Language.Stahl.Ast.UnifExpr
     , Language.Stahl.Lexer
     , Language.Stahl.Parser
     , Language.Stahl.Value
@@ -29,17 +31,14 @@ library
   default-language: Haskell2010
   default-extensions:
       DefaultSignatures
+    , DeriveFunctor
     , FlexibleContexts
     , FlexibleInstances
     , LambdaCase
     , OverloadedStrings
     , TemplateHaskell
     , ViewPatterns
-  other-extensions:
-      DeriveFoldable
-    , DeriveFunctor
-    , DeriveTraversable
-    , RankNTypes
+  other-extensions: RankNTypes
 
 executable stahl
   main-is: src/Main.hs

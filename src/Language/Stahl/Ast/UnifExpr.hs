@@ -1,4 +1,4 @@
-module Language.Stahl.Ast
+module Language.Stahl.Ast.UnifExpr
   ( Decl(..)
   , Expr(..)
   ) where

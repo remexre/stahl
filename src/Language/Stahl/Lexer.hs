@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, RankNTypes #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Language.Stahl.Lexer
   ( LexerError(..)
