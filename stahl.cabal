@@ -9,7 +9,6 @@ library
       Language.Stahl
     , Language.Stahl.Error
     , Language.Stahl.Util
-    , Language.Stahl.Util.LensedState
   other-modules:
       Language.Stahl.Ast
     , Language.Stahl.Ast.Generic
@@ -17,11 +16,14 @@ library
     , Language.Stahl.Ast.Unifying
     , Language.Stahl.Lexer
     , Language.Stahl.Parser
+    , Language.Stahl.Util.LensedState
+    , Language.Stahl.Util.MonadNonfatal
     , Language.Stahl.Value
   hs-source-dirs: src
   build-tools: happy
   build-depends:
       base                   >= 4.11.0 && < 4.13
+    , ansi-terminal          >= 0.9    && < 0.10
     , array                  >= 0.5.2  && < 0.6
     , bytestring             >= 0.10.8 && < 0.11
     , containers             >= 0.6.0  && < 0.7
@@ -29,6 +31,7 @@ library
     , mtl                    >= 2.2.2  && < 2.3
     , monad-loops            >= 0.4.3  && < 0.5
     , natural-transformation >= 0.4    && < 0.5
+    , transformers           >= 0.5.5  && < 0.6
     , utf8-string            >= 1.0.1  && < 1.1
   ghc-options: -funbox-strict-fields -fwarn-incomplete-patterns -fwarn-tabs -fwarn-unused-imports -O2
   default-language: Haskell2010
@@ -45,11 +48,14 @@ library
   other-extensions: RankNTypes
 
 executable stahl
-  main-is: src/Main.hs
+  main-is: Main.hs
+  other-modules:
+      Commands.Check
+    , Commands.Parse
+  hs-source-dirs: app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       stahl
-    , ansi-terminal        >= 0.9    && < 0.10
     , base                 >= 4.11.0 && < 4.13
     , bytestring           >= 0.10.8 && < 0.11
     , mtl                  >= 2.2.2  && < 2.3

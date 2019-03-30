@@ -42,6 +42,7 @@ symbolishAsNumber = parseSign . BS.fromString . map toLower . BS.toString
   where charInBase 2 c = fromIntegral <$> (c `elemIndex` ['0', '1'])
         charInBase 10 c = fromIntegral <$> (c `elemIndex` ['0'..'9'])
         charInBase 16 c = fromIntegral <$> (c `elemIndex` (['0'..'9'] <> ['a'..'f']))
+        charInBase n c = error ("TODO charInBase " <> show n <> " " <> show c)
         loop base n (BS.uncons -> Just (h, t)) =
           case charInBase base h of
             Just k -> loop base (base * n + k) t

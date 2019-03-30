@@ -8,14 +8,27 @@ module Language.Stahl.Util
   , line
   , lineStart
   , lineEnd
+  , printError
   , startPoint
   , takeWhileBS
+  , whenM_
+  , writeOrStdout
   ) where
 
 import Control.Lens (Lens', lens)
 import Control.Lens.TH (makeLenses)
+import Control.Monad (void)
 import qualified Data.ByteString.UTF8 as BS
 import Data.ByteString.UTF8 (ByteString)
+import System.Console.ANSI
+  ( Color(Red)
+  , ColorIntensity(Vivid)
+  , ConsoleLayer(Foreground)
+  , SGR(Reset, SetColor)
+  , hSetSGR
+  , hSupportsANSIColor
+  )
+import System.IO (hFlush, hPutStr, stderr, stdout)
 
 -- |The location in source code at which an error occurred.
 data Location
@@ -53,6 +66,25 @@ endPoint = lens get set
         set (Point _ _ _) (f, l, c) = Point f l c
         set (Span _ ls cs _ _) (f, le, ce) =  Span f ls cs le ce
 
+printError :: String -> IO ()
+printError err = do
+    hFlush stdout
+    hFlush stderr
+    isatty <- hSupportsANSIColor stderr
+    if' isatty $ hSetSGR stderr [SetColor Foreground Vivid Red]
+    hPutStr stderr err
+    if' isatty $ hSetSGR stderr [Reset]
+    hPutStr stderr "\n"
+  where if' True b = b
+        if' False _ = pure ()
+
 takeWhileBS :: (Char -> Bool) -> ByteString -> ByteString
 takeWhileBS pred bs = BS.take (len bs) bs
   where len = length . takeWhile pred . BS.toString
+
+whenM_ :: Monad m => m Bool -> m a -> m ()
+whenM_ p body = p >>= \case { True -> void body; False -> pure () }
+
+writeOrStdout :: FilePath -> String -> IO ()
+writeOrStdout "-" = putStr
+writeOrStdout path = writeFile path

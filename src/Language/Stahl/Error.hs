@@ -4,13 +4,17 @@ module Language.Stahl.Error
   , ErrorKind(..)
   , ToError(..)
   , cause
+  , chain
+  , chain'
   , kind
   , loc
   ) where
 
 import Control.Lens ((^.))
 import Control.Lens.TH (makeLenses)
-import Control.Monad.Writer (MonadWriter(..), execWriter)
+import Control.Monad.Except (ExceptT(..), withExceptT)
+import Control.Monad.Writer (execWriter)
+import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.ByteString.UTF8 (ByteString)
 import qualified Data.ByteString.UTF8 as BS
 import Language.Stahl.Util (Location(..))
@@ -50,6 +54,15 @@ instance Show Error where
                   Left msg -> tell msg
                   Right err -> loop err
               Nothing -> pure ()
+
+-- |Chains an error to an 'ExceptT'.
+chain :: (Monad m, ToError e) => ExceptT e m a -> (Maybe Location, ErrorKind) -> ExceptT Error m a
+chain action (loc, kind) = withExceptT (\e -> mkChainedError e loc kind) action
+
+-- |Chains an error to a 'Maybe'.
+chain' :: Monad m => Maybe a -> (Maybe Location, ErrorKind) -> ExceptT Error m a
+chain' (Just x) _ = pure x
+chain' Nothing (loc, kind) = undefined
 
 -- |Values that can be converted into the 'Error' type.
 class ToError a where

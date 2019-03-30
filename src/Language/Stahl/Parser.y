@@ -9,7 +9,7 @@ import Control.Monad.Error.Class (MonadError(..), liftEither)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.State.Class (MonadState(..))
 import Control.Monad.State.Strict (StateT(..), evalStateT)
-import Data.ByteString (ByteString, readFile)
+import Data.ByteString (ByteString, getContents, readFile)
 import Data.Foldable (toList)
 import Data.Functor.Identity (Identity(..))
 import Data.Sequence (Seq, (|>), empty)
@@ -18,7 +18,7 @@ import Language.Stahl.Lexer (LexerState, Token(..), getTokenData, lexOne, mkLexe
 import Language.Stahl.Util (Location(Span), endPoint, file, startPoint)
 import Language.Stahl.Util.LensedState (LensedStateT(..), liftLensedStateT)
 import Language.Stahl.Value (Value(..), location)
-import Prelude hiding (readFile)
+import Prelude hiding (getContents, readFile)
 }
 
 %lexer { lexer } { TokEOF _ }
@@ -123,6 +123,7 @@ parseFile = fmap toList . parseFile'
 
 -- |Parses a file, returning the corresponding 'Value's in a 'Seq'.
 parseFile' :: (MonadError Error m, MonadIO m) => FilePath -> m (Seq Value)
+parseFile' "-" = parse' "<stdin>" =<< liftIO getContents
 parseFile' path = parse' path =<< liftIO (readFile path)
 
 append :: Value -> Value -> Value

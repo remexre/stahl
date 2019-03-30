@@ -28,6 +28,14 @@ foo
   baz
 ; This is equivalent to (foo bar baz)
 
+(foo bar baz)
+; This is equivalent to (foo bar baz)
+
+(foo
+  bar
+  baz)
+; This is equivalent to (foo bar baz)
+
 foo
   bar
     baz
