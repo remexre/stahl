@@ -10,11 +10,9 @@ module Language.Stahl.Error
 
 import Control.Lens ((^.))
 import Control.Lens.TH (makeLenses)
-import Control.Monad (when)
 import Control.Monad.Writer (MonadWriter(..), execWriter)
 import Data.ByteString.UTF8 (ByteString)
 import qualified Data.ByteString.UTF8 as BS
-import Data.Maybe (isJust)
 import Language.Stahl.Util (Location(..))
 
 -- |The kind of an error.

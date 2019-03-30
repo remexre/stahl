@@ -12,31 +12,24 @@ module Language.Stahl.Lexer
 import Control.Arrow (second)
 import Control.Lens
   ( Lens'
-  , ReifiedLens(..)
-  , ReifiedLens'
   , (%=)
   , (+=)
   , (.=)
-  , (<>=)
   , (^.)
-  , assign
   , lens
   , use
   )
 import Control.Lens.TH (makeLenses)
-import Control.Monad.Except (ExceptT(..), MonadError(..), liftEither, runExceptT)
-import Control.Monad.Loops (whileM_)
-import Control.Monad.Reader (MonadReader(..), ReaderT(..))
-import Control.Monad.State.Strict (MonadState(..), StateT(..))
+import Control.Monad.Except (MonadError(..))
+import Control.Monad.State.Strict (MonadState(..))
 import qualified Data.ByteString as BS (null)
 import qualified Data.ByteString.UTF8 as BS
 import Data.ByteString.UTF8 (ByteString)
-import Data.Functor.Identity (Identity(..))
 import Data.Int (Int64)
 import Data.Sequence (Seq(Empty, (:<|)), (|>))
 import qualified Data.Sequence as Seq
 import Language.Stahl.Error (Error, ErrorKind(..), ToError(..))
-import Language.Stahl.Util (Location(..), takeWhileBS)
+import Language.Stahl.Util (Location(..))
 import Language.Stahl.Value (isSymbolish, symbolishAsNumber)
 
 data Point = P !Word !Word deriving (Eq, Show)
