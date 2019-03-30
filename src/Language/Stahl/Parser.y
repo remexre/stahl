@@ -25,7 +25,7 @@ import Prelude hiding (readFile)
 %monad { M }
 %name parser root
 %errorhandlertype explist
-%error { happyError }
+%error { parseError }
 %tokentype { Token Location }
 %token Dedent { TokDedent     $$ }
        Group  { TokGroup      $$ }
@@ -100,11 +100,6 @@ lastToken = lens _lastToken (\p l -> p { _lastToken = l })
 lexerState :: Lens' ParserState LexerState
 lexerState = lens _lexerState (\p l -> p { _lexerState = l })
 
-happyError :: (Token Location, [String]) -> M a
-happyError (tok, exp) = throwError (mkChainedError msg (Just loc) $ CouldntParseFile $ loc^.file)
-  where loc = getTokenData tok
-        msg = "Got " <> show tok <> ", wanted one of " <> show exp
-
 -- |Parses a string, returning the corresponding 'Value's.
 parse :: MonadError Error m => FilePath -> ByteString -> m [Value]
 parse path src = toList <$> parse' path src
@@ -116,6 +111,11 @@ parse' path src = liftEither (evalStateT parser parserState)
                         { _lastToken = error "No last token"
                         , _lexerState = mkLexerState path src
                         }
+
+parseError :: (Token Location, [String]) -> M a
+parseError (tok, exp) = throwError (mkChainedError msg (Just loc) $ CouldntParseFile $ loc^.file)
+  where loc = getTokenData tok
+        msg = "Got " <> show tok <> ", wanted one of " <> show exp
 
 -- |Parses a file, returning the corresponding 'Value's.
 parseFile :: (MonadError Error m, MonadIO m) => FilePath -> m [Value]

@@ -14,6 +14,7 @@ import Control.Lens
   ( Lens'
   , (%=)
   , (+=)
+  , (-=)
   , (.=)
   , (^.)
   , lens
@@ -86,6 +87,7 @@ data LexerState = LexerState
   { _currentLine :: ByteString
   , _indents :: Seq ByteString
   , _lastPoint :: Point
+  , _parenDepth :: Int
   , _path :: FilePath
   , _srcLines :: [(Word, ByteString, ByteString)]
   , _tokenBuffer :: [Token Span]
@@ -125,6 +127,7 @@ mkLexerState path s = LexerState
   { _currentLine = ""
   , _indents = Empty
   , _lastPoint = P 0 0
+  , _parenDepth = 0
   , _path = path
   , _srcLines = map flatten2To3 $
                 filter (not . BS.null . snd . snd) $
@@ -135,7 +138,6 @@ mkLexerState path s = LexerState
 
 computeWSTokens :: (MonadError Error m, MonadState LexerState m) => ByteString -> m [Token Span]
 computeWSTokens ws = do
-  lastPoint.column .= fromIntegral (BS.length ws)
   oldIndents <- use indents
   indents .= Empty
   computeWSTokens' ws oldIndents
@@ -192,8 +194,12 @@ lexLine = do
     let h = TokString (hStr, S start end)
     t <- lexLine
     pure (h:t)
-  Just '(' -> (:) <$> (TokParenOpen <$> advance') <*> lexLine
-  Just ')' -> (:) <$> (TokParenClose <$> advance') <*> lexLine
+  Just '(' -> do
+    parenDepth += 1
+    (:) <$> (TokParenOpen <$> advance') <*> lexLine
+  Just ')' -> do
+    parenDepth -= 1
+    (:) <$> (TokParenClose <$> advance') <*> lexLine
   Just '|' -> (:) <$> (TokPipe <$> advance') <*> lexLine
   Just ';' -> pure []
   Just c | isSymbolish c -> (:) <$> lexSymbolish <*> lexLine
@@ -248,15 +254,16 @@ nextToken = use tokenBuffer >>= \case
           nextToken
     (lineNo, ws, lineS):t -> do
       srcLines .= t
-      lastPoint .= P lineNo 0
-      lastIndents <- use indents
-      wsTokens <- computeWSTokens ws
+      lastPoint .= P lineNo (fromIntegral $ BS.length ws)
       currentLine .= lineS
+      pd <- use parenDepth
       lineTokens <- lexLine
-      nlToken <- nextLine
-      if null lineTokens then
-        indents .= lastIndents
-      else
+      if null lineTokens || pd > 0 then
+        pure ()
+        -- indents .= lastIndents
+      else do
+        wsTokens <- computeWSTokens ws
+        nlToken <- nextLine
         tokenBuffer .= (wsTokens <> lineTokens <> [nlToken])
       nextToken
 
