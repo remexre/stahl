@@ -267,26 +267,14 @@ nextToken = use tokenBuffer >>= \case
         tokenBuffer .= (wsTokens <> lineTokens <> [nlToken])
       nextToken
 
-nextToken' :: (MonadError Error m, MonadState LexerState m) => m (Token Location)
-nextToken' = do
-  tok <- nextToken
-  path' <- use path
-  pure (fmap (spanToLocation path') tok)
-
-withLexerState :: (MonadError Error m, MonadReader (ReifiedLens' s LexerState) m, MonadState s m) =>
-                  (forall m2. (MonadError Error m2, MonadState LexerState m2) => m2 a) -> m a
-withLexerState m = do
-  lsLens <- runLens <$> ask
-  (e, ls') <- runIdentity . runStateT (runExceptT m) <$> use lsLens
-  lsLens' <- runLens <$> ask
-  lsLens' .= ls'
-  liftEither e
-
 throwLexerError :: (MonadError Error m, MonadState LexerState m) => LexerError -> m a
 throwLexerError err = do
   path' <- use path
   loc <- pointToLocation path' <$> use lastPoint
   throwError $ mkChainedError err (Just loc) (CouldntParseFile path')
 
-lexOne :: (MonadError Error m, MonadState s m) => Lens' s LexerState -> m (Token Location)
-lexOne l = runReaderT (withLexerState nextToken') (Lens l)
+lexOne :: (MonadError Error m, MonadState LexerState m) => m (Token Location)
+lexOne = do
+  tok <- nextToken
+  path' <- use path
+  pure (fmap (spanToLocation path') tok)

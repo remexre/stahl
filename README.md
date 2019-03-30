@@ -1,16 +1,16 @@
 stahl
 =====
 
-[![Build Status](https://travis-ci.org/remexre/stahl.svg?branch=master)](https://travis-ci.org/remexre/stahl) [![Dependency Status](https://deps.rs/repo/github/remexre/stahl/status.svg)](https://deps.rs/repo/github/remexre/stahl)
+[![Build Status](https://travis-ci.org/remexre/stahl.svg?branch=master)](https://travis-ci.org/remexre/stahl)
 
 A dependently typed Lisp with algebraic effects.
 
-Goals
------
+Implementation Goals
+--------------------
 
--	[x] Typechecking for core language
--	[x] Modules
--	[x] ADTs
+-	[ ] Typechecking for core language
+-	[ ] Modules
+-	[ ] ADTs
 -	[ ] Recursion principles
 -	[ ] CPDT arithmetic interpreter example
 -	[ ] Interfaces/Typeclasses/Traits
@@ -19,7 +19,10 @@ Goals
 -	[ ] Basic IO
 -	[ ] FFI
 -	[ ] Fast interpreter
+-	[ ] Compile to CAM
+-	[ ] Compile to Forth
 -	[ ] Compile to WebAssembly
+	-	[ ] [Lucet](https://github.com/fastly/lucet) for native-code?
 -	[ ] Elaborator scripts
 -	[ ] Elaborator reflection
 -	[ ] Macro support
@@ -27,18 +30,21 @@ Goals
 -	[ ] Compile to native code
 -	[ ] Rewrite the world!
 
-Rainy-Day TODOs
----------------
+Language Goals
+--------------
 
--	[ ] Rainbow parentheses in REPL
+-	[ ] Prove soundness
+	-	[ ] Prove `typeOf E T -> evalStep E E' -> typeOf E' T`
+	-	[ ] Prove totality / strong normalization
+-	[ ] Prove parametricity
 
 License
 -------
 
 Licensed under either of
 
--	Apache License, Version 2.0, (http://www.apache.org/licenses/LICENSE-2.0\)
--	MIT license (http://opensource.org/licenses/MIT\)
+-	[Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+-	[MIT License](http://opensource.org/licenses/MIT)
 
 at your option.
 

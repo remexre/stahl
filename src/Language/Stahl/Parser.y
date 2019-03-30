@@ -16,6 +16,7 @@ import Data.Sequence (Seq, (|>), empty)
 import Language.Stahl.Error (Error, ErrorKind(..), ToError(..))
 import Language.Stahl.Lexer (LexerState, Token(..), getTokenData, lexOne, mkLexerState)
 import Language.Stahl.Util (Location(Span), endPoint, file, startPoint)
+import Language.Stahl.Util.LensedState (LensedStateT(..), liftLensedStateT)
 import Language.Stahl.Value (Value(..), location)
 import Prelude hiding (readFile)
 }
@@ -158,7 +159,7 @@ lastPoint = getTokenData <$> use lastToken
 
 lexer :: (Token Location -> M a) -> M a
 lexer k = do
-  tok <- lexOne lexerState
+  tok <- liftLensedStateT lexerState lexOne
   lastToken .= tok
   k tok
 
