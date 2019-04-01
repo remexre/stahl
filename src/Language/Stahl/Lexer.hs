@@ -22,7 +22,7 @@ import Control.Lens
   )
 import Control.Lens.TH (makeLenses)
 import Control.Monad.Except (MonadError(..))
-import Control.Monad.State.Strict (MonadState(..))
+import Control.Monad.State.Class (MonadState(..))
 import qualified Data.ByteString as BS (null)
 import qualified Data.ByteString.UTF8 as BS
 import Data.ByteString.UTF8 (ByteString)
@@ -84,9 +84,9 @@ instance Show LexerError where
 instance ToError LexerError
 
 data LexerState = LexerState
-  { _currentLine :: ByteString
-  , _indents :: Seq ByteString
+  { _indents :: Seq ByteString
   , _lastPoint :: Point
+  , _lineBuf :: ByteString
   , _parenDepth :: Int
   , _path :: FilePath
   , _srcLines :: [(Word, ByteString, ByteString)]
@@ -124,9 +124,9 @@ flatten2To3 (x, (y, z)) = (x, y, z)
 
 mkLexerState :: FilePath -> ByteString -> LexerState
 mkLexerState path s = LexerState
-  { _currentLine = ""
-  , _indents = Empty
+  { _indents = Empty
   , _lastPoint = P 0 0
+  , _lineBuf = ""
   , _parenDepth = 0
   , _path = path
   , _srcLines = map flatten2To3 $
@@ -164,10 +164,10 @@ computeWSTokens' s (h :<| t) = do
 
 advance :: (MonadError Error m, MonadState LexerState m) => m ()
 advance = do
-  s <- use currentLine
+  s <- use lineBuf
   case BS.uncons s of
     Just (_, t) -> do
-      currentLine .= t
+      lineBuf .= t
       lastPoint.column += 1
     Nothing -> throwLexerError UnexpectedNL
 
@@ -179,7 +179,7 @@ advance' = do
   pure (S start end)
 
 peek :: (MonadError Error m, MonadState LexerState m) => m (Maybe Char)
-peek = fmap fst . BS.uncons <$> use currentLine
+peek = fmap fst . BS.uncons <$> use lineBuf
 
 lexLine :: (MonadError Error m, MonadState LexerState m) => m [Token Span]
 lexLine = do
@@ -226,9 +226,9 @@ lexString buf = peek >>= \case
 lexSymbolish :: (MonadError Error m, MonadState LexerState m) => m (Token Span)
 lexSymbolish = do
   start <- use lastPoint
-  (s, rest) <- BS.span isSymbolish <$> use currentLine
+  (s, rest) <- BS.span isSymbolish <$> use lineBuf
   lastPoint.column += fromIntegral (BS.length s)
-  currentLine .= rest
+  lineBuf .= rest
   end <- use lastPoint
   let loc = S start end
   pure $ if s == "group" then
@@ -255,12 +255,14 @@ nextToken = use tokenBuffer >>= \case
     (lineNo, ws, lineS):t -> do
       srcLines .= t
       lastPoint .= P lineNo (fromIntegral $ BS.length ws)
-      currentLine .= lineS
+      lineBuf .= lineS
       pd <- use parenDepth
       lineTokens <- lexLine
-      if null lineTokens || pd > 0 then
+      if null lineTokens then
         pure ()
-        -- indents .= lastIndents
+      else if pd > 0 then do
+        nlToken <- nextLine
+        tokenBuffer .= (lineTokens <> [nlToken])
       else do
         wsTokens <- computeWSTokens ws
         nlToken <- nextLine
@@ -275,6 +277,7 @@ throwLexerError err = do
 
 lexOne :: (MonadError Error m, MonadState LexerState m) => m (Token Location)
 lexOne = do
+  oldState <- use srcLines
   tok <- nextToken
   path' <- use path
   pure (fmap (spanToLocation path') tok)
