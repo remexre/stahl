@@ -78,4 +78,11 @@ foo
     ; Or here!
   xyzzy
 ; This is equivalent to (foo bar baz quux xyzzy)
+
+; Within an s-expression, indentation can be arbitrary:
+(foo bar
+     baz
+  quux
+    xyzzy)
+; This is equivalent to (foo bar baz quux xyzzy)
 ```
