@@ -74,3 +74,16 @@ foo
   quux
     xyzzy)
 ; This is equivalent to (foo bar baz quux xyzzy)
+
+; Indentation is tracked outside of the s-expression.
+(foo bar
+  baz)
+  quux
+; This is equivalent to ((foo bar baz) quux)
+
+foo
+  (bar
+      baz
+    quux)
+  xyzzy
+; This is equivalent to (foo (bar baz quux) xyzzy)
