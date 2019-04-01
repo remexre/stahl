@@ -3,11 +3,15 @@ module Language.Stahl.Error
   ( Error(..)
   , ErrorKind(..)
   , ToError(..)
+  , astError
   , cause
   , chain
   , chain'
+  , duplicateEntryError
   , kind
   , loc
+  , missingError
+  , mkError
   ) where
 
 import Control.Lens ((^.))
@@ -18,14 +22,21 @@ import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.ByteString.UTF8 (ByteString)
 import qualified Data.ByteString.UTF8 as BS
 import Language.Stahl.Util (Location(..))
+import Language.Stahl.Value (Value, location)
 
 -- |The kind of an error.
 data ErrorKind
   = CouldntParseFile !FilePath
+  | DuplicateEntry !ByteString
+  | InvalidAST !ByteString !Value
+  | MissingValue !ByteString
   | Other !ByteString
 
 instance Show ErrorKind where
   show (CouldntParseFile path) = "couldn't parse " <> show path
+  show (DuplicateEntry name) = "duplicate " <> BS.toString name <> " entry"
+  show (InvalidAST wanted value) = "invalid " <> BS.toString wanted <> ": " <> show value
+  show (MissingValue wanted) = "missing " <> BS.toString wanted
   show (Other bs) = BS.toString bs
 
 -- |An error, with an associated 'Location' and (optionally) a cause.
@@ -55,6 +66,10 @@ instance Show Error where
                   Right err -> loop err
               Nothing -> pure ()
 
+-- |Creates an 'InvalidAST' error.
+astError :: ByteString -> Value -> Error
+astError wanted val = mkError (InvalidAST wanted val) (Just (val^.location))
+
 -- |Chains an error to an 'ExceptT'.
 chain :: (Monad m, ToError e) => ExceptT e m a -> (Maybe Location, ErrorKind) -> ExceptT Error m a
 chain action (loc, kind) = withExceptT (\e -> mkChainedError e loc kind) action
@@ -63,6 +78,18 @@ chain action (loc, kind) = withExceptT (\e -> mkChainedError e loc kind) action
 chain' :: Monad m => Maybe a -> (Maybe Location, ErrorKind) -> ExceptT Error m a
 chain' (Just x) _ = pure x
 chain' Nothing (loc, kind) = undefined
+
+-- |Creates an 'DuplicateEntry' error.
+duplicateEntryError :: ByteString -> Location -> Error
+duplicateEntryError wanted loc = mkError (DuplicateEntry wanted) (Just loc)
+
+-- |Creates an 'MissingValue' error.
+missingError :: ByteString -> Location -> Error
+missingError wanted loc = mkError (MissingValue wanted) (Just loc)
+
+-- |Creates an error with no cause.
+mkError :: ErrorKind -> Maybe Location -> Error
+mkError kind loc = Error loc kind Nothing
 
 -- |Values that can be converted into the 'Error' type.
 class ToError a where

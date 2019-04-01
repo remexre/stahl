@@ -4,12 +4,14 @@
 module Language.Stahl.Util.MonadNonfatal
   ( MonadNonfatal(..)
   , NonfatalT(..)
+  , mapFatalsToNonfatals
   , runNonfatal
   , runNonfatal'
   , runNonfatalT
   , runNonfatalT'
   ) where
 
+import Control.Monad (forM_)
 import Control.Monad.Error.Class (MonadError(..))
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Fix (MonadFix(..))
@@ -26,6 +28,9 @@ newtype NonfatalT e m a = NonfatalT
 
 deriving instance MonadIO m => MonadIO (NonfatalT e m)
 deriving instance MonadWriter w m => MonadWriter w (NonfatalT e m)
+
+instance MonadTrans (NonfatalT e) where
+  lift = NonfatalT . lift . lift
 
 runNonfatal :: NonfatalT e Identity a -> Either [e] a
 runNonfatal = runIdentity . runNonfatalT
@@ -45,6 +50,7 @@ runNonfatalT' = fmap helper . flip runStateT [] . runExceptT . unNonfatalT
 
 class Monad m => MonadNonfatal e m | m -> e where
   abort :: m a
+  catch :: m a -> m ([e], Maybe a)
   errorsExist :: m Bool
   raise :: e -> m ()
 
@@ -60,7 +66,18 @@ class Monad m => MonadNonfatal e m | m -> e where
 
 instance Monad m => MonadNonfatal e (NonfatalT e m) where
   abort = NonfatalT $ throwError ()
+  catch = lift . runNonfatalT'
   errorsExist = NonfatalT $ gets (not . null)
   raise err = NonfatalT $ modify (err:)
 
-instance MonadNonfatal e m => MonadNonfatal e (StateT s m)
+instance MonadNonfatal e m => MonadNonfatal e (StateT s m) where
+  catch = StateT . (\act s -> (,s) <$> catch (fst <$> act s)) . runStateT
+
+mapFatalsToNonfatals :: MonadNonfatal e m => (a -> m b) -> [a] -> m [b]
+mapFatalsToNonfatals f (h:t) = do
+    (es, h') <- catch (f h)
+    forM_ es raise
+    consMaybe h' <$> mapFatalsToNonfatals f t
+  where consMaybe (Just h') t' = h':t'
+        consMaybe Nothing t' = t'
+mapFatalsToNonfatals _ [] = pure []

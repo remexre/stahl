@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes, StandaloneDeriving, UndecidableInstances #-}
 
 module Language.Stahl.Ast.Generic
   ( Annot(..)
@@ -21,6 +21,8 @@ data Decl cE cD aE aD
   = CustomDecl (cD (Decl cE cD aE aD)) aD
   | Def LocalName (Expr cE aE) (Expr cE aE) aD
   deriving Functor
+
+deriving instance (Show aD, Show (cD (Decl cE cD aE aD)), Show (Expr cE aE)) => Show (Decl cE cD aE aD)
 
 instance Annot (Decl cE cD aE) where
   annot = lens get set
@@ -56,6 +58,8 @@ data Expr c a
   | Pi (Maybe LocalName) (Expr c a) (Expr c a) (Seq GlobalName) a
   | Var LocalName a
   deriving Functor
+
+deriving instance (Show a, Show (c (Expr c a))) => Show (Expr c a)
 
 instance Annot (Expr c) where
   annot = lens get set

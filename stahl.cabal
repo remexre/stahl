@@ -8,16 +8,20 @@ library
   exposed-modules:
       Language.Stahl
     , Language.Stahl.Error
+    , Language.Stahl.Modules
     , Language.Stahl.Util
+    , Language.Stahl.Util.MonadNonfatal
   other-modules:
       Language.Stahl.Ast
     , Language.Stahl.Ast.Generic
     , Language.Stahl.Ast.Holed
     , Language.Stahl.Ast.Unifying
     , Language.Stahl.Lexer
+    , Language.Stahl.Modules.FromValue
+    , Language.Stahl.Modules.Types
     , Language.Stahl.Parser
     , Language.Stahl.Util.LensedState
-    , Language.Stahl.Util.MonadNonfatal
+    , Language.Stahl.Util.Value
     , Language.Stahl.Value
   hs-source-dirs: src
   build-tools: happy
@@ -27,10 +31,11 @@ library
     , array                  >= 0.5.2  && < 0.6
     , bytestring             >= 0.10.8 && < 0.11
     , containers             >= 0.6.0  && < 0.7
+    , data-default           >= 0.7.1  && < 0.8
+    , filepath               >= 1.4.2  && < 1.5
     , lens                   >= 4.17   && < 4.18
     , mtl                    >= 2.2.2  && < 2.3
     , monad-loops            >= 0.4.3  && < 0.5
-    , natural-transformation >= 0.4    && < 0.5
     , transformers           >= 0.5.5  && < 0.6
     , utf8-string            >= 1.0.1  && < 1.1
   ghc-options: -funbox-strict-fields -fwarn-incomplete-patterns -fwarn-tabs -fwarn-unused-imports -O2
@@ -43,6 +48,7 @@ library
     , LambdaCase
     , OverloadedStrings
     , TemplateHaskell
+    , TupleSections
     , TypeOperators
     , ViewPatterns
   other-extensions: RankNTypes
@@ -71,6 +77,7 @@ test-suite tests
       stahl
     , base                   >= 4.11.0 && < 4.13
     , bytestring             >= 0.10.8 && < 0.11
+    , containers             >= 0.6.0  && < 0.7
     , mtl                    >= 2.2.2  && < 2.3
     , QuickCheck             >= 2.12.6 && < 2.13
     , tasty                  >= 1.2.1  && < 1.3

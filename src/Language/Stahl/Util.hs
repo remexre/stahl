@@ -12,6 +12,7 @@ module Language.Stahl.Util
   , startPoint
   , takeWhileBS
   , whenM_
+  , wholeFile
   , writeOrStdout
   ) where
 
@@ -19,6 +20,7 @@ import Control.Lens (Lens', lens)
 import Control.Lens.TH (makeLenses)
 import Control.Monad (void)
 import qualified Data.ByteString.UTF8 as BS
+import Data.Bifunctor (Bifunctor(..))
 import Data.ByteString.UTF8 (ByteString)
 import System.Console.ANSI
   ( Color(Red)
@@ -65,6 +67,14 @@ endPoint = lens get set
         get (Span f l c _ _) = (f, l, c)
         set (Point _ _ _) (f, l, c) = Point f l c
         set (Span _ ls cs _ _) (f, le, ce) =  Span f ls cs le ce
+
+-- |Returns a 'Location' for the entire file.
+wholeFile :: FilePath -> ByteString -> Location
+wholeFile path src = Span path 0 0 l c
+  where (l, c) = second (fromIntegral . BS.length) $ lastOr ([1..] `zip` BS.lines src) (0, "")
+        lastOr [] y = y
+        lastOr [x] _ = x
+        lastOr (h:t) y = lastOr t y
 
 printError :: String -> IO ()
 printError err = do

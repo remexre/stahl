@@ -6,8 +6,11 @@ import Control.Monad.Except (runExceptT)
 import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.UTF8 (ByteString, fromString)
 import Data.Either (fromRight)
+import qualified Data.Map as Map
 import Language.Stahl
+import Language.Stahl.Modules (loadLibMeta)
 import Language.Stahl.Util
+import Language.Stahl.Util.MonadNonfatal (runNonfatalT)
 import Test.QuickCheck.Arbitrary (Arbitrary(..), vector)
 import Test.QuickCheck.Gen (oneof, sized)
 import Test.Tasty
@@ -38,6 +41,29 @@ tests = testGroup "Tests"
         , testCase "Nil via Group" $
           assertEqual "" (Just $ Nil defaultLoc) (parseOne "group")
         ]
+      , testGroup "Modules"
+        [ testCase "Loads std's lib.stahld" $ do
+            meta <- must =<< (runNonfatalT $ loadLibMeta "std/lib.stahld")
+            let expected = LibMeta
+                  { _libName = LibName
+                    { _name = "std"
+                    , _major = 0
+                    , _minor = 0
+                    , _patch = 0
+                    }
+                  , _deps = Map.fromList
+                    [ ( "compiler-builtins"
+                      , LibName
+                        { _name = "compiler-builtins"
+                        , _major = 0
+                        , _minor = 0
+                        , _patch = 0
+                        }
+                      )
+                    ]
+                  }
+            assertEqual "" expected meta
+        ]
       , testGroup "Utils"
         [ testGroup "takeWhileBS"
           [ testCase "all" $
@@ -59,13 +85,17 @@ tests = testGroup "Tests"
 defaultLoc :: Location
 defaultLoc = Span "<test:tests>" 0 0 0 0
 
-showParseFile :: FilePath -> IO LBS.ByteString
-showParseFile path = stringToLBS . unifyShowWith (unlines . map show) <$> (runExceptT $ parseFile path)
+must :: Show e => Either [e] a -> IO a
+must (Left err) = assertFailure ("Error: " <> unlines (map show err))
+must (Right x) = pure x
 
 parseOne :: ByteString -> Maybe Value
 parseOne = helper . parse "<test:tests>"
   where helper (Right [x]) = Just x
         helper _ = Nothing
+
+showParseFile :: FilePath -> IO LBS.ByteString
+showParseFile path = stringToLBS . unifyShowWith (unlines . map show) <$> (runExceptT $ parseFile path)
 
 stringToLBS :: String -> LBS.ByteString
 stringToLBS = LBS.fromStrict . fromString
