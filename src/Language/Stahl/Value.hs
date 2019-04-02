@@ -35,7 +35,7 @@ isSymbolish :: Char -> Bool
 isSymbolish c = inRange c '0' '9' || inRange c 'A' 'Z' || inRange c 'a' 'z' || c `elem` punct
   where inRange n s e = fromEnum s <= fromEnum n && fromEnum n <= fromEnum e
         punct :: String
-        punct = "*+-/:<=>?"
+        punct = "*+-./:<=>?"
 
 symbolishAsNumber :: ByteString -> Maybe Int64
 symbolishAsNumber = parseSign . BS.fromString . map toLower . BS.toString

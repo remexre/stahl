@@ -21,8 +21,13 @@ import Language.Stahl.Util.MonadNonfatal (MonadNonfatal(..), mapFatalsToNonfatal
 import Language.Stahl.Util.Value (valueAsList, valueAsSHL)
 import Language.Stahl.Value (Value(..), location)
 
-type Decl aE aD = G.Decl (Const ByteString) (Const Void) aE aD
-type Expr a = G.Expr (Const ByteString) a
+type Decl aE aD = G.Decl ExprCustom (Const Void) aE aD
+type Expr a = G.Expr ExprCustom a
+
+data ExprCustom expr
+  = Hole ByteString
+  | ImplicitLam LocalName expr
+  | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)
 
 declsFromValues :: [Value] -> ([Error], Seq (Decl (Maybe Location) (Maybe Location)))
 declsFromValues = foldr helper ([], Seq.empty) . map (runNonfatal . declFromValue)
@@ -34,7 +39,7 @@ declFromValue v = uncurry (declFromValue' v) =<< valueAsList (astError "declarat
 
 declFromValue' :: MonadNonfatal Error m => Value -> Location -> [Value] -> m (Decl (Maybe Location) (Maybe Location))
 declFromValue' _ loc [Symbol _ "def", Symbol _ name, expr] =
-  G.Def (LocalName name) (G.CustomExpr (Const ("_type_of_" <> name)) Nothing) <$> exprFromValue expr <*> pure (Just loc)
+  G.Def (LocalName name) (G.CustomExpr (Hole ("_type_of_" <> name)) Nothing) <$> exprFromValue expr <*> pure (Just loc)
 declFromValue' _ loc [Symbol _ "def", Symbol _ name, ty, expr] =
   G.Def (LocalName name) <$> exprFromValue ty <*> exprFromValue expr <*> pure (Just loc)
 declFromValue' val loc (Symbol _ "def":_) = fatal (astError "def" val)

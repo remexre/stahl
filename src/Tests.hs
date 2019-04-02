@@ -2,6 +2,7 @@
 
 module Main (main) where
 
+import Control.Monad (void)
 import Control.Monad.Except (runExceptT)
 import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.UTF8 (ByteString, fromString)
@@ -77,8 +78,8 @@ tests = testGroup "Tests"
       ]
     ]
   , expectFail $ testGroup "Integration"
-    [ testCase "std can be imported" $
-      assertFailure "TODO"
+    [ testCase "std can be loaded" $
+      void . must =<< (runNonfatalT $ loadLibrary "std")
     ]
   ]
 
