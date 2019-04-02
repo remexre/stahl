@@ -30,55 +30,53 @@ tests = testGroup "Tests"
         \value -> Just value == (parseOne . fromString $ show value)
       ]
     , testGroup "Unit Tests"
-      [ testGroup "Parsing"
-        [ goldenVsString "Strings"
-          "test-cases/parser/strings.stahl"
-          (showParseFile "test-cases/parser/strings.stahl")
-        , goldenVsString "Syntax Guide Examples"
-          "test-cases/parser/doc-syntax-md.stahl.golden"
-          (showParseFile "test-cases/parser/doc-syntax-md.stahl")
-        , testCase "Nil" $
-          assertEqual "" (Just $ Nil defaultLoc) (parseOne "()")
-        , testCase "Nil via Group" $
-          assertEqual "" (Just $ Nil defaultLoc) (parseOne "group")
-        ]
-      , testGroup "Modules"
-        [ testCase "Loads std's lib.stahld" $ do
-            meta <- must =<< (runNonfatalT $ loadLibMeta "std/lib.stahld")
-            let expected = LibMeta
-                  { _libName = LibName
-                    { _name = "std"
+      [ goldenVsString "Strings"
+        "test-cases/parser/strings.stahl"
+        (showParseFile "test-cases/parser/strings.stahl")
+      , goldenVsString "Syntax Guide Examples"
+        "test-cases/parser/doc-syntax-md.stahl.golden"
+        (showParseFile "test-cases/parser/doc-syntax-md.stahl")
+      , testCase "Nil" $
+        assertEqual "" (Just $ Nil defaultLoc) (parseOne "()")
+      , testCase "Nil via Group" $
+        assertEqual "" (Just $ Nil defaultLoc) (parseOne "group")
+      ]
+    ]
+  , testGroup "Modules"
+    [ testCase "Loads std's lib.stahld" $ do
+        meta <- must =<< (runNonfatalT $ loadLibMeta "std/lib.stahld")
+        let expected = LibMeta
+              { _libName = LibName
+                { _name = "std"
+                , _major = 0
+                , _minor = 0
+                , _patch = 0
+                }
+              , _deps = Map.fromList
+                [ ( "compiler-builtins"
+                  , LibName
+                    { _name = "compiler-builtins"
                     , _major = 0
                     , _minor = 0
                     , _patch = 0
                     }
-                  , _deps = Map.fromList
-                    [ ( "compiler-builtins"
-                      , LibName
-                        { _name = "compiler-builtins"
-                        , _major = 0
-                        , _minor = 0
-                        , _patch = 0
-                        }
-                      )
-                    ]
-                  }
-            assertEqual "" expected meta
-        ]
-      , testGroup "Utils"
-        [ testGroup "takeWhileBS"
-          [ testCase "all" $
-            assertEqual "" (takeWhileBS (const True) "foobar") "foobar"
-          , testCase "none" $
-            assertEqual "" (takeWhileBS (const False) "foobar") ""
-          , testCase "some" $
-            assertEqual "" (takeWhileBS (/= 'b') "foobar") "foo"
-          ]
-        ]
+                  )
+                ]
+              }
+        assertEqual "" expected meta
+    ]
+  , testGroup "Utils"
+    [ testGroup "takeWhileBS"
+      [ testCase "all" $
+        assertEqual "" (takeWhileBS (const True) "foobar") "foobar"
+      , testCase "none" $
+        assertEqual "" (takeWhileBS (const False) "foobar") ""
+      , testCase "some" $
+        assertEqual "" (takeWhileBS (/= 'b') "foobar") "foo"
       ]
     ]
-  , expectFail $ testGroup "Integration"
-    [ testCase "std can be loaded" $
+  , testGroup "Integration Tests"
+    [ expectFail $ testCase "std can be loaded" $
       void . must =<< (runNonfatalT $ loadLibrary "std")
     ]
   ]
