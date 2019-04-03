@@ -1,10 +1,7 @@
 module Language.Stahl.Ast.Holed
-  ( Annot(..)
-  , Decl(..)
+  ( Decl(..)
   , Expr(..)
-  , ExprCustom(..)
-  , GlobalName(..)
-  , LocalName(..)
+  , HoledExprCustom(..)
   , declsFromValues
   ) where
 
@@ -14,7 +11,7 @@ import Data.Functor.Const (Const(..))
 import Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import Data.Void (Void)
-import Language.Stahl.Ast.Generic (Annot(..), GlobalName(..), LocalName(..))
+import Language.Stahl.Ast.Generic (GlobalName(..), LocalName(..))
 import qualified Language.Stahl.Ast.Generic as G
 import Language.Stahl.Error (Error(..), astError)
 import Language.Stahl.Util (Location)
@@ -22,10 +19,10 @@ import Language.Stahl.Util.MonadNonfatal (MonadNonfatal(..), mapFatalsToNonfatal
 import Language.Stahl.Util.Value (valueAsList)
 import Language.Stahl.Value (Value(..))
 
-type Decl = G.Decl ExprCustom (Const Void) (Maybe Location) (Maybe Location)
-type Expr = G.Expr ExprCustom (Maybe Location)
+type Decl = G.Decl HoledExprCustom (Const Void) (Maybe Location) (Maybe Location)
+type Expr = G.Expr HoledExprCustom (Maybe Location)
 
-data ExprCustom expr
+data HoledExprCustom expr
   = Hole ByteString
   | ImplicitLam LocalName expr
   | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)

@@ -15,6 +15,7 @@ library
       Language.Stahl.Ast
     , Language.Stahl.Ast.Generic
     , Language.Stahl.Ast.Holed
+    , Language.Stahl.Ast.Unholed
     , Language.Stahl.Ast.Unifying
     , Language.Stahl.Lexer
     , Language.Stahl.Modules.FromValue
