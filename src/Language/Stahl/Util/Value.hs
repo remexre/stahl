@@ -1,6 +1,7 @@
 module Language.Stahl.Util.Value
   ( valueAsList
   , valueAsSHL
+  , valueAsSymList
   ) where
 
 import Data.ByteString (ByteString)
@@ -18,3 +19,8 @@ valueAsSHL :: MonadNonfatal Error m => (Value -> Error) -> Value -> m (Location,
 valueAsSHL onError val = valueAsList onError val >>= \case
   (loc, Symbol _ h:t) -> pure (loc, h, t)
   _ -> fatal (onError val)
+
+valueAsSymList :: MonadNonfatal Error m => (Value -> Error) -> Value -> m (Location, [ByteString])
+valueAsSymList onError (Cons l (Symbol _ h) t) = (l,) . (h:) . snd <$> valueAsSymList onError t
+valueAsSymList onError (Nil l) = pure (l, [])
+valueAsSymList onError val = fatal (onError val)

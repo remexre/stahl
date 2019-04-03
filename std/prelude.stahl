@@ -16,8 +16,7 @@
   ; Vect nil-Vect cons-Vect elim-Vect
   Void elim-Void)
 
-(import compiler-builtins
-  Fixnum fixnum-add String Symbol TYPE)
+import compiler-builtins (Fixnum fixnum-add String Symbol TYPE)
 
 def const (pi ((T TYPE) (U TYPE) (_ T)) (pi ((_ U)) T))
   fn (_ _ x) (fn (_) x)

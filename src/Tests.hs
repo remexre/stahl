@@ -7,7 +7,7 @@ import Control.Monad.Except (runExceptT)
 import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.UTF8 (ByteString, fromString)
 import Data.Either (fromRight)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Language.Stahl
 import Language.Stahl.Modules (loadLibMeta)
 import Language.Stahl.Util
@@ -76,8 +76,8 @@ tests = testGroup "Tests"
       ]
     ]
   , testGroup "Integration Tests"
-    [ expectFail $ testCase "std can be loaded" $
-      void . must =<< (runNonfatalT $ loadLibrary "std")
+    [ testCase "std can be loaded" $
+      must' =<< (runNonfatalT $ loadLibrary "std")
     ]
   ]
 
@@ -87,6 +87,9 @@ defaultLoc = Span "<test:tests>" 0 0 0 0
 must :: Show e => Either [e] a -> IO a
 must (Left err) = assertFailure ("Error: " <> unlines (map show err))
 must (Right x) = pure x
+
+must' :: Show e => Either [e] a -> IO ()
+must' = void . must
 
 parseOne :: ByteString -> Maybe Value
 parseOne = helper . parse "<test:tests>"

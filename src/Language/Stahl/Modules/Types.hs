@@ -23,7 +23,8 @@ module Language.Stahl.Modules.Types
 
 import Control.Lens.TH (makeLenses)
 import Data.ByteString.UTF8 (ByteString)
-import Data.Map (Map)
+import Data.Map.Strict (Map)
+import Data.Sequence (Seq)
 import Data.Set (Set)
 import Language.Stahl.Ast.Generic (Decl, Expr)
 
@@ -43,7 +44,7 @@ data Module cE cD aE aD = Module
   , _modName :: ByteString
   , _exports :: Set ByteString
   , _imports :: Map LibName (Map ByteString (Set ByteString))
-  , _decls :: [Decl cE cD aE aD]
+  , _decls :: Seq (Decl cE cD aE aD)
   }
 
 deriving instance (Show aD, Show aE, Show (cD (Decl cE cD aE aD)), Show (cE (Expr cE aE))) => Show (Module cE cD aE aD)

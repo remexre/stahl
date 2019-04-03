@@ -12,6 +12,7 @@ module Language.Stahl.Ast.Generic
 
 import Control.Lens (Lens', lens)
 import Data.ByteString (ByteString)
+import Data.Bifunctor (Bifunctor(..))
 import Data.Sequence (Seq)
 
 class Annot f where
@@ -20,6 +21,7 @@ class Annot f where
 data Decl cE cD aE aD
   = CustomDecl (cD (Decl cE cD aE aD)) aD
   | Def LocalName (Expr cE aE) (Expr cE aE) aD
+  | DefTy LocalName (Expr cE aE) (Seq (LocalName, Expr cE aE)) aD
   deriving Functor
 
 deriving instance (Show aD, Show (cD (Decl cE cD aE aD)), Show (Expr cE aE)) => Show (Decl cE cD aE aD)
@@ -28,12 +30,15 @@ instance Annot (Decl cE cD aE) where
   annot = lens get set
     where get (CustomDecl _ a) = a
           get (Def _ _ _ a)    = a
+          get (DefTy _ _ _ a)  = a
           set (CustomDecl c _) a = CustomDecl c a
           set (Def n t e _)    a = Def n t e a
+          set (DefTy n k cs _) a = DefTy n k cs a
 
 mapCustomDecl :: (cE (Expr cE aE) -> cE' (Expr cE' aE)) -> (cD (Decl cE cD aE aD) -> cD' (Decl cE' cD' aE aD)) -> Decl cE cD aE aD -> Decl cE' cD' aE aD
 mapCustomDecl fE fD (CustomDecl c a) = CustomDecl (fD c) a
 mapCustomDecl fE fD (Def n t e a) = Def n (mapCustomExpr fE t) (mapCustomExpr fE e) a
+mapCustomDecl fE fD (DefTy n k cs a) = DefTy n (mapCustomExpr fE k) (second (mapCustomExpr fE) <$> cs) a
 
 mapCustomDecl' :: (Functor cD, Functor cD', Functor cE, Functor cE')
                => (cE (Expr cE' aE) -> cE' (Expr cE' aE))

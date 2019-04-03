@@ -21,6 +21,7 @@ module Language.Stahl.Modules
   , path
   ) where
 
+import Control.Lens ((^.))
 import Control.Monad ((<=<))
 import Control.Monad.Except (runExceptT)
 import Control.Monad.IO.Class (MonadIO(..))
@@ -30,13 +31,14 @@ import qualified Data.ByteString.UTF8 as BS
 import Data.Either (either)
 import Data.Foldable (toList)
 import Data.Functor.Const (Const)
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import Data.Void (Void)
+import Language.Stahl.Ast.Holed (ExprCustom, declsFromValues)
 import Language.Stahl.Error (Error(..))
-import Language.Stahl.Modules.FromValue (libMetaFromValues)
+import Language.Stahl.Modules.FromValue (libMetaFromValues, moduleHeaderFromValues)
 import Language.Stahl.Modules.Types
   ( LibMeta(..)
   , LibName(..)
@@ -65,18 +67,20 @@ import Prelude hiding (readFile)
 import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath ((</>), isExtensionOf)
 
-import Debug.Trace
-
-loadLibrary :: (MonadIO m, MonadNonfatal Error m) => FilePath -> m (Library (Const Void) (Const Void) (Maybe Location) (Maybe Location))
-loadLibrary path = Library <$> loadLibMeta (path </> "lib.stahld") <*> loadModules Seq.empty path <*> (pure $ Just path)
+loadLibrary :: (MonadIO m, MonadNonfatal Error m) => FilePath
+            -> m (Library ExprCustom (Const Void) (Maybe Location) (Maybe Location))
+loadLibrary path = do
+  meta <-  loadLibMeta (path </> "lib.stahld")
+  Library meta <$> loadModules (meta^.libName) Seq.empty path <*> (pure $ Just path)
 
 loadLibMeta :: (MonadIO m, MonadNonfatal Error m) => FilePath -> m LibMeta
 loadLibMeta path = do
   src <- liftIO $ readFile path
   libMetaFromValues (wholeFile path src) =<< parse path src
 
-loadModules :: (MonadIO m, MonadNonfatal Error m) => Seq ByteString -> FilePath -> m (Map ByteString (Module (Const Void) (Const Void) (Maybe Location) (Maybe Location)))
-loadModules modParts path = fmap mconcat . mapM helper =<< (liftIO $ listDirectory path)
+loadModules :: (MonadIO m, MonadNonfatal Error m) => LibName -> Seq ByteString -> FilePath
+            -> m (Map ByteString (Module ExprCustom (Const Void) (Maybe Location) (Maybe Location)))
+loadModules libName modParts path = fmap mconcat . mapM helper =<< (liftIO $ listDirectory path)
   where helper subpath = do
           let path' = path </> subpath
           let modParts' = modParts |> BS.fromString subpath
@@ -85,16 +89,26 @@ loadModules modParts path = fmap mconcat . mapM helper =<< (liftIO $ listDirecto
           if not (all isSymbolish subpath) || ':' `elem` subpath then
             pure Map.empty
           else if isFile && ".stahl" `isExtensionOf` path' then
-            Map.singleton (BS.intercalate ":" $ toList modParts') <$> loadModule modParts' path'
+            Map.singleton (BS.intercalate ":" $ toList modParts') <$> loadModule libName modParts' path'
           else if isDir then
-            loadModules modParts' path'
+            loadModules libName modParts' path'
           else
             pure Map.empty
 
-loadModule :: (MonadIO m, MonadNonfatal Error m) => Seq ByteString -> FilePath -> m (Module (Const Void) (Const Void) (Maybe Location) (Maybe Location))
-loadModule modPath path = do
-  src <- parse path =<< (liftIO $ readFile path)
-  error ("loadModule " <> path <> "\n" <> unlines (map show src))
+loadModule :: (MonadIO m, MonadNonfatal Error m) => LibName -> Seq ByteString -> FilePath
+           -> m (Module ExprCustom (Const Void) (Maybe Location) (Maybe Location))
+loadModule libName expectedName path = do
+  src <- liftIO $ readFile path
+  (name, exports, imports, body) <- moduleHeaderFromValues (wholeFile path src) =<< parse path src
+  decls <- declsFromValues body
+
+  let splitOffLibPart sym = do
+        let (modPart, name) = BS.break (== ':') sym
+        error $ show (modPart, name)
+        undefined
+
+  -- imports' <- fmap (_ . map (uncurry Map.singleton)) $ _ imports
+  pure $ Module libName name exports (undefined imports) decls
 
 parse :: (MonadIO m, MonadNonfatal Error m) => FilePath -> ByteString -> m [Value]
 parse path = either fatal pure <=< liftIO . runExceptT . Language.Stahl.Parser.parse path

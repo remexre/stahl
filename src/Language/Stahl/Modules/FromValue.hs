@@ -2,24 +2,27 @@
 
 module Language.Stahl.Modules.FromValue
   ( libMetaFromValues
+  , moduleHeaderFromValues
   ) where
 
 import Control.Lens (Lens', (.=), (^.), (^?), _1, _2, _3, _Just, use)
 import Control.Lens.Extras (is)
 import Control.Lens.TH (makeLenses)
-import Control.Monad ((<=<), mapM_)
+import Control.Monad ((<=<), mapM, mapM_)
 import Control.Monad.State (execStateT)
 import Control.Monad.State.Class (MonadState(..))
 import Data.ByteString.UTF8 (ByteString)
 import Data.Default (Default(..))
-import Data.Map (Map)
-import qualified Data.Map as Map
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Data.Word (Word)
 import Language.Stahl.Error (Error(..), astError, duplicateEntryError, missingError)
 import Language.Stahl.Modules.Types (LibMeta(..), LibName(..))
 import Language.Stahl.Util (Location)
 import Language.Stahl.Util.MonadNonfatal (MonadNonfatal(..), mapFatalsToNonfatals)
-import Language.Stahl.Util.Value (valueAsList, valueAsSHL)
+import Language.Stahl.Util.Value (valueAsList, valueAsSHL, valueAsSymList)
 import Language.Stahl.Value (Value(..))
 
 data LibMetaItem
@@ -64,6 +67,33 @@ setIfMaybe fieldName lens loc val = do
     fatal (duplicateEntryError fieldName loc)
   else
     lens .= Just val
+
+moduleHeaderFromValues :: MonadNonfatal Error m => Location -> [Value]
+                       -> m (ByteString, Set ByteString, [(ByteString, Set ByteString)], [Value])
+moduleHeaderFromValues loc [] = fatal (missingError "module form" loc)
+moduleHeaderFromValues loc (h:t) = do
+  (name, exports) <- moduleFormFromValue h
+  (imports, rest) <- importFormsFromValues t
+  pure (name, exports, imports, rest)
+
+moduleFormFromValue :: MonadNonfatal Error m => Value -> m (ByteString, Set ByteString)
+moduleFormFromValue val = valueAsSymList (astError "module form") val >>= \case
+  (_, ("module":name:exports)) -> pure (name, Set.fromList exports)
+  _ -> fatal (astError "module form" val)
+
+importFormsFromValues :: MonadNonfatal Error m => [Value] -> m ([(ByteString, Set ByteString)], [Value])
+importFormsFromValues vals = do
+  let isImportForm (Cons _ (Symbol _ "import") _) = True
+      isImportForm _ = False
+  let (imports, rest) = span isImportForm vals
+  imports' <- mapM importFormFromValue imports
+  pure (imports', rest)
+
+importFormFromValue :: MonadNonfatal Error m => Value -> m (ByteString, Set ByteString)
+importFormFromValue val = valueAsSHL (astError "import form") val >>= \case
+  (_, "import", [Symbol _ name, imports]) -> fmap ((name,) . Set.fromList . snd) $
+                                             valueAsSymList (astError "import list") imports
+  _ -> fatal (astError "import form" val)
 
 libMetaFromValues :: MonadNonfatal Error m => Location -> [Value] -> m LibMeta
 libMetaFromValues loc = freeze loc
