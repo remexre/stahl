@@ -1,6 +1,7 @@
 module Language.Stahl.Ast.Unholed
   ( Decl(..)
   , Expr(..)
+  , UnholedExprCustom(..)
   ) where
 
 import Data.Functor.Const (Const)
@@ -16,3 +17,4 @@ type Expr = G.Expr UnholedExprCustom (Maybe Location)
 data UnholedExprCustom expr
   = ImplicitLam LocalName expr
   | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)
+  deriving Show

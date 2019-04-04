@@ -1,6 +1,5 @@
 module Language.Stahl.Ast
-  ( Annot(..)
-  , Decl(..)
+  ( Decl(..)
   , Expr(..)
   , GlobalName(..)
   , LocalName(..)
@@ -8,8 +7,8 @@ module Language.Stahl.Ast
 
 import Data.Functor.Const (Const)
 import Data.Void (Void)
-import Language.Stahl.Ast.Generic (Annot(..), GlobalName(..), LocalName(..))
+import Language.Stahl.Ast.Generic (GlobalName(..), LocalName(..))
 import qualified Language.Stahl.Ast.Generic as Generic
 
-type Decl s a = Generic.Decl (Const Void) (Const Void) a
-type Expr s a = Generic.Expr (Const Void) a
+type Decl = Generic.Decl (Const Void) (Const Void) () ()
+type Expr = Generic.Expr (Const Void) ()

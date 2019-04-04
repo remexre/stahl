@@ -36,7 +36,8 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import Data.Void (Void)
-import Language.Stahl.Ast.Holed (HoledExprCustom, declsFromValues)
+import Language.Stahl.Ast.Holed (declsFromValues)
+import Language.Stahl.Ast.Unholed (UnholedExprCustom)
 import Language.Stahl.Error (Error(..))
 import Language.Stahl.Modules.FromValue (libMetaFromValues, moduleHeaderFromValues)
 import Language.Stahl.Modules.Types
@@ -68,7 +69,7 @@ import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath ((</>), isExtensionOf)
 
 loadLibrary :: (MonadIO m, MonadNonfatal Error m) => FilePath
-            -> m (Library HoledExprCustom (Const Void) (Maybe Location) (Maybe Location))
+            -> m (Library UnholedExprCustom (Const Void) (Maybe Location) (Maybe Location))
 loadLibrary path = do
   meta <-  loadLibMeta (path </> "lib.stahld")
   Library meta <$> loadModules (meta^.libName) Seq.empty path <*> (pure $ Just path)
@@ -79,7 +80,7 @@ loadLibMeta path = do
   libMetaFromValues (wholeFile path src) =<< parse path src
 
 loadModules :: (MonadIO m, MonadNonfatal Error m) => LibName -> Seq ByteString -> FilePath
-            -> m (Map ByteString (Module HoledExprCustom (Const Void) (Maybe Location) (Maybe Location)))
+            -> m (Map ByteString (Module UnholedExprCustom (Const Void) (Maybe Location) (Maybe Location)))
 loadModules libName modParts path = fmap mconcat . mapM helper =<< (liftIO $ listDirectory path)
   where helper subpath = do
           let path' = path </> subpath
@@ -96,7 +97,7 @@ loadModules libName modParts path = fmap mconcat . mapM helper =<< (liftIO $ lis
             pure Map.empty
 
 loadModule :: (MonadIO m, MonadNonfatal Error m) => LibName -> Seq ByteString -> FilePath
-           -> m (Module HoledExprCustom (Const Void) (Maybe Location) (Maybe Location))
+           -> m (Module UnholedExprCustom (Const Void) (Maybe Location) (Maybe Location))
 loadModule libName expectedName path = do
   src <- liftIO $ readFile path
   (name, exports, imports, body) <- moduleHeaderFromValues (wholeFile path src) =<< parse path src

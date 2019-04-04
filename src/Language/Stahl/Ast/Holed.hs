@@ -24,8 +24,10 @@ type Expr = G.Expr HoledExprCustom (Maybe Location)
 
 data HoledExprCustom expr
   = Hole ByteString
+  | ImplicitApp expr expr
   | ImplicitLam LocalName expr
   | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)
+  deriving Show
 
 declsFromValues :: MonadNonfatal Error m => [Value] -> m (Seq Decl)
 declsFromValues = fmap Seq.fromList . mapFatalsToNonfatals declFromValue
