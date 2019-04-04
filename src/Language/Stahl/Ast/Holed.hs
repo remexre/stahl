@@ -1,3 +1,6 @@
+-- |Declarations and expressions as they appear in the source code, with
+-- implicits pis and lambdas, as well as holes, but without implicit
+-- applications expanded (see 'Language.Stahl.Ast.HoledI' for that).
 module Language.Stahl.Ast.Holed
   ( Decl(..)
   , Expr(..)
@@ -24,7 +27,6 @@ type Expr = G.Expr HoledExprCustom (Maybe Location)
 
 data HoledExprCustom expr
   = Hole ByteString
-  | ImplicitApp expr expr
   | ImplicitLam LocalName expr
   | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)
   deriving Show

@@ -37,7 +37,8 @@ import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import Data.Void (Void)
 import Language.Stahl.Ast.Holed (declsFromValues)
-import Language.Stahl.Ast.Unholed (UnholedExprCustom)
+import Language.Stahl.Ast.HoledI (addImplicitApps)
+import Language.Stahl.Ast.Unholed (UnholedExprCustom, solveDeclForHoles)
 import Language.Stahl.Error (Error(..))
 import Language.Stahl.Modules.FromValue (libMetaFromValues, moduleHeaderFromValues)
 import Language.Stahl.Modules.Types
@@ -102,6 +103,7 @@ loadModule libName expectedName path = do
   src <- liftIO $ readFile path
   (name, exports, imports, body) <- moduleHeaderFromValues (wholeFile path src) =<< parse path src
   decls <- declsFromValues body
+  decls' <- mapM (solveDeclForHoles <=< addImplicitApps) decls
 
   let splitOffLibPart sym = do
         let (modPart, name) = BS.break (== ':') sym
@@ -109,7 +111,7 @@ loadModule libName expectedName path = do
         undefined
 
   -- imports' <- fmap (_ . map (uncurry Map.singleton)) $ _ imports
-  pure $ Module libName name exports (undefined imports) decls
+  pure $ Module libName name exports (undefined imports) decls'
 
 parse :: (MonadIO m, MonadNonfatal Error m) => FilePath -> ByteString -> m [Value]
 parse path = either fatal pure <=< liftIO . runExceptT . Language.Stahl.Parser.parse path
