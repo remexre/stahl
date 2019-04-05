@@ -1,8 +1,11 @@
 module Language.Stahl.Util
   ( Location(..)
   , col
+  , _Const
   , colStart
   , colEnd
+  , convertConst
+  , convertConstM
   , endPoint
   , file
   , line
@@ -16,12 +19,13 @@ module Language.Stahl.Util
   , writeOrStdout
   ) where
 
-import Control.Lens (Lens', lens)
+import Control.Lens (Iso', Lens', iso, lens)
 import Control.Lens.TH (makeLenses)
 import Control.Monad (void)
 import qualified Data.ByteString.UTF8 as BS
 import Data.Bifunctor (Bifunctor(..))
 import Data.ByteString.UTF8 (ByteString)
+import Data.Functor.Const (Const(..))
 import System.Console.ANSI
   ( Color(Red)
   , ColorIntensity(Vivid)
@@ -75,6 +79,16 @@ wholeFile path src = Span path 0 0 l c
         lastOr [] y = y
         lastOr [x] _ = x
         lastOr (h:t) y = lastOr t y
+
+-- |An 'Iso'' between a 'Const' functor and the value inside it.
+_Const :: Iso' (Const a b) a
+_Const = iso getConst Const
+
+convertConst :: Const a b -> Const a c
+convertConst (Const x) = Const x
+
+convertConstM :: Applicative f => Const a b -> f (Const a c)
+convertConstM = pure . convertConst
 
 printError :: String -> IO ()
 printError err = do

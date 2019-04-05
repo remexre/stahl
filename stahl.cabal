@@ -7,13 +7,16 @@ extra-source-files: src/Language/Stahl/Parser.y
 library
   exposed-modules:
       Language.Stahl
+    , Language.Stahl.Env
     , Language.Stahl.Error
     , Language.Stahl.Modules
+    , Language.Stahl.TyCk
     , Language.Stahl.Util
+    , Language.Stahl.Util.MonadGensym
     , Language.Stahl.Util.MonadNonfatal
   other-modules:
       Language.Stahl.Ast
-    , Language.Stahl.Ast.Generic
+    , Language.Stahl.Ast.Builtins
     , Language.Stahl.Ast.Holed
     , Language.Stahl.Ast.HoledI
     , Language.Stahl.Ast.Unholed
@@ -22,7 +25,6 @@ library
     , Language.Stahl.Modules.FromValue
     , Language.Stahl.Modules.Types
     , Language.Stahl.Parser
-    , Language.Stahl.TyCk
     , Language.Stahl.Util.LensedState
     , Language.Stahl.Util.Value
     , Language.Stahl.Value
@@ -53,6 +55,7 @@ library
     , FlexibleInstances
     , LambdaCase
     , OverloadedStrings
+    , ScopedTypeVariables
     , TemplateHaskell
     , TupleSections
     , TypeOperators
@@ -84,6 +87,8 @@ test-suite tests
     , base                   >= 4.11.0 && < 4.13
     , bytestring             >= 0.10.8 && < 0.11
     , containers             >= 0.6.0  && < 0.7
+    , data-default           >= 0.7.1  && < 0.8
+    , lens                   >= 4.17   && < 4.18
     , mtl                    >= 2.2.2  && < 2.3
     , QuickCheck             >= 2.12.6 && < 2.13
     , tasty                  >= 1.2.1  && < 1.3

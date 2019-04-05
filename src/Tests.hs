@@ -2,12 +2,17 @@
 
 module Main (main) where
 
-import Control.Monad (void)
+import Control.Lens (_Right)
+import Control.Monad ((<=<), void)
 import Control.Monad.Except (runExceptT)
+import Control.Monad.Reader (runReader)
 import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.UTF8 (ByteString, fromString)
+import Data.Default (Default(..))
 import Data.Either (fromRight)
+import Data.Functor.Const (Const(..))
 import qualified Data.Map.Strict as Map
+import qualified Data.Sequence as Seq
 import Language.Stahl
 import Language.Stahl.Modules (loadLibMeta)
 import Language.Stahl.Util
@@ -41,6 +46,16 @@ tests = testGroup "Tests"
       , testCase "Nil via Group" $
         assertEqual "" (Just $ Nil defaultLoc) (parseOne "group")
       ]
+    ]
+  , testGroup "Typechecker"
+    [ testCase "((fn (x) x) (fun (TYPE) TYPE)) : TYPE" $ do
+        let loc = Just defaultLoc
+        let idL = Lam (LocalName "x") (Var (LocalName "x") loc) loc
+        let ty = CustomExpr (Const $ Left TypeOfTypes) loc
+        let pi = Pi Nothing ty ty Seq.empty loc
+        let expr = App idL pi loc
+        res <- must . flip runReader def . runNonfatalT $ tyck id (_Const._Right) expr Nothing
+        assertEqual "" res ty
     ]
   , testGroup "Modules"
     [ testCase "Loads std's lib.stahld" $ do

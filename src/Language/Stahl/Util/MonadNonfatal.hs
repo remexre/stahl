@@ -16,17 +16,21 @@ import Control.Monad.Error.Class (MonadError(..))
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Fix (MonadFix(..))
 import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Reader.Class (MonadReader(..))
 import Control.Monad.State (StateT(..))
 import Control.Monad.State.Class (gets, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
+import Control.Monad.Writer (WriterT(..))
 import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.Functor.Identity (Identity(..))
+import Language.Stahl.Util.MonadGensym (GensymT(..))
 
 newtype NonfatalT e m a = NonfatalT
   { unNonfatalT :: ExceptT () (StateT [e] m) a
   } deriving (Applicative, Functor, Monad, MonadFix)
 
 deriving instance MonadIO m => MonadIO (NonfatalT e m)
+deriving instance MonadReader r m => MonadReader r (NonfatalT e m)
 deriving instance MonadWriter w m => MonadWriter w (NonfatalT e m)
 
 instance MonadTrans (NonfatalT e) where
@@ -70,8 +74,16 @@ instance Monad m => MonadNonfatal e (NonfatalT e m) where
   errorsExist = NonfatalT $ gets (not . null)
   raise err = NonfatalT $ modify (err:)
 
+instance MonadNonfatal e m => MonadNonfatal e (GensymT m) where
+  catch = GensymT . catch . unGensymT
+
 instance MonadNonfatal e m => MonadNonfatal e (StateT s m) where
   catch = StateT . (\act s -> (,s) <$> catch (fst <$> act s)) . runStateT
+
+instance (MonadNonfatal e m, Monoid w) => MonadNonfatal e (WriterT w m) where
+  catch = WriterT . fmap helper . catch . runWriterT
+    where helper (es, Just (x, w)) = ((es, Just x), w)
+          helper (es, Nothing) = ((es, Nothing), mempty)
 
 mapFatalsToNonfatals :: MonadNonfatal e m => (a -> m b) -> [a] -> m [b]
 mapFatalsToNonfatals f (h:t) = do

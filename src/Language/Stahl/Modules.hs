@@ -24,10 +24,12 @@ module Language.Stahl.Modules
 import Control.Lens ((^.))
 import Control.Monad ((<=<))
 import Control.Monad.Except (runExceptT)
+import Control.Monad.Reader (ReaderT(..))
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.ByteString (ByteString, readFile)
 import qualified Data.ByteString as BS (intercalate)
 import qualified Data.ByteString.UTF8 as BS
+import Data.Default (Default(..))
 import Data.Either (either)
 import Data.Foldable (toList)
 import Data.Functor.Const (Const)
@@ -39,7 +41,8 @@ import Data.Void (Void)
 import Language.Stahl.Ast.Holed (declsFromValues)
 import Language.Stahl.Ast.HoledI (addImplicitApps)
 import Language.Stahl.Ast.Unholed (UnholedExprCustom, solveDeclForHoles)
-import Language.Stahl.Error (Error(..))
+import Language.Stahl.Env (Env(..))
+import Language.Stahl.Error (Error)
 import Language.Stahl.Modules.FromValue (libMetaFromValues, moduleHeaderFromValues)
 import Language.Stahl.Modules.Types
   ( LibMeta(..)
@@ -103,7 +106,7 @@ loadModule libName expectedName path = do
   src <- liftIO $ readFile path
   (name, exports, imports, body) <- moduleHeaderFromValues (wholeFile path src) =<< parse path src
   decls <- declsFromValues body
-  decls' <- mapM (solveDeclForHoles <=< addImplicitApps) decls
+  decls' <- mapM (solveDeclForHoles <=< flip runReaderT def . addImplicitApps) decls
 
   let splitOffLibPart sym = do
         let (modPart, name) = BS.break (== ':') sym

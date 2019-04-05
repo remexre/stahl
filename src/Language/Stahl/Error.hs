@@ -31,6 +31,7 @@ data ErrorKind
   | InvalidAST !ByteString !Value
   | MissingValue !ByteString
   | Other !ByteString
+  | VariableNotInScope !ByteString
 
 instance Show ErrorKind where
   show (CouldntParseFile path) = "couldn't parse " <> show path
@@ -38,6 +39,7 @@ instance Show ErrorKind where
   show (InvalidAST wanted value) = "invalid " <> BS.toString wanted <> ": " <> show value
   show (MissingValue wanted) = "missing " <> BS.toString wanted
   show (Other bs) = BS.toString bs
+  show (VariableNotInScope var) = "variable not in scope: " <> BS.toString var
 
 -- |An error, with an associated 'Location' and (optionally) a cause.
 data Error = Error

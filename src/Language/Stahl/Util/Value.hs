@@ -5,7 +5,7 @@ module Language.Stahl.Util.Value
   ) where
 
 import Data.ByteString (ByteString)
-import Language.Stahl.Error (Error(..))
+import Language.Stahl.Error (Error)
 import Language.Stahl.Util (Location(..))
 import Language.Stahl.Util.MonadNonfatal (MonadNonfatal(..))
 import Language.Stahl.Value (Value(..))

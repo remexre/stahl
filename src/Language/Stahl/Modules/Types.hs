@@ -26,7 +26,7 @@ import Data.ByteString.UTF8 (ByteString)
 import Data.Map.Strict (Map)
 import Data.Sequence (Seq)
 import Data.Set (Set)
-import Language.Stahl.Ast.Generic (Decl, Expr)
+import Language.Stahl.Ast (Decl, Expr)
 
 -- |The name and version of a library.
 data LibName = LibName

@@ -18,7 +18,7 @@ import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Word (Word)
-import Language.Stahl.Error (Error(..), astError, duplicateEntryError, missingError)
+import Language.Stahl.Error (Error, astError, duplicateEntryError, missingError)
 import Language.Stahl.Modules.Types (LibMeta(..), LibName(..))
 import Language.Stahl.Util (Location)
 import Language.Stahl.Util.MonadNonfatal (MonadNonfatal(..), mapFatalsToNonfatals)

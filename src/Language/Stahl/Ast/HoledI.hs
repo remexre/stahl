@@ -7,28 +7,31 @@ module Language.Stahl.Ast.HoledI
   , addImplicitApps
   ) where
 
+import Control.Monad.Reader.Class (MonadReader(..))
 import Data.ByteString.UTF8 (ByteString)
-import qualified Data.ByteString.UTF8 as BS
 import Data.Functor.Const (Const(..))
 import Data.Sequence (Seq(..))
-import qualified Data.Sequence as Seq
 import Data.Void (Void)
-import Language.Stahl.Ast.Generic (GlobalName(..), LocalName(..))
-import qualified Language.Stahl.Ast.Generic as G
+import Language.Stahl.Ast (GlobalName(..), LocalName(..))
+import qualified Language.Stahl.Ast as Ast
 import qualified Language.Stahl.Ast.Holed as Holed
-import Language.Stahl.Error (Error(..), astError)
-import Language.Stahl.Util (Location)
-import Language.Stahl.Util.MonadNonfatal (MonadNonfatal(..), mapFatalsToNonfatals)
+import Language.Stahl.Env (lookupTy, lookupVal)
+import qualified Language.Stahl.Env as Env
+import Language.Stahl.Util (Location, convertConstM)
 
-type Decl = G.Decl HoledIExprCustom (Const Void) (Maybe Location) (Maybe Location)
-type Expr = G.Expr HoledIExprCustom (Maybe Location)
+type Decl = Ast.Decl HoledIExprCustom (Const Void) (Maybe Location) (Maybe Location)
+type Env = Env.Env HoledIExprCustom (Maybe Location)
+type Expr = Ast.Expr HoledIExprCustom (Maybe Location)
 
 data HoledIExprCustom expr
   = Hole ByteString
   | ImplicitApp expr expr
   | ImplicitLam LocalName expr
   | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)
-  deriving Show
+  deriving (Functor, Foldable, Show, Traversable)
 
-addImplicitApps :: Holed.Decl -> m Decl
-addImplicitApps = undefined
+addImplicitApps :: MonadReader Env m => Holed.Decl -> m Decl
+addImplicitApps = Ast.traverseCustomDecl helper convertConstM pure pure
+  where helper (Holed.Hole bs) = pure $ Hole bs
+        helper (Holed.ImplicitLam n b) = pure $ ImplicitLam n b
+        helper (Holed.ImplicitPi n a r es) = pure $ ImplicitPi n a r es
