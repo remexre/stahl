@@ -1,6 +1,7 @@
 module Language.Stahl.Util
   ( Location(..)
   , col
+  , _Compose
   , _Const
   , colStart
   , colEnd
@@ -12,6 +13,7 @@ module Language.Stahl.Util
   , lineStart
   , lineEnd
   , printError
+  , repeatM
   , startPoint
   , takeWhileBS
   , whenM_
@@ -25,6 +27,7 @@ import Control.Monad (void)
 import qualified Data.ByteString.UTF8 as BS
 import Data.Bifunctor (Bifunctor(..))
 import Data.ByteString.UTF8 (ByteString)
+import Data.Functor.Compose (Compose(..))
 import Data.Functor.Const (Const(..))
 import System.Console.ANSI
   ( Color(Red)
@@ -80,6 +83,10 @@ wholeFile path src = Span path 0 0 l c
         lastOr [x] _ = x
         lastOr (h:t) y = lastOr t y
 
+-- |An 'Iso'' between a 'Compose functor and the value inside it.
+_Compose :: Iso' (Compose f g x) (f (g x))
+_Compose = iso getCompose Compose
+
 -- |An 'Iso'' between a 'Const' functor and the value inside it.
 _Const :: Iso' (Const a b) a
 _Const = iso getConst Const
@@ -101,6 +108,9 @@ printError err = do
     hPutStr stderr "\n"
   where if' True b = b
         if' False _ = pure ()
+
+repeatM :: Monad m => m Bool -> m ()
+repeatM act = act >>= \case { True -> repeatM act; False -> pure () }
 
 takeWhileBS :: (Char -> Bool) -> ByteString -> ByteString
 takeWhileBS pred bs = BS.take (len bs) bs

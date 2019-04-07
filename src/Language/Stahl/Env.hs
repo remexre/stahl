@@ -14,7 +14,7 @@ import Control.Monad.Reader.Class (MonadReader(..))
 import Data.ByteString.UTF8 (ByteString)
 import Data.Default (Default(..))
 import Data.Map (Map)
-import Language.Stahl.Ast (Expr(..), LocalName(..))
+import Language.Stahl.Ast (Expr(..), GlobalName(..), LocalName(..))
 import Language.Stahl.Error (Error, ErrorKind(..), mkError)
 import Language.Stahl.Modules.Types (LibName(..))
 import Language.Stahl.Util (Location(..))
@@ -59,6 +59,10 @@ envLookup' lens n loc env =
   case filter (\entry -> n == entry^.name) (env^.locals) of
     h:_ -> pure (h^.lens)
     [] -> fatal (mkError (VariableNotInScope n) loc)
+
+instance EnvName GlobalName where
+  lookupTy (GlobalName (l, ms, n)) loc = envLookup' ty n loc =<< ask
+  lookupVal (GlobalName (l, ms, n)) loc = envLookup' val n loc =<< ask
 
 instance EnvName LocalName where
   lookupTy (LocalName n) loc = envLookup' ty n loc =<< ask

@@ -25,6 +25,9 @@ library
     , Language.Stahl.Modules.FromValue
     , Language.Stahl.Modules.Types
     , Language.Stahl.Parser
+    , Language.Stahl.TyCk.Generator
+    , Language.Stahl.TyCk.Solver
+    , Language.Stahl.TyCk.Types
     , Language.Stahl.Util.LensedState
     , Language.Stahl.Util.Value
     , Language.Stahl.Value
@@ -60,7 +63,16 @@ library
     , TupleSections
     , TypeOperators
     , ViewPatterns
-  other-extensions: RankNTypes
+  other-extensions:
+      DeriveGeneric
+    , FunctionalDependencies
+    , GADTs
+    , GeneralizedNewtypeDeriving
+    , MultiParamTypeClasses
+    , Rank2Types
+    , RankNTypes
+    , StandaloneDeriving
+    , UndecidableInstances
 
 executable stahl
   main-is: Main.hs

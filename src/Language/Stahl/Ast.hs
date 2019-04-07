@@ -5,6 +5,7 @@ module Language.Stahl.Ast
   , Expr(..)
   , GlobalName(..)
   , LocalName(..)
+  , custom
   , declAnnot
   , exprAnnot
   , mapCustomDecl
@@ -16,7 +17,7 @@ module Language.Stahl.Ast
   , visitExpr
   ) where
 
-import Control.Lens (Lens', lens)
+import Control.Lens (Lens', Prism', lens, prism)
 import Control.Monad ((<=<))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.UTF8 as BS
@@ -100,6 +101,12 @@ deriving instance (Eq a, Eq (c (Expr c a))) => Eq (Expr c a)
 
 instance Show (c (Expr c a)) => Show (Expr c a) where
   show = showPrec 0
+
+custom :: Prism' (Expr c a) (c (Expr c a), a)
+custom = prism from to
+  where from (c, a) = CustomExpr c a
+        to (CustomExpr c a) = Right (c, a)
+        to expr = Left expr
 
 showLams :: Show (c (Expr c a)) => Expr c a -> String
 showLams (Lam (LocalName n) b _) = " " <> BS.toString n <> showLams b

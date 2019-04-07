@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving, MultiParamTypeClasses, Rank2Types,
+{-# LANGUAGE GeneralizedNewtypeDeriving, MultiParamTypeClasses, Rank2Types,
              StandaloneDeriving, UndecidableInstances #-}
 
 module Language.Stahl.Util.LensedState
