@@ -1,10 +1,12 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 
 module Main (main) where
 
 import Control.Monad ((<=<), void)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (runReader)
+import Control.Monad.Writer (execWriter)
+import Control.Monad.Writer.Class (MonadWriter(..))
 import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.UTF8 (ByteString, fromString)
 import Data.Default (Default(..))
@@ -13,6 +15,7 @@ import Data.Functor.Const (Const(..))
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import Language.Stahl
+import Language.Stahl.Ast (traverseExpr)
 import Language.Stahl.Modules (loadLibMeta)
 import Language.Stahl.TyCk (UnifVar)
 import Language.Stahl.Util
@@ -29,7 +32,22 @@ main :: IO ()
 main = defaultMain tests
 
 tests = testGroup "Tests"
-  [ testGroup "Parser"
+  [ testGroup "AST"
+    [ testGroup "traverseExpr"
+      [ testCase "((fn (x) x) (fun (TYPE) TYPE))" $ do
+          let helper expr = tell (show expr <> "\n") *> pure expr
+              w = execWriter (traverseExpr helper exampleIdOfTyToTy)
+              expected = [ "x"
+                         , "(fn (x) x)"
+                         , "#TypeOfTypes#"
+                         , "#TypeOfTypes#"
+                         , "(pi ((_ #TypeOfTypes#)) #TypeOfTypes#)"
+                         , "((fn (x) x) (pi ((_ #TypeOfTypes#)) #TypeOfTypes#))"
+                         ]
+          assertEqual "" (unlines expected) w
+      ]
+    ]
+  , testGroup "Parser"
     [ testGroup "Properties"
       [ testProperty "parse . show == id" $
         \value -> Just value == (parseOne . fromString $ show value)
@@ -49,14 +67,8 @@ tests = testGroup "Tests"
     ]
   , testGroup "Typechecker"
     [ testCase "((fn (x) x) (fun (TYPE) TYPE)) : TYPE" $ do
-        let loc = Just defaultLoc
-        let idL = Lam (LocalName "x") (Var (LocalName "x") loc) loc
-        let ty = Builtin TypeOfTypes loc
-        let pi = Pi Nothing ty ty Seq.empty loc
-        let expr :: Expr (Const UnifVar) (Maybe Location)
-            expr = App idL pi loc
-        res <- must . flip runReader def . runNonfatalT $ tyck expr Nothing
-        assertEqual "" res (expr, ty)
+        res <- must . flip runReader def . runNonfatalT $ tyck exampleIdOfTyToTy Nothing
+        assertEqual "" (exampleIdOfTyToTy, exampleTy) res
     ]
   , testGroup "Modules"
     [ testCase "Loads std's lib.stahld" $ do
@@ -99,6 +111,15 @@ tests = testGroup "Tests"
 
 defaultLoc :: Location
 defaultLoc = Span "<test:tests>" 0 0 0 0
+
+exampleIdOfTyToTy :: Expr (Const UnifVar) (Maybe Location)
+exampleIdOfTyToTy = App idL pi loc
+  where loc = Just defaultLoc
+        idL = Lam (LocalName "x") (Var (LocalName "x") loc) loc
+        pi = Pi Nothing exampleTy exampleTy Seq.empty loc
+
+exampleTy :: Expr (Const UnifVar) (Maybe Location)
+exampleTy = Builtin TypeOfTypes (Just defaultLoc)
 
 must :: Show e => Either [e] a -> IO a
 must (Left err) = assertFailure ("Error: " <> unlines (map show err))

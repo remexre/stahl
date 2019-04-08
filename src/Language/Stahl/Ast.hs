@@ -14,10 +14,11 @@ module Language.Stahl.Ast
   , mapCustomExpr
   , traverseCustomExpr
   , traverseCustomExpr'
+  , traverseExpr
   , visitExpr
   ) where
 
-import Control.Lens (Lens', Prism', lens, prism)
+import Control.Lens (Lens', Prism', Traversal', lens, prism)
 import Control.Monad ((<=<))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.UTF8 as BS
@@ -128,7 +129,7 @@ showPrec _ (CustomExpr c _)      = "(" <> show c <> ")"
 showPrec 0 (App e1 e2 _)         = "(" <> showPrec 1 e1 <> " " <> showPrec 0 e2 <> ")"
 showPrec _ (App e1 e2 _)         = showPrec 1 e1 <> " " <> showPrec 0 e2
 showPrec _ (Atom n _)            = "#" <> show n <> "#"
-showPrec _ (Builtin b _)         = show b
+showPrec _ (Builtin b _)         = "#" <> show b <> "#"
 showPrec _ (Handle eff e1 e2 _)  = undefined
 showPrec _ e@(Lam _ _ _)         = "(fn (" <> showLams e
 showPrec _ (Perform eff b _)     = undefined
@@ -162,6 +163,20 @@ mapCustomExpr :: (Traversable c, Traversable c')
               -> (a -> a')
               -> Expr c a -> Expr c' a'
 mapCustomExpr fC fA = runIdentity . traverseCustomExpr (Identity . fC) (Identity . fA)
+
+traverseExpr :: Traversable c => Traversal' (Expr c a) (Expr c a)
+traverseExpr f (CustomExpr c a) = CustomExpr <$> traverse f c <*> pure a
+traverseExpr f (App e1 e2 a) =
+  App <$> traverseExpr f e1 <*> traverseExpr f e2 <*> pure a
+traverseExpr f (Atom n a) = f $ Atom n a
+traverseExpr f (Builtin b a) = f $ Builtin b a
+traverseExpr f (Handle eff e1 e2 a) =
+  Handle eff <$> traverseExpr f e1 <*> traverseExpr f e2 <*> pure a
+traverseExpr f (Lam n b a) = Lam n <$> traverseExpr f b <*> pure a
+traverseExpr f (Perform eff b a) = Perform eff <$> traverseExpr f b <*> pure a
+traverseExpr f (Pi n t1 t2 effs a) =
+  Pi n <$> traverseExpr f t1 <*> traverseExpr f t2 <*> pure effs <*> pure a
+traverseExpr f (Var n a) = f $ Var n a
 
 traverseCustomExpr :: (Traversable c, Traversable c', Monad m)
                => (c (Expr c' a') -> m (c' (Expr c' a')))

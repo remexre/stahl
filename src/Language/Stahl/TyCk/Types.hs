@@ -7,13 +7,14 @@ module Language.Stahl.TyCk.Types
   , TyCkExprParams(..)
   , UnifVar
   , freshUnifVar
+  , var'
   ) where
 
-import Control.Lens (_Left, Getter, Prism', to)
+import Control.Lens (_Left, Getter, Prism', to, pre)
 import Data.Default (Default(..))
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Const (Const(..))
-import Language.Stahl.Ast (Expr(..))
+import Language.Stahl.Ast (Expr(..), custom)
 import Language.Stahl.Util (Location, _Compose, _Const)
 import Language.Stahl.Util.MonadGensym (MonadGensym(..))
 
@@ -26,7 +27,7 @@ instance Show UnifVar where
   show (UnifVar n) = "?" <> show n
 
 freshUnifVar :: MonadGensym m => m UnifVar
-freshUnifVar = undefined
+freshUnifVar = UnifVar <$> genInt
 
 -- |Constraints that appear in typechecking.
 data Constraint c a
@@ -65,12 +66,16 @@ instance TyCkExprAnnot (Maybe Location) where
   loc = id
 
 -- |Legal parameters for the AST being typechecked.
-class TyCkExprAnnot a => TyCkExprParams c a where
+class (TyCkExprAnnot a, Traversable c) => TyCkExprParams c a where
   -- |A 'Prism' for creating and inspecting logic variables.
   var :: Prism' (c (Expr c a)) UnifVar
 
 instance TyCkExprAnnot a => TyCkExprParams (Const UnifVar) a where
   var = _Const
 
-instance TyCkExprAnnot a => TyCkExprParams (Compose (Either UnifVar) c) a where
+instance (TyCkExprAnnot a, Traversable c) => TyCkExprParams (Compose (Either UnifVar) c) a where
   var = _Compose._Left
+
+-- |A 'Getter' for the actual variable in a logic variable's AST.
+var' :: TyCkExprParams c a => Getter (Expr c a) (Maybe UnifVar)
+var' = pre (custom.to fst.var)

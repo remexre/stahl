@@ -18,8 +18,7 @@ import Language.Stahl.TyCk.Types
   , TyCkExprParams(..)
   , freshUnifVar
   )
-import Language.Stahl.Util (Location, _Compose, _Const, repeatM)
-import Language.Stahl.Util.MonadGensym (MonadGensym(..), runGensymT)
+import Language.Stahl.Util.MonadGensym (MonadGensym(..))
 import Language.Stahl.Util.MonadNonfatal (MonadNonfatal(..))
 
 -- |Writes an equality constraint.
