@@ -15,7 +15,7 @@ import Data.Functor.Const (Const(..))
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import Language.Stahl
-import Language.Stahl.Ast (traverseExpr)
+import Language.Stahl.Ast (rewriteExpr)
 import Language.Stahl.Modules (loadLibMeta)
 import Language.Stahl.TyCk (UnifVar)
 import Language.Stahl.Util
@@ -33,18 +33,35 @@ main = defaultMain tests
 
 tests = testGroup "Tests"
   [ testGroup "AST"
-    [ testGroup "traverseExpr"
-      [ testCase "((fn (x) x) (fun (TYPE) TYPE))" $ do
-          let helper expr = tell (show expr <> "\n") *> pure expr
-              w = execWriter (traverseExpr helper exampleIdOfTyToTy)
-              expected = [ "x"
-                         , "(fn (x) x)"
-                         , "#TypeOfTypes#"
-                         , "#TypeOfTypes#"
-                         , "(pi ((_ #TypeOfTypes#)) #TypeOfTypes#)"
-                         , "((fn (x) x) (pi ((_ #TypeOfTypes#)) #TypeOfTypes#))"
-                         ]
-          assertEqual "" (unlines expected) w
+    [ testGroup "rewriteExpr"
+      [ testGroup "((fn (x) x) (fun (TYPE) TYPE))"
+        [ testCase "Non-Modifying Traversal" $ do
+            let helper expr = tell (show expr <> "\n") *> pure expr
+                w = execWriter (rewriteExpr helper exampleIdOfTyToTy)
+                expected = [ "((fn (x) x) (fun (#TypeOfTypes#) #TypeOfTypes#))"
+                           , "(fn (x) x)"
+                           , "x"
+                           , "(fun (#TypeOfTypes#) #TypeOfTypes#)"
+                           , "#TypeOfTypes#"
+                           , "#TypeOfTypes#"
+                           ]
+            assertEqual "" (unlines expected) w
+        , testCase "Rewrite App to (fn (x) x)" $ do
+            let helper expr = tell (show expr <> "\n") *> pure (helper' expr)
+                helper' (App _ _ _) = exampleId
+                helper' expr = expr
+                w = execWriter (rewriteExpr helper exampleIdOfTyToTy)
+                expected = [ "((fn (x) x) (fun (#TypeOfTypes#) #TypeOfTypes#))"
+                           , "x"
+                           ]
+            assertEqual "" (unlines expected) w
+        , testCase "Rewrite to TYPE" $ do
+            let helper expr = tell (show expr <> "\n") *> pure exampleTy
+                w = execWriter (rewriteExpr helper exampleIdOfTyToTy)
+                expected = [ "((fn (x) x) (fun (#TypeOfTypes#) #TypeOfTypes#))"
+                           ]
+            assertEqual "" (unlines expected) w
+        ]
       ]
     ]
   , testGroup "Parser"
@@ -112,11 +129,13 @@ tests = testGroup "Tests"
 defaultLoc :: Location
 defaultLoc = Span "<test:tests>" 0 0 0 0
 
-exampleIdOfTyToTy :: Expr (Const UnifVar) (Maybe Location)
-exampleIdOfTyToTy = App idL pi loc
+exampleId :: Expr (Const UnifVar) (Maybe Location)
+exampleId = Lam (LocalName "x") (Var (LocalName "x") loc) loc
   where loc = Just defaultLoc
-        idL = Lam (LocalName "x") (Var (LocalName "x") loc) loc
-        pi = Pi Nothing exampleTy exampleTy Seq.empty loc
+
+exampleIdOfTyToTy :: Expr (Const UnifVar) (Maybe Location)
+exampleIdOfTyToTy = App exampleId pi (Just defaultLoc)
+  where pi = Pi Nothing exampleTy exampleTy Seq.empty (Just defaultLoc)
 
 exampleTy :: Expr (Const UnifVar) (Maybe Location)
 exampleTy = Builtin TypeOfTypes (Just defaultLoc)

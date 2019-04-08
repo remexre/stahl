@@ -14,11 +14,11 @@ module Language.Stahl.Ast
   , mapCustomExpr
   , traverseCustomExpr
   , traverseCustomExpr'
-  , traverseExpr
+  , rewriteExpr
   , visitExpr
   ) where
 
-import Control.Lens (Lens', Prism', Traversal', lens, prism)
+import Control.Lens (Lens', Prism', lens, prism)
 import Control.Monad ((<=<))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.UTF8 as BS
@@ -113,11 +113,9 @@ showLams :: Show (c (Expr c a)) => Expr c a -> String
 showLams (Lam (LocalName n) b _) = " " <> BS.toString n <> showLams b
 showLams e                       = ") " <> showPrec 0 e <> ")"
 
-showPis :: Show (c (Expr c a)) => Expr c a -> String
-showPis (Pi (Just (LocalName n)) t1 t2 Empty _) =
-  " (" <> BS.toString n <> " " <> showPrec 0 t1 <> showLams t2
-showPis (Pi Nothing t1 t2 Empty _) = " (_ " <> showPrec 0 t1 <> showLams t2
-showPis e = ") " <> showPrec 0 e <> ")"
+showFun :: Show (c (Expr c a)) => Expr c a -> String
+showFun (Pi Nothing t1 t2 Empty _) = " " <> showPrec 0 t1 <> showLams t2
+showFun e = ") " <> showPrec 0 e <> ")"
 
 -- |Precedence aware 'show' for 'Expr's.
 --
@@ -125,17 +123,17 @@ showPis e = ") " <> showPrec 0 e <> ")"
 --  - 0 -- default
 --  - 1 -- LHS of an App
 showPrec :: Show (c (Expr c a)) => Int -> Expr c a -> String
-showPrec _ (CustomExpr c _)      = "(" <> show c <> ")"
-showPrec 0 (App e1 e2 _)         = "(" <> showPrec 1 e1 <> " " <> showPrec 0 e2 <> ")"
-showPrec _ (App e1 e2 _)         = showPrec 1 e1 <> " " <> showPrec 0 e2
-showPrec _ (Atom n _)            = "#" <> show n <> "#"
-showPrec _ (Builtin b _)         = "#" <> show b <> "#"
-showPrec _ (Handle eff e1 e2 _)  = undefined
-showPrec _ e@(Lam _ _ _)         = "(fn (" <> showLams e
-showPrec _ (Perform eff b _)     = undefined
-showPrec _ (Pi Nothing t1 t2 Empty _) = "(fun ((_ " <> showPrec 0 t1 <> ")" <> showPis t2
-showPrec _ (Pi n t1 t2 effs _)   = undefined
-showPrec _ (Var (LocalName n) _) = BS.toString n
+showPrec _ (CustomExpr c _)           = "(" <> show c <> ")"
+showPrec 0 (App e1 e2 _)              = "(" <> showPrec 1 e1 <> " " <> showPrec 0 e2 <> ")"
+showPrec _ (App e1 e2 _)              = showPrec 1 e1 <> " " <> showPrec 0 e2
+showPrec _ (Atom n _)                 = "#" <> show n <> "#"
+showPrec _ (Builtin b _)              = "#" <> show b <> "#"
+showPrec _ (Handle eff e1 e2 _)       = undefined
+showPrec _ (Lam (LocalName n) e _)    = "(fn (" <> BS.toString n <> showLams e
+showPrec _ (Perform eff b _)          = undefined
+showPrec _ (Pi Nothing t1 t2 Empty _) = "(fun (" <> showPrec 0 t1 <> showFun t2
+showPrec _ (Pi n t1 t2 effs _)        = undefined
+showPrec _ (Var (LocalName n) _)      = BS.toString n
 
 exprAnnot :: Lens' (Expr c a) a
 exprAnnot = lens get set
@@ -164,19 +162,20 @@ mapCustomExpr :: (Traversable c, Traversable c')
               -> Expr c a -> Expr c' a'
 mapCustomExpr fC fA = runIdentity . traverseCustomExpr (Identity . fC) (Identity . fA)
 
-traverseExpr :: Traversable c => Traversal' (Expr c a) (Expr c a)
-traverseExpr f (CustomExpr c a) = CustomExpr <$> traverse f c <*> pure a
-traverseExpr f (App e1 e2 a) =
-  App <$> traverseExpr f e1 <*> traverseExpr f e2 <*> pure a
-traverseExpr f (Atom n a) = f $ Atom n a
-traverseExpr f (Builtin b a) = f $ Builtin b a
-traverseExpr f (Handle eff e1 e2 a) =
-  Handle eff <$> traverseExpr f e1 <*> traverseExpr f e2 <*> pure a
-traverseExpr f (Lam n b a) = Lam n <$> traverseExpr f b <*> pure a
-traverseExpr f (Perform eff b a) = Perform eff <$> traverseExpr f b <*> pure a
-traverseExpr f (Pi n t1 t2 effs a) =
-  Pi n <$> traverseExpr f t1 <*> traverseExpr f t2 <*> pure effs <*> pure a
-traverseExpr f (Var n a) = f $ Var n a
+rewriteExpr :: (Traversable c, Monad m) => (Expr c a -> m (Expr c a)) -> (Expr c a -> m (Expr c a))
+rewriteExpr f = helper f <=< f
+  where helper f (CustomExpr c a) = CustomExpr <$> traverse f c <*> pure a
+        helper f (App e1 e2 a) =
+          App <$> rewriteExpr f e1 <*> rewriteExpr f e2 <*> pure a
+        helper f (Atom n a) = pure $ Atom n a
+        helper f (Builtin b a) = pure $ Builtin b a
+        helper f (Handle eff e1 e2 a) =
+          Handle eff <$> rewriteExpr f e1 <*> rewriteExpr f e2 <*> pure a
+        helper f (Lam n b a) = Lam n <$> rewriteExpr f b <*> pure a
+        helper f (Perform eff b a) = Perform eff <$> rewriteExpr f b <*> pure a
+        helper f (Pi n t1 t2 effs a) =
+          Pi n <$> rewriteExpr f t1 <*> rewriteExpr f t2 <*> pure effs <*> pure a
+        helper f (Var n a) = pure $ Var n a
 
 traverseCustomExpr :: (Traversable c, Traversable c', Monad m)
                => (c (Expr c' a') -> m (c' (Expr c' a')))
