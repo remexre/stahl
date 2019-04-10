@@ -5,9 +5,9 @@ module Language.Stahl.Ast
   , Expr(..)
   , GlobalName(..)
   , LocalName(..)
-  , custom
   , declAnnot
   , exprAnnot
+  , exprCustom
   , mapCustomDecl
   , traverseCustomDecl
   , traverseCustomDecl'
@@ -24,16 +24,17 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.UTF8 as BS
 import Data.Functor.Identity (Identity(..))
 import Data.Sequence (Seq(..))
-import Language.Stahl.Ast.Builtins (Builtin(..))
+import Language.Stahl.Internal.Ast.Builtins (Builtin(..))
+import Language.Stahl.Internal.Value (Value(..))
+import Language.Stahl.Internal.Util.Value (PP(..))
 
 data Decl cE cD aE aD
   = CustomDecl (cD (Decl cE cD aE aD)) aD
   | Def LocalName (Expr cE aE) (Expr cE aE) aD
   | DefTy LocalName (Expr cE aE) (Seq (LocalName, Expr cE aE)) aD
-  deriving (Foldable, Functor, Traversable)
 
-deriving instance (Eq aD, Eq (cD (Decl cE cD aE aD)), Eq (Expr cE aE)) => Eq (Decl cE cD aE aD)
-deriving instance (Show aD, Show (cD (Decl cE cD aE aD)), Show (cE (Expr cE aE))) => Show (Decl cE cD aE aD)
+deriving instance (Eq aD, Eq aE, Eq (cD (Decl cE cD aE aD)), Eq (Expr cE aE)) => Eq (Decl cE cD aE aD)
+deriving instance (Show aD, Show aE, Show (cD (Decl cE cD aE aD)), Show (cE (Expr cE aE))) => Show (Decl cE cD aE aD)
 
 declAnnot :: Lens' (Decl cE cD aE aD) aD
 declAnnot = lens get set
@@ -96,44 +97,27 @@ data Expr c a
   | Perform GlobalName (Expr c a) a
   | Pi (Maybe LocalName) (Expr c a) (Expr c a) (Seq GlobalName) a
   | Var LocalName a
-  deriving (Foldable, Functor, Traversable)
 
 deriving instance (Eq a, Eq (c (Expr c a))) => Eq (Expr c a)
+deriving instance (Show a, Show (c (Expr c a))) => Show (Expr c a)
 
-instance Show (c (Expr c a)) => Show (Expr c a) where
-  show = showPrec 0
+instance PP (c (Expr c a)) => PP (Expr c a) where
+  pp (CustomExpr c _) = pp c
+  pp (App l r _) = helper l (Cons Nothing (pp r) (Nil Nothing))
+    where helper :: Expr c a -> Value -> Value
+          helper (App l' r' _) t = helper l' (Cons Nothing (pp r') t)
+          helper e             t = Cons Nothing (pp e) t
+  pp (Atom n _) = Symbol Nothing (BS.fromString ("#" <> show n <> "#"))
+  pp (Builtin b _) = Symbol Nothing (BS.fromString ("#" <> show b <> "#"))
+  -- pp (Handle eff e1 e2 _)       = undefined
+  pp (Lam n e _) = pp [Symbol Nothing "fn", pp n, pp e]
+  -- pp (Perform eff b _)          = undefined
+  -- pp (Pi Nothing t1 t2 Empty _) = "(fun (" <> showPrec 0 t1 <> showFun t2
+  -- pp (Pi n t1 t2 effs _)        = undefined
+  pp (Var n _) = pp n
 
-custom :: Prism' (Expr c a) (c (Expr c a), a)
-custom = prism from to
-  where from (c, a) = CustomExpr c a
-        to (CustomExpr c a) = Right (c, a)
-        to expr = Left expr
-
-showLams :: Show (c (Expr c a)) => Expr c a -> String
-showLams (Lam (LocalName n) b _) = " " <> BS.toString n <> showLams b
-showLams e                       = ") " <> showPrec 0 e <> ")"
-
-showFun :: Show (c (Expr c a)) => Expr c a -> String
-showFun (Pi Nothing t1 t2 Empty _) = " " <> showPrec 0 t1 <> showLams t2
-showFun e = ") " <> showPrec 0 e <> ")"
-
--- |Precedence aware 'show' for 'Expr's.
---
--- Precedence levels are:
---  - 0 -- default
---  - 1 -- LHS of an App
-showPrec :: Show (c (Expr c a)) => Int -> Expr c a -> String
-showPrec _ (CustomExpr c _)           = "(" <> show c <> ")"
-showPrec 0 (App e1 e2 _)              = "(" <> showPrec 1 e1 <> " " <> showPrec 0 e2 <> ")"
-showPrec _ (App e1 e2 _)              = showPrec 1 e1 <> " " <> showPrec 0 e2
-showPrec _ (Atom n _)                 = "#" <> show n <> "#"
-showPrec _ (Builtin b _)              = "#" <> show b <> "#"
-showPrec _ (Handle eff e1 e2 _)       = undefined
-showPrec _ (Lam (LocalName n) e _)    = "(fn (" <> BS.toString n <> showLams e
-showPrec _ (Perform eff b _)          = undefined
-showPrec _ (Pi Nothing t1 t2 Empty _) = "(fun (" <> showPrec 0 t1 <> showFun t2
-showPrec _ (Pi n t1 t2 effs _)        = undefined
-showPrec _ (Var (LocalName n) _)      = BS.toString n
+instance PP LocalName where
+  pp (LocalName n) = Symbol Nothing n
 
 exprAnnot :: Lens' (Expr c a) a
 exprAnnot = lens get set
@@ -155,6 +139,12 @@ exprAnnot = lens get set
         set (Perform eff b _)    a = Perform eff b a
         set (Pi n t1 t2 effs _)  a = Pi n t1 t2 effs a
         set (Var n _)            a = Var n a
+
+exprCustom :: Prism' (Expr c a) (c (Expr c a), a)
+exprCustom = prism from to
+  where from (c, a) = CustomExpr c a
+        to (CustomExpr c a) = Right (c, a)
+        to expr = Left expr
 
 mapCustomExpr :: (Traversable c, Traversable c')
               => (c (Expr c' a') -> c' (Expr c' a'))

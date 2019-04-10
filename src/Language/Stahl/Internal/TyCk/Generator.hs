@@ -1,5 +1,5 @@
 -- |The constraint-generating parts of the typechecker.
-module Language.Stahl.TyCk.Generator
+module Language.Stahl.Internal.TyCk.Generator
   ( tyckExpr
   ) where
 
@@ -9,17 +9,17 @@ import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Language.Stahl.Ast (Expr(..))
-import Language.Stahl.Ast.Builtins (Builtin(..))
-import Language.Stahl.Env (Env(..), extendEnvWith, lookupTy)
 import Language.Stahl.Error (Error, ErrorKind(..), mkError)
-import Language.Stahl.TyCk.Types
+import Language.Stahl.Internal.Ast.Builtins (Builtin(..))
+import Language.Stahl.Internal.Env (Env(..), extendEnvWith, lookupTy)
+import Language.Stahl.Internal.TyCk.Types
   ( Constraint(..)
   , TyCkExprAnnot(..)
   , TyCkExprParams(..)
   , freshUnifVar
   )
-import Language.Stahl.Util.MonadGensym (MonadGensym(..))
-import Language.Stahl.Util.MonadNonfatal (MonadNonfatal(..))
+import Language.Stahl.Internal.Util.MonadGensym (MonadGensym(..))
+import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
 
 -- |Writes an equality constraint.
 (=~=) :: MonadWriter (Seq (Constraint c a)) m => Expr c a -> Expr c a -> m ()

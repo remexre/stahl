@@ -1,6 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
-
-module Language.Stahl.Value
+module Language.Stahl.Internal.Value
   ( Value(..)
   , isSymbolish
   , location
@@ -14,17 +12,15 @@ import Data.ByteString.UTF8 (ByteString)
 import Data.Char (toLower)
 import Data.Int (Int64)
 import Data.List (elemIndex)
-import GHC.Generics (Generic)
-import Language.Stahl.Util (Location(..))
+import Language.Stahl.Internal.Util (Location(..))
 
 -- |A parsed value.
 data Value
-  = Cons   !Location !Value !Value
-  | Int    !Location !Int64
-  | String !Location !ByteString
-  | Symbol !Location !ByteString
-  | Nil    !Location
-  deriving Generic
+  = Cons   !(Maybe Location) !Value !Value
+  | Int    !(Maybe Location) !Int64
+  | String !(Maybe Location) !ByteString
+  | Symbol !(Maybe Location) !ByteString
+  | Nil    !(Maybe Location)
 
 escapeChar :: Char -> String
 escapeChar '"' = "\\\""
@@ -63,7 +59,7 @@ symbolishAsNumber = parseSign . BS.fromString . map toLower . BS.toString
           else
             parseBase s
 
-location :: Lens' Value Location
+location :: Lens' Value (Maybe Location)
 location = lens get set
   where get (Cons l _ _) = l
         get (Int l _)    = l

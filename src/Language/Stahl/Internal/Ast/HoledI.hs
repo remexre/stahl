@@ -1,9 +1,9 @@
 -- |Declarations and expressions as they appear in the source code, with
 -- holes, as well as implicits pis, lambdas, and applications.
-module Language.Stahl.Ast.HoledI
+module Language.Stahl.Internal.Ast.HoledI
   ( Decl(..)
   , Expr(..)
-  , HoledIExprCustom(..)
+  , ExprCustom(..)
   , addImplicitApps
   ) where
 
@@ -14,16 +14,16 @@ import Data.Sequence (Seq(..))
 import Data.Void (Void)
 import Language.Stahl.Ast (GlobalName(..), LocalName(..))
 import qualified Language.Stahl.Ast as Ast
-import qualified Language.Stahl.Ast.Holed as Holed
-import Language.Stahl.Env (lookupTy, lookupVal)
-import qualified Language.Stahl.Env as Env
-import Language.Stahl.Util (Location, convertConstM)
+import qualified Language.Stahl.Internal.Env as Env
+import Language.Stahl.Internal.Env (lookupTy, lookupVal)
+import qualified Language.Stahl.Internal.Ast.Holed as Holed
+import Language.Stahl.Internal.Util (Location, convertConstM)
 
-type Decl = Ast.Decl HoledIExprCustom (Const Void) (Maybe Location) (Maybe Location)
-type Env = Env.Env HoledIExprCustom (Maybe Location)
-type Expr = Ast.Expr HoledIExprCustom (Maybe Location)
+type Decl = Ast.Decl ExprCustom (Const Void) (Maybe Location) (Maybe Location)
+type Env = Env.Env ExprCustom (Maybe Location)
+type Expr = Ast.Expr ExprCustom (Maybe Location)
 
-data HoledIExprCustom expr
+data ExprCustom expr
   = Hole ByteString
   | ImplicitApp expr expr
   | ImplicitLam LocalName expr

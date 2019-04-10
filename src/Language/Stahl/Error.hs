@@ -21,24 +21,32 @@ import Control.Monad.Writer (execWriter)
 import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.ByteString.UTF8 (ByteString)
 import qualified Data.ByteString.UTF8 as BS
-import Language.Stahl.Util (Location(..))
-import Language.Stahl.Value (Value, location)
+import Data.Foldable (toList)
+import Data.Sequence (Seq)
+import Language.Stahl.Internal.Util (Location(..))
+import Language.Stahl.Internal.Value (Value, location)
 
 -- |The kind of an error.
 data ErrorKind
-  = CouldntParseFile !FilePath
+  = ConstraintFailed !String
+  | CouldntParseFile !FilePath
   | DuplicateEntry !ByteString
   | InvalidAST !ByteString !Value
   | MissingValue !ByteString
-  | Other !ByteString
+  | Other !String
+  | UnsolvedConstraints !(Seq ByteString)
   | VariableNotInScope !ByteString
+  deriving Eq
 
 instance Show ErrorKind where
+  show (ConstraintFailed c) = "couldn't solve constraint " <> c
   show (CouldntParseFile path) = "couldn't parse " <> show path
   show (DuplicateEntry name) = "duplicate " <> BS.toString name <> " entry"
   show (InvalidAST wanted value) = "invalid " <> BS.toString wanted <> ": " <> show value
   show (MissingValue wanted) = "missing " <> BS.toString wanted
-  show (Other bs) = BS.toString bs
+  show (Other bs) = bs
+  show (UnsolvedConstraints cs) = "unsolved constraints after typechecking:" <> cs'
+    where cs' = unlines (BS.toString <$> toList cs)
   show (VariableNotInScope var) = "variable not in scope: " <> BS.toString var
 
 -- |An error, with an associated 'Location' and (optionally) a cause.
@@ -70,7 +78,7 @@ instance Show Error where
 
 -- |Creates an 'InvalidAST' error.
 astError :: ByteString -> Value -> Error
-astError wanted val = mkError (InvalidAST wanted val) (Just (val^.location))
+astError wanted val = mkError (InvalidAST wanted val) (val^.location)
 
 -- |Chains an error to an 'ExceptT'.
 chain :: (Monad m, ToError e) => ExceptT e m a -> (Maybe Location, ErrorKind) -> ExceptT Error m a
@@ -82,8 +90,8 @@ chain' (Just x) _ = pure x
 chain' Nothing (loc, kind) = undefined
 
 -- |Creates an 'DuplicateEntry' error.
-duplicateEntryError :: ByteString -> Location -> Error
-duplicateEntryError wanted loc = mkError (DuplicateEntry wanted) (Just loc)
+duplicateEntryError :: ByteString -> Maybe Location -> Error
+duplicateEntryError wanted loc = mkError (DuplicateEntry wanted) loc
 
 -- |Creates an 'MissingValue' error.
 missingError :: ByteString -> Location -> Error

@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, Rank2Types, UndecidableInstances #-}
 
 -- |Types used in the typechecker.
-module Language.Stahl.TyCk.Types
+module Language.Stahl.Internal.TyCk.Types
   ( Constraint(..)
   , TyCkExprAnnot(..)
   , TyCkExprParams(..)
@@ -11,17 +11,23 @@ module Language.Stahl.TyCk.Types
   ) where
 
 import Control.Lens (_Left, Getter, Prism', to, pre)
+import qualified Data.ByteString.UTF8 as BS
 import Data.Default (Default(..))
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Const (Const(..))
-import Language.Stahl.Ast (Expr(..), custom)
-import Language.Stahl.Util (Location, _Compose, _Const)
-import Language.Stahl.Util.MonadGensym (MonadGensym(..))
+import Language.Stahl.Ast (Expr(..), exprCustom)
+import Language.Stahl.Internal.Util (Location, _Compose, _Const)
+import Language.Stahl.Internal.Util.MonadGensym (MonadGensym(..))
+import Language.Stahl.Internal.Util.Value (PP(..))
+import Language.Stahl.Internal.Value (Value(..))
 
 -- |A unification variable.
 newtype UnifVar
   = UnifVar Int
   deriving Eq
+
+instance PP UnifVar where
+  pp = Symbol Nothing . BS.fromString . show
 
 instance Show UnifVar where
   show (UnifVar n) = "?" <> show n
@@ -78,4 +84,4 @@ instance (TyCkExprAnnot a, Traversable c) => TyCkExprParams (Compose (Either Uni
 
 -- |A 'Getter' for the actual variable in a logic variable's AST.
 var' :: TyCkExprParams c a => Getter (Expr c a) (Maybe UnifVar)
-var' = pre (custom.to fst.var)
+var' = pre (exprCustom.to fst.var)

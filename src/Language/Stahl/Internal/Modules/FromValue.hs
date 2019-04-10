@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
-module Language.Stahl.Modules.FromValue
+module Language.Stahl.Internal.Modules.FromValue
   ( libMetaFromValues
   , moduleHeaderFromValues
   ) where
@@ -19,17 +19,17 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Word (Word)
 import Language.Stahl.Error (Error, astError, duplicateEntryError, missingError)
-import Language.Stahl.Modules.Types (LibMeta(..), LibName(..))
-import Language.Stahl.Util (Location)
-import Language.Stahl.Util.MonadNonfatal (MonadNonfatal(..), mapFatalsToNonfatals)
-import Language.Stahl.Util.Value (valueAsList, valueAsSHL, valueAsSymList)
-import Language.Stahl.Value (Value(..))
+import Language.Stahl.Internal.Modules.Types (LibMeta(..), LibName(..))
+import Language.Stahl.Internal.Util (Location)
+import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..), mapFatalsToNonfatals)
+import Language.Stahl.Internal.Util.Value (valueAsList, valueAsSHL, valueAsSymList)
+import Language.Stahl.Internal.Value (Value(..))
 
 data LibMetaItem
-  = Deps Location (Map ByteString LibName)
-  | Description Location ByteString
-  | Name Location ByteString
-  | Version Location (Word, Word, Word)
+  = Deps !(Maybe Location) !(Map ByteString LibName)
+  | Description !(Maybe Location) !ByteString
+  | Name !(Maybe Location) !ByteString
+  | Version !(Maybe Location) !(Word, Word, Word)
   deriving Show
 
 data LibMetaPartial = LibMetaPartial
@@ -60,7 +60,7 @@ addItem (Description loc d) = setIfMaybe "description" description loc d
 addItem (Name loc n) = setIfMaybe "name" name loc n
 addItem (Version loc v) = setIfMaybe "version" version loc v
 
-setIfMaybe :: (MonadNonfatal Error m, MonadState LibMetaPartial m) => ByteString -> Lens' LibMetaPartial (Maybe a) -> Location -> a -> m ()
+setIfMaybe :: (MonadNonfatal Error m, MonadState LibMetaPartial m) => ByteString -> Lens' LibMetaPartial (Maybe a) -> Maybe Location -> a -> m ()
 setIfMaybe fieldName lens loc val = do
   alreadyPresent <- is _Just <$> use lens
   if alreadyPresent then
@@ -109,7 +109,7 @@ libMetaItemFromValue val = valueAsSHL (astError "library metadata") val >>= \cas
   _ -> fatal (astError "library metadata" val)
 
 depsFromValues :: MonadNonfatal Error m => [Value] -> m (Map ByteString LibName)
-depsFromValues = fmap (Map.fromList . map (\ln -> (Language.Stahl.Modules.Types._name ln, ln))) . mapFatalsToNonfatals depsFromValue
+depsFromValues = fmap (Map.fromList . map (\ln -> (Language.Stahl.Internal.Modules.Types._name ln, ln))) . mapFatalsToNonfatals depsFromValue
 
 depsFromValue :: MonadNonfatal Error m => Value -> m LibName
 depsFromValue val = valueAsList (astError "deps") val >>= \case

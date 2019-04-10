@@ -1,7 +1,7 @@
 {-# LANGUAGE FunctionalDependencies, GADTs, GeneralizedNewtypeDeriving, MultiParamTypeClasses,
              StandaloneDeriving, UndecidableInstances #-}
 
-module Language.Stahl.Util.MonadNonfatal
+module Language.Stahl.Internal.Util.MonadNonfatal
   ( MonadNonfatal(..)
   , NonfatalT(..)
   , mapFatalsToNonfatals
@@ -23,7 +23,7 @@ import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.Writer (WriterT(..))
 import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.Functor.Identity (Identity(..))
-import Language.Stahl.Util.MonadGensym (GensymT(..))
+import Language.Stahl.Internal.Util.MonadGensym (GensymT(..))
 
 newtype NonfatalT e m a = NonfatalT
   { unNonfatalT :: ExceptT () (StateT [e] m) a

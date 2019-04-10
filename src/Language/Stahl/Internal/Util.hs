@@ -1,4 +1,4 @@
-module Language.Stahl.Util
+module Language.Stahl.Internal.Util
   ( Location(..)
   , col
   , _Compose
@@ -14,6 +14,8 @@ module Language.Stahl.Util
   , lineEnd
   , printError
   , repeatM
+  , spanBetween
+  , spanBetween'
   , startPoint
   , takeWhileBS
   , whenM_
@@ -21,7 +23,7 @@ module Language.Stahl.Util
   , writeOrStdout
   ) where
 
-import Control.Lens (Iso', Lens', iso, lens)
+import Control.Lens (Iso', Lens', (^.), iso, lens)
 import Control.Lens.TH (makeLenses)
 import Control.Monad (void)
 import qualified Data.ByteString.UTF8 as BS
@@ -74,6 +76,21 @@ endPoint = lens get set
         get (Span f l c _ _) = (f, l, c)
         set (Point _ _ _) (f, l, c) = Point f l c
         set (Span _ ls cs _ _) (f, le, ce) =  Span f ls cs le ce
+
+-- |Creates a span between the location(s) provided.
+spanBetween :: Maybe Location -> Location -> Location
+spanBetween (Just start) end = Span f ls cs le ce
+  where (f, ls, cs) = start^.startPoint
+        (_, le, ce) = end^.endPoint
+spanBetween Nothing end = end
+
+-- |Creates a span between the location(s) provided.
+spanBetween' :: Maybe Location -> Maybe Location -> Maybe Location
+spanBetween' (Just start) (Just end) = Just $ Span f ls cs le ce
+  where (f, ls, cs) = start^.startPoint
+        (_, le, ce) = end^.endPoint
+spanBetween' start Nothing = start
+spanBetween' Nothing end = end
 
 -- |Returns a 'Location' for the entire file.
 wholeFile :: FilePath -> ByteString -> Location

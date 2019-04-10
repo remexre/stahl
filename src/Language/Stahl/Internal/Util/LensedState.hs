@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, MultiParamTypeClasses, Rank2Types,
              StandaloneDeriving, UndecidableInstances #-}
 
-module Language.Stahl.Util.LensedState
+module Language.Stahl.Internal.Util.LensedState
   ( LensedStateT(..)
   , liftLensedStateT
   , runLensedStateT

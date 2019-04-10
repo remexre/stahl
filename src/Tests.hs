@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, OverloadedStrings, UndecidableInstances #-}
 
 module Main (main) where
 
@@ -7,19 +7,23 @@ import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (runReader)
 import Control.Monad.Writer (execWriter)
 import Control.Monad.Writer.Class (MonadWriter(..))
+import Data.Bifunctor (Bifunctor(..))
 import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.UTF8 (ByteString, fromString)
 import Data.Default (Default(..))
 import Data.Either (fromRight)
 import Data.Functor.Const (Const(..))
+import Data.Functor.Identity (Identity(..))
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import Language.Stahl
 import Language.Stahl.Ast (rewriteExpr)
 import Language.Stahl.Modules (loadLibMeta)
 import Language.Stahl.TyCk (UnifVar)
-import Language.Stahl.Util
-import Language.Stahl.Util.MonadNonfatal (runNonfatalT)
+import qualified Language.Stahl.Internal.Ast.Holed as Holed
+import Language.Stahl.Internal.Util
+import Language.Stahl.Internal.Util.MonadNonfatal (runNonfatal, runNonfatalT)
+import Language.Stahl.Internal.Util.Value (PP(..))
 import Test.QuickCheck.Arbitrary (Arbitrary(..), vector)
 import Test.QuickCheck.Gen (oneof, sized)
 import Test.Tasty
@@ -36,7 +40,7 @@ tests = testGroup "Tests"
     [ testGroup "rewriteExpr"
       [ testGroup "((fn (x) x) (fun (TYPE) TYPE))"
         [ testCase "Non-Modifying Traversal" $ do
-            let helper expr = tell (show expr <> "\n") *> pure expr
+            let helper expr = tell (showPP expr <> "\n") *> pure expr
                 w = execWriter (rewriteExpr helper exampleIdOfTyToTy)
                 expected = [ "((fn (x) x) (fun (#TypeOfTypes#) #TypeOfTypes#))"
                            , "(fn (x) x)"
@@ -47,7 +51,7 @@ tests = testGroup "Tests"
                            ]
             assertEqual "" (unlines expected) w
         , testCase "Rewrite App to (fn (x) x)" $ do
-            let helper expr = tell (show expr <> "\n") *> pure (helper' expr)
+            let helper expr = tell (showPP expr <> "\n") *> pure (helper' expr)
                 helper' (App _ _ _) = exampleId
                 helper' expr = expr
                 w = execWriter (rewriteExpr helper exampleIdOfTyToTy)
@@ -56,18 +60,22 @@ tests = testGroup "Tests"
                            ]
             assertEqual "" (unlines expected) w
         , testCase "Rewrite to TYPE" $ do
-            let helper expr = tell (show expr <> "\n") *> pure exampleTy
+            let helper expr = tell (showPP expr <> "\n") *> pure exampleTy
                 w = execWriter (rewriteExpr helper exampleIdOfTyToTy)
                 expected = [ "((fn (x) x) (fun (#TypeOfTypes#) #TypeOfTypes#))"
                            ]
             assertEqual "" (unlines expected) w
         ]
       ]
+    , testGroup "Properties"
+      [ testProperty "Holed.exprFromValue . pp == id" $
+        \expr -> Right expr === (first show . runNonfatal . Holed.exprFromValue . pp $ expr)
+      ]
     ]
   , testGroup "Parser"
     [ testGroup "Properties"
       [ testProperty "parse . show == id" $
-        \value -> Just value == (parseOne . fromString $ show value)
+        \value -> Just value === (parseOne . fromString $ show value)
       ]
     , testGroup "Unit Tests"
       [ goldenVsString "Strings"
@@ -77,9 +85,9 @@ tests = testGroup "Tests"
         "test-cases/parser/doc-syntax-md.stahl.golden"
         (showParseFile "test-cases/parser/doc-syntax-md.stahl")
       , testCase "Nil" $
-        assertEqual "" (Just $ Nil defaultLoc) (parseOne "()")
+        assertEqual "" (Just $ Nil Nothing) (parseOne "()")
       , testCase "Nil via Group" $
-        assertEqual "" (Just $ Nil defaultLoc) (parseOne "group")
+        assertEqual "" (Just $ Nil Nothing) (parseOne "group")
       ]
     ]
   , testGroup "Typechecker"
@@ -126,19 +134,15 @@ tests = testGroup "Tests"
     ]
   ]
 
-defaultLoc :: Location
-defaultLoc = Span "<test:tests>" 0 0 0 0
-
 exampleId :: Expr (Const UnifVar) (Maybe Location)
-exampleId = Lam (LocalName "x") (Var (LocalName "x") loc) loc
-  where loc = Just defaultLoc
+exampleId = Lam (LocalName "x") (Var (LocalName "x") Nothing) Nothing
 
 exampleIdOfTyToTy :: Expr (Const UnifVar) (Maybe Location)
-exampleIdOfTyToTy = App exampleId pi (Just defaultLoc)
-  where pi = Pi Nothing exampleTy exampleTy Seq.empty (Just defaultLoc)
+exampleIdOfTyToTy = App exampleId pi Nothing
+  where pi = Pi Nothing exampleTy exampleTy Seq.empty Nothing
 
 exampleTy :: Expr (Const UnifVar) (Maybe Location)
-exampleTy = Builtin TypeOfTypes (Just defaultLoc)
+exampleTy = Builtin TypeOfTypes Nothing
 
 must :: Show e => Either [e] a -> IO a
 must (Left err) = assertFailure ("Error: " <> unlines (map show err))
@@ -162,18 +166,62 @@ unifyShowWith :: (Show e) => (a -> String) -> Either e a -> String
 unifyShowWith _ (Left e) = show e
 unifyShowWith f (Right x) = f x
 
+arbitraryHelper :: [Gen a] -> [Gen a -> Gen a] -> Gen a
+arbitraryHelper baseClauses indClauses = sized helper
+  where helper 0 = oneof baseClauses
+        helper n = oneof ((($ helper (n-1)) <$> indClauses) <> baseClauses)
+
+arbitraryName :: Gen ByteString
+arbitraryName = do
+  len <- choose (1, 32)
+  s <- vectorOf len $ oneof $ [choose ('A', 'Z'), choose ('a', 'z')]
+  pure (fromString s)
+
+instance Arbitrary Builtin where
+  arbitrary = oneof (pure <$> [TypeOfTypes, TypeOfTypeOfTypes])
+
+instance Arbitrary GlobalName where
+  arbitrary = do
+    libName <- arbitraryName
+    modLen <- choose (1, 3)
+    modName <- Seq.fromList <$> vectorOf modLen arbitraryName
+    valName <- arbitraryName
+    pure $ GlobalName (libName, modName, valName)
+
+instance Arbitrary LocalName where
+  arbitrary = LocalName <$> arbitraryName
+
+instance (Arbitrary (e (Expr e a)), Default a) => Arbitrary (Expr e a) where
+  arbitrary = arbitraryHelper
+    [ CustomExpr <$> arbitrary <*> pure def
+    , Atom <$> arbitrary <*> pure def
+    , Builtin <$> arbitrary <*> pure def
+    , Var <$> arbitrary <*> pure def
+    ]
+    [ -- \r -> App (Expr c a) (Expr c a) a
+    -- , \r -> Handle GlobalName (Expr c a) (Expr c a) a
+    -- , \r -> Lam LocalName (Expr c a) a
+    -- , \r -> Perform GlobalName (Expr c a) a
+    -- , \r -> Pi (Maybe LocalName) (Expr c a) (Expr c a) (Seq GlobalName) a
+    ]
+
+instance Default a => Arbitrary (Holed.ExprCustom (Expr Holed.ExprCustom a)) where
+  arbitrary = arbitraryHelper
+    [ Holed.Hole <$> arbitraryName
+    , Holed.ImplicitLam <$> arbitrary <*> arbitrary
+    , Holed.ImplicitPi <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    ]
+    [
+    ]
+
 instance Arbitrary Value where
-  arbitrary = sized arbitrary'
-    where arbitrary' 0 = oneof clauses
-          arbitrary' n = oneof ((Cons loc <$> arbitrary' (n-1) <*> arbitrary' (n-1)) : clauses)
-          clauses = [ Int loc <$> arbitrary
-                    , do
-                        len <- choose (0, 32)
-                        String loc . fromString <$> vectorOf len (choose (' ', '~'))
-                    , do
-                        len <- choose (1, 32)
-                        let symbolish = oneof $ [choose ('A', 'Z'), choose ('a', 'z')]
-                        Symbol loc . fromString <$> vectorOf len symbolish
-                    , pure (Nil loc)
-                    ]
-          loc = Point "<test:tests-quickcheck>" 0 0
+  arbitrary = arbitraryHelper
+    [ Int Nothing <$> arbitrary
+    , do
+        len <- choose (0, 32)
+        String Nothing . fromString <$> vectorOf len (choose (' ', '~'))
+    , Symbol Nothing <$> arbitraryName
+    , pure (Nil Nothing)
+    ]
+    [ \r -> Cons Nothing <$> r <*> r
+    ]

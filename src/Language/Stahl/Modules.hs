@@ -38,13 +38,12 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import Data.Void (Void)
-import Language.Stahl.Ast.Holed (declsFromValues)
-import Language.Stahl.Ast.HoledI (addImplicitApps)
-import Language.Stahl.Ast.Unholed (UnholedExprCustom, solveDeclForHoles)
-import Language.Stahl.Env (Env(..))
 import Language.Stahl.Error (Error)
-import Language.Stahl.Modules.FromValue (libMetaFromValues, moduleHeaderFromValues)
-import Language.Stahl.Modules.Types
+import Language.Stahl.Internal.Ast.Holed (declsFromValues)
+import Language.Stahl.Internal.Ast.HoledI (addImplicitApps)
+import Language.Stahl.Internal.Ast.Unholed (ExprCustom, solveDeclForHoles)
+import Language.Stahl.Internal.Modules.FromValue (libMetaFromValues, moduleHeaderFromValues)
+import Language.Stahl.Internal.Modules.Types
   ( LibMeta(..)
   , LibName(..)
   , Library(..)
@@ -64,16 +63,16 @@ import Language.Stahl.Modules.Types
   , patch
   , path
   )
-import qualified Language.Stahl.Parser
-import Language.Stahl.Util (Location, wholeFile)
-import Language.Stahl.Util.MonadNonfatal (MonadNonfatal(..))
-import Language.Stahl.Value (Value, isSymbolish)
+import qualified Language.Stahl.Internal.Parser
+import Language.Stahl.Internal.Util (Location, wholeFile)
+import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
+import Language.Stahl.Internal.Value (Value, isSymbolish)
 import Prelude hiding (readFile)
 import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath ((</>), isExtensionOf)
 
 loadLibrary :: (MonadIO m, MonadNonfatal Error m) => FilePath
-            -> m (Library UnholedExprCustom (Const Void) (Maybe Location) (Maybe Location))
+            -> m (Library ExprCustom (Const Void) (Maybe Location) (Maybe Location))
 loadLibrary path = do
   meta <-  loadLibMeta (path </> "lib.stahld")
   Library meta <$> loadModules (meta^.libName) Seq.empty path <*> (pure $ Just path)
@@ -84,7 +83,7 @@ loadLibMeta path = do
   libMetaFromValues (wholeFile path src) =<< parse path src
 
 loadModules :: (MonadIO m, MonadNonfatal Error m) => LibName -> Seq ByteString -> FilePath
-            -> m (Map ByteString (Module UnholedExprCustom (Const Void) (Maybe Location) (Maybe Location)))
+            -> m (Map ByteString (Module ExprCustom (Const Void) (Maybe Location) (Maybe Location)))
 loadModules libName modParts path = fmap mconcat . mapM helper =<< (liftIO $ listDirectory path)
   where helper subpath = do
           let path' = path </> subpath
@@ -101,7 +100,7 @@ loadModules libName modParts path = fmap mconcat . mapM helper =<< (liftIO $ lis
             pure Map.empty
 
 loadModule :: (MonadIO m, MonadNonfatal Error m) => LibName -> Seq ByteString -> FilePath
-           -> m (Module UnholedExprCustom (Const Void) (Maybe Location) (Maybe Location))
+           -> m (Module ExprCustom (Const Void) (Maybe Location) (Maybe Location))
 loadModule libName expectedName path = do
   src <- liftIO $ readFile path
   (name, exports, imports, body) <- moduleHeaderFromValues (wholeFile path src) =<< parse path src
@@ -117,4 +116,4 @@ loadModule libName expectedName path = do
   pure $ Module libName name exports (undefined imports) decls'
 
 parse :: (MonadIO m, MonadNonfatal Error m) => FilePath -> ByteString -> m [Value]
-parse path = either fatal pure <=< liftIO . runExceptT . Language.Stahl.Parser.parse path
+parse path = either fatal pure <=< liftIO . runExceptT . Language.Stahl.Internal.Parser.parse path

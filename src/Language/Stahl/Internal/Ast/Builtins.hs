@@ -1,4 +1,4 @@
-module Language.Stahl.Ast.Builtins
+module Language.Stahl.Internal.Ast.Builtins
   ( Builtin(..)
   ) where
 

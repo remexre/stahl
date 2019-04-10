@@ -1,5 +1,5 @@
 {
-module Language.Stahl.Parser
+module Language.Stahl.Internal.Parser
   ( parse
   , parseFile
   ) where
@@ -14,10 +14,10 @@ import Data.Foldable (toList)
 import Data.Functor.Identity (Identity(..))
 import Data.Sequence (Seq, (|>), empty)
 import Language.Stahl.Error (Error, ErrorKind(..), ToError(..))
-import Language.Stahl.Lexer (LexerState, Token(..), getTokenData, lexOne, mkLexerState)
-import Language.Stahl.Util (Location(Span), endPoint, file, startPoint)
-import Language.Stahl.Util.LensedState (LensedStateT(..), liftLensedStateT)
-import Language.Stahl.Value (Value(..), location)
+import Language.Stahl.Internal.Lexer (LexerState, Token(..), getTokenData, lexOne, mkLexerState)
+import Language.Stahl.Internal.Util (Location(Span), endPoint, file, spanBetween, startPoint)
+import Language.Stahl.Internal.Util.LensedState (LensedStateT(..), liftLensedStateT)
+import Language.Stahl.Internal.Value (Value(..), location)
 import Prelude hiding (getContents, readFile)
 }
 
@@ -77,14 +77,14 @@ sexprs1 : sexprs sexpr { $1 |> $2 }
 
 sexpr :: { Value }
 sexpr : '(' NLs sexprListBody { $3 }
-      | Int    { uncurry (flip Int) $1 }
-      | String { uncurry (flip String) $1 }
-      | Symbol { uncurry (flip Symbol) $1 }
+      | Int    { uncurry (flip $ Int . Just) $1 }
+      | String { uncurry (flip $ String . Just) $1 }
+      | Symbol { uncurry (flip $ Symbol . Just) $1 }
 
 sexprListBody :: { Value }
 sexprListBody : sexpr NLs sexprListBody {% cons $1 $3 }
               | '|' NLs sexpr NLs ')' { $3 }
-              | ')' { Nil $1 }
+              | ')' { Nil (Just $1) }
 
 {
 type M a = StateT ParserState (Either Error) a
@@ -133,20 +133,14 @@ append _ t' = t'
 cons :: Value -> Value -> M Value
 cons h t = do
   end <- lastPoint
-  let spanBetween start end = Span f ls cs le ce
-        where (f, ls, cs) = start^.startPoint
-              (_, le, ce) = end^.endPoint
-  pure $ Cons (spanBetween (h^.location) end) h t
+  pure $ Cons (Just $ spanBetween (h^.location) end) h t
 
 seqToConsList :: Seq Value -> M Value
 seqToConsList seq = do
   end <- lastPoint
-  let spanBetween start end = Span f ls cs le ce
-        where (f, ls, cs) = start^.startPoint
-              (_, le, ce) = end^.endPoint
-  let helper h t = Cons (spanBetween (h^.location) end) h t
+  let helper h t = Cons (Just $ spanBetween (h^.location) end) h t
   -- TODO: What's the monadic version of foldr?
-  pure $ foldr helper (Nil end) seq
+  pure $ foldr helper (Nil (Just end)) seq
 
 seqToConsList' :: Seq Value -> M Value
 seqToConsList' seq =

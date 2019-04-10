@@ -1,10 +1,10 @@
 -- |Declarations with implicit lambdas and pis tracked, but with holes
 -- resolved and implicit applications converted to standard ones. At this
 -- stage, built-in values can also come into play.
-module Language.Stahl.Ast.Unholed
+module Language.Stahl.Internal.Ast.Unholed
   ( Decl(..)
   , Expr(..)
-  , UnholedExprCustom(..)
+  , ExprCustom(..)
   , solveDeclForHoles
   , solveExprForHoles
   ) where
@@ -14,17 +14,17 @@ import Data.Functor.Const (Const(..))
 import Data.Sequence (Seq)
 import Data.Void (Void, absurd)
 import Language.Stahl.Ast (GlobalName(..), LocalName(..))
-import Language.Stahl.Ast.Builtins (Builtin(..))
 import qualified Language.Stahl.Ast as Ast
-import qualified Language.Stahl.Ast.HoledI as HoledI
 import Language.Stahl.Error (Error)
-import Language.Stahl.Util (Location, convertConstM)
-import Language.Stahl.Util.MonadNonfatal (MonadNonfatal(..))
+import Language.Stahl.Internal.Ast.Builtins (Builtin(..))
+import qualified Language.Stahl.Internal.Ast.HoledI as HoledI
+import Language.Stahl.Internal.Util (Location, convertConstM)
+import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
 
-type Decl = Ast.Decl UnholedExprCustom (Const Void) (Maybe Location) (Maybe Location)
-type Expr = Ast.Expr UnholedExprCustom (Maybe Location)
+type Decl = Ast.Decl ExprCustom (Const Void) (Maybe Location) (Maybe Location)
+type Expr = Ast.Expr ExprCustom (Maybe Location)
 
-data UnholedExprCustom expr
+data ExprCustom expr
   = Builtin Builtin
   | ImplicitLam LocalName expr
   | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)

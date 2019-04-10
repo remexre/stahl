@@ -1,6 +1,6 @@
 {-# LANGUAGE StandaloneDeriving, UndecidableInstances #-}
 
-module Language.Stahl.Modules.Types
+module Language.Stahl.Internal.Modules.Types
   ( LibMeta(..)
   , LibName(..)
   , Library(..)

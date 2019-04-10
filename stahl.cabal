@@ -2,35 +2,34 @@ cabal-version: 1.12
 name:          stahl
 version:       0.1.0.0
 build-type:    Simple
-extra-source-files: src/Language/Stahl/Parser.y
+extra-source-files: src/Language/Stahl/Internal/Parser.y
     
 library
   exposed-modules:
       Language.Stahl
     , Language.Stahl.Ast
-    , Language.Stahl.Env
     , Language.Stahl.Error
+    , Language.Stahl.Internal.Ast.Builtins
+    , Language.Stahl.Internal.Ast.Holed
+    , Language.Stahl.Internal.Ast.HoledI
+    , Language.Stahl.Internal.Ast.Unholed
+    , Language.Stahl.Internal.Ast.Unifying
+    , Language.Stahl.Internal.Env
+    , Language.Stahl.Internal.Lexer
+    , Language.Stahl.Internal.Modules.FromValue
+    , Language.Stahl.Internal.Modules.Types
+    , Language.Stahl.Internal.Parser
+    , Language.Stahl.Internal.TyCk.Generator
+    , Language.Stahl.Internal.TyCk.Solver
+    , Language.Stahl.Internal.TyCk.Types
+    , Language.Stahl.Internal.Util
+    , Language.Stahl.Internal.Util.LensedState
+    , Language.Stahl.Internal.Util.MonadGensym
+    , Language.Stahl.Internal.Util.MonadNonfatal
+    , Language.Stahl.Internal.Util.Value
+    , Language.Stahl.Internal.Value
     , Language.Stahl.Modules
     , Language.Stahl.TyCk
-    , Language.Stahl.Util
-    , Language.Stahl.Util.MonadGensym
-    , Language.Stahl.Util.MonadNonfatal
-  other-modules:
-      Language.Stahl.Ast.Builtins
-    , Language.Stahl.Ast.Holed
-    , Language.Stahl.Ast.HoledI
-    , Language.Stahl.Ast.Unholed
-    , Language.Stahl.Ast.Unifying
-    , Language.Stahl.Lexer
-    , Language.Stahl.Modules.FromValue
-    , Language.Stahl.Modules.Types
-    , Language.Stahl.Parser
-    , Language.Stahl.TyCk.Generator
-    , Language.Stahl.TyCk.Solver
-    , Language.Stahl.TyCk.Types
-    , Language.Stahl.Util.LensedState
-    , Language.Stahl.Util.Value
-    , Language.Stahl.Value
   hs-source-dirs: src
   build-tools: happy
   build-depends:
@@ -64,8 +63,7 @@ library
     , TypeOperators
     , ViewPatterns
   other-extensions:
-      DeriveGeneric
-    , FunctionalDependencies
+      FunctionalDependencies
     , GADTs
     , GeneralizedNewtypeDeriving
     , MultiParamTypeClasses
@@ -110,3 +108,8 @@ test-suite tests
     , tasty-quickcheck       >= 0.10   && < 0.11
     , utf8-string            >= 1.0.1  && < 1.1
   default-language: Haskell2010
+  other-extensions:
+      FlexibleContexts
+    , FlexibleInstances
+    , OverloadedStrings
+    , UndecidableInstances
