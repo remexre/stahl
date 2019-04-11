@@ -84,10 +84,24 @@ traverseCustomDecl' fCE fCD fAE fAD (DefTy n k cs a) =
   where ctorHelper (name, ty) = (name,) <$> traverseCustomExpr' fCE fAE ty
 
 newtype GlobalName = GlobalName (ByteString, Seq ByteString, ByteString)
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show GlobalName where
+  show (GlobalName (l, Empty, n)) = BS.toString (l <> ":" <> n)
+  show (GlobalName (l, ms, n)) = BS.toString (l <> ":" <> ms' <> ":" <> n)
+    where ms' = BS.intercalate ":" (toList ms)
+
+instance PP GlobalName where
+  pp = Symbol Nothing . BS.fromString . show
 
 newtype LocalName = LocalName ByteString
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show LocalName where
+  show (LocalName n) = BS.toString n
+
+instance PP LocalName where
+  pp (LocalName n) = Symbol Nothing n
 
 data Expr c a
   = CustomExpr (c (Expr c a)) a
@@ -122,14 +136,6 @@ instance PP (c (Expr c a)) => PP (Expr c a) where
   pp (Pi (Just n) t1 t2 effs _)  = pp [Symbol Nothing "pi", pp n, pp t1, pp t2, pp effs]
   pp (Pi Nothing t1 t2 effs _)   = pp [Symbol Nothing "pi", Symbol Nothing "_", pp t1, pp t2, pp effs]
   pp (Var n _) = pp n
-
-instance PP GlobalName where
-  pp (GlobalName (l, Empty, n)) = Symbol Nothing (l <> ":" <> n)
-  pp (GlobalName (l, ms, n)) = Symbol Nothing (l <> ":" <> ms' <> ":" <> n)
-    where ms' = BS.intercalate ":" (toList ms)
-
-instance PP LocalName where
-  pp (LocalName n) = Symbol Nothing n
 
 exprAnnot :: Lens' (Expr c a) a
 exprAnnot = lens get set

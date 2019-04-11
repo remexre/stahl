@@ -70,7 +70,15 @@ tests = testGroup "Tests"
         ]
       ]
     , testGroup "Pretty-Printing"
-      [ testCase "(fn (x y) x)" $ do
+      [ testCase "(x y z)" $ do
+          let expr :: Holed.Expr
+              expr = App (App (Var (LocalName "x") Nothing) (Var (LocalName "y") Nothing) Nothing) (Var (LocalName "z") Nothing) Nothing
+          assertEqual "" "(x y z)" (showPP expr)
+      , testCase "(x (y z))" $ do
+          let expr :: Holed.Expr
+              expr = App (Var (LocalName "x") Nothing) (App (Var (LocalName "y") Nothing) (Var (LocalName "z") Nothing) Nothing) Nothing
+          assertEqual "" "(x (y z))" (showPP expr)
+      , testCase "(fn (x y) x)" $ do
           let expr :: Holed.Expr
               expr = Lam (LocalName "x") (Lam (LocalName "y") (Var (LocalName "x") Nothing) Nothing) Nothing
           assertEqual "" "(fn (x y) x)" (showPP expr)
