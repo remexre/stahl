@@ -20,10 +20,10 @@ import qualified Data.Set as Set
 import Data.Word (Word)
 import Language.Stahl.Error (Error, astError, duplicateEntryError, missingError)
 import Language.Stahl.Internal.Modules.Types (LibMeta(..), LibName(..))
-import Language.Stahl.Internal.Util (Location)
 import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..), mapFatalsToNonfatals)
 import Language.Stahl.Internal.Util.Value (valueAsList, valueAsSHL, valueAsSymList)
 import Language.Stahl.Internal.Value (Value(..))
+import Language.Stahl.Util (Location)
 
 data LibMetaItem
   = Deps !(Maybe Location) !(Map ByteString LibName)

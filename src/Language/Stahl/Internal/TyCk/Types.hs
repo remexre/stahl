@@ -16,10 +16,10 @@ import Data.Default (Default(..))
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Const (Const(..))
 import Language.Stahl.Ast (Expr(..), exprCustom)
-import Language.Stahl.Internal.Util (Location, _Compose, _Const)
 import Language.Stahl.Internal.Util.MonadGensym (MonadGensym(..))
 import Language.Stahl.Internal.Util.Value (PP(..))
 import Language.Stahl.Internal.Value (Value(..))
+import Language.Stahl.Util (Location, _Compose, _Const)
 
 -- |A unification variable.
 newtype UnifVar

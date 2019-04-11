@@ -18,8 +18,8 @@ import qualified Language.Stahl.Ast as Ast
 import Language.Stahl.Error (Error)
 import Language.Stahl.Internal.Ast.Builtins (Builtin(..))
 import qualified Language.Stahl.Internal.Ast.HoledI as HoledI
-import Language.Stahl.Internal.Util (Location, convertConstM)
 import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
+import Language.Stahl.Util (Location, convertConstM)
 
 type Decl = Ast.Decl ExprCustom (Const Void) (Maybe Location) (Maybe Location)
 type Expr = Ast.Expr ExprCustom (Maybe Location)

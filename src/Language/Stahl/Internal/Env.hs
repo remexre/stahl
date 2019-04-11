@@ -17,8 +17,8 @@ import Data.Map (Map)
 import Language.Stahl.Ast (Expr(..), GlobalName(..), LocalName(..))
 import Language.Stahl.Error (Error, ErrorKind(..), mkError)
 import Language.Stahl.Internal.Modules.Types (LibName(..))
-import Language.Stahl.Internal.Util (Location(..))
 import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
+import Language.Stahl.Util (Location(..))
 
 -- |An entry in the environment.
 data EnvEntry c a = EnvEntry 

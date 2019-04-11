@@ -1,4 +1,4 @@
-module Language.Stahl.Internal.Util
+module Language.Stahl.Util
   ( Location(..)
   , col
   , _Compose
@@ -7,6 +7,7 @@ module Language.Stahl.Internal.Util
   , colEnd
   , convertConst
   , convertConstM
+  , eitherToMaybe
   , endPoint
   , file
   , line
@@ -113,6 +114,10 @@ convertConst (Const x) = Const x
 
 convertConstM :: Applicative f => Const a b -> f (Const a c)
 convertConstM = pure . convertConst
+
+eitherToMaybe :: Either e a -> Maybe a
+eitherToMaybe (Left _) = Nothing
+eitherToMaybe (Right x) = Just x
 
 printError :: String -> IO ()
 printError err = do

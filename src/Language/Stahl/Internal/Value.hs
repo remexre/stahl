@@ -12,7 +12,7 @@ import Data.ByteString.UTF8 (ByteString)
 import Data.Char (toLower)
 import Data.Int (Int64)
 import Data.List (elemIndex)
-import Language.Stahl.Internal.Util (Location(..))
+import Language.Stahl.Util (Location(..))
 
 -- |A parsed value.
 data Value

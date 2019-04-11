@@ -23,9 +23,9 @@ import Language.Stahl.Ast (rewriteExpr)
 import Language.Stahl.Modules (loadLibMeta)
 import Language.Stahl.TyCk (UnifVar)
 import qualified Language.Stahl.Internal.Ast.Holed as Holed
-import Language.Stahl.Internal.Util
 import Language.Stahl.Internal.Util.MonadNonfatal (NonfatalT, runNonfatal, runNonfatalT)
 import Language.Stahl.Internal.Util.Value (PP(..))
+import Language.Stahl.Util
 import Test.QuickCheck.Arbitrary (Arbitrary(..), vector)
 import Test.QuickCheck.Gen (oneof, sized)
 import Test.Tasty
@@ -253,8 +253,8 @@ instance Arbitrary LocalName where
 instance (Arbitrary (e (Expr e a)), Default a) => Arbitrary (Expr e a) where
   arbitrary = arbitraryHelper
     [ CustomExpr <$> arbitrary <*> pure def
-    , Atom <$> arbitrary <*> pure def
-    , Builtin <$> arbitrary <*> pure def
+    -- , Atom <$> arbitrary <*> pure def
+    -- , Builtin <$> arbitrary <*> pure def
     , Var <$> arbitrary <*> pure def
     ]
     [ -- \r -> App (Expr c a) (Expr c a) a

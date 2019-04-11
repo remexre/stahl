@@ -22,7 +22,6 @@ library
     , Language.Stahl.Internal.TyCk.Generator
     , Language.Stahl.Internal.TyCk.Solver
     , Language.Stahl.Internal.TyCk.Types
-    , Language.Stahl.Internal.Util
     , Language.Stahl.Internal.Util.LensedState
     , Language.Stahl.Internal.Util.MonadGensym
     , Language.Stahl.Internal.Util.MonadNonfatal
@@ -30,6 +29,7 @@ library
     , Language.Stahl.Internal.Value
     , Language.Stahl.Modules
     , Language.Stahl.TyCk
+    , Language.Stahl.Util
   hs-source-dirs: src
   build-tools: happy
   build-depends:

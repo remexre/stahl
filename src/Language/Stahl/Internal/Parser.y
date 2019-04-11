@@ -15,9 +15,9 @@ import Data.Functor.Identity (Identity(..))
 import Data.Sequence (Seq, (|>), empty)
 import Language.Stahl.Error (Error, ErrorKind(..), ToError(..))
 import Language.Stahl.Internal.Lexer (LexerState, Token(..), getTokenData, lexOne, mkLexerState)
-import Language.Stahl.Internal.Util (Location(Span), endPoint, file, spanBetween, startPoint)
 import Language.Stahl.Internal.Util.LensedState (LensedStateT(..), liftLensedStateT)
 import Language.Stahl.Internal.Value (Value(..), location)
+import Language.Stahl.Util (Location(Span), endPoint, file, spanBetween, startPoint)
 import Prelude hiding (getContents, readFile)
 }
 

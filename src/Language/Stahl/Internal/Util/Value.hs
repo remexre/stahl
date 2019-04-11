@@ -1,8 +1,10 @@
 module Language.Stahl.Internal.Util.Value
   ( PP(..)
   , valueAsList
+  , valueAsList'
   , valueAsSHL
   , valueAsSymList
+  , valueAsSymList'
   ) where
 
 import Data.ByteString (ByteString)
@@ -12,9 +14,9 @@ import Data.Functor.Const (Const(..))
 import Data.Sequence (Seq)
 import Data.Void (Void, absurd)
 import Language.Stahl.Error (Error)
-import Language.Stahl.Internal.Util (Location(..))
-import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
+import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..), runNonfatal)
 import Language.Stahl.Internal.Value (Value(..))
+import Language.Stahl.Util (Location(..), eitherToMaybe)
 
 -- |A class for pretty-printing as 'Value's.
 class PP a where
@@ -56,3 +58,9 @@ valueAsSymList :: MonadNonfatal Error m => (Value -> Error) -> Value -> m (Maybe
 valueAsSymList onError (Cons l (Symbol _ h) t) = (l,) . (h:) . snd <$> valueAsSymList onError t
 valueAsSymList onError (Nil l) = pure (l, [])
 valueAsSymList onError val = fatal (onError val)
+
+valueAsList' :: Value -> Maybe [Value]
+valueAsList' = fmap snd . eitherToMaybe . runNonfatal . valueAsList undefined
+
+valueAsSymList' :: Value -> Maybe [ByteString]
+valueAsSymList' = fmap snd . eitherToMaybe . runNonfatal . valueAsSymList undefined

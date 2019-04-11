@@ -30,8 +30,8 @@ import Data.Int (Int64)
 import Data.Sequence (Seq(Empty, (:<|)), (|>))
 import qualified Data.Sequence as Seq
 import Language.Stahl.Error (Error, ErrorKind(..), ToError(..))
-import Language.Stahl.Internal.Util (Location(..))
 import Language.Stahl.Internal.Value (isSymbolish, symbolishAsNumber)
+import Language.Stahl.Util (Location(..))
 
 data Point = P !Word !Word deriving (Eq, Show)
 data Span = S !Point !Point deriving (Eq, Show)

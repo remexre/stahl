@@ -64,9 +64,9 @@ import Language.Stahl.Internal.Modules.Types
   , path
   )
 import qualified Language.Stahl.Internal.Parser
-import Language.Stahl.Internal.Util (Location, wholeFile)
 import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
 import Language.Stahl.Internal.Value (Value, isSymbolish)
+import Language.Stahl.Util (Location, wholeFile)
 import Prelude hiding (readFile)
 import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath ((</>), isExtensionOf)

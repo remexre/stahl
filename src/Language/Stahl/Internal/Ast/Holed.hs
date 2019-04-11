@@ -9,6 +9,7 @@ module Language.Stahl.Internal.Ast.Holed
   , exprFromValue
   ) where
 
+import qualified Data.ByteString as BS (split)
 import Data.ByteString.UTF8 (ByteString)
 import qualified Data.ByteString.UTF8 as BS
 import Data.Functor.Const (Const(..))
@@ -18,10 +19,10 @@ import Data.Void (Void)
 import Language.Stahl.Ast (GlobalName(..), LocalName(..))
 import qualified Language.Stahl.Ast as Ast
 import Language.Stahl.Error (Error, astError)
-import Language.Stahl.Internal.Util (Location)
 import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..), mapFatalsToNonfatals)
-import Language.Stahl.Internal.Util.Value (PP(..), valueAsList)
+import Language.Stahl.Internal.Util.Value (PP(..), valueAsList, valueAsList', valueAsSymList')
 import Language.Stahl.Internal.Value (Value(..))
+import Language.Stahl.Util (Location)
 
 type Decl = Ast.Decl ExprCustom (Const Void) (Maybe Location) (Maybe Location)
 type Expr = Ast.Expr ExprCustom (Maybe Location)
@@ -80,6 +81,74 @@ exprFromValue v@(Symbol loc name) =
     Just _ -> pure (Ast.Var (LocalName name) loc)
     Nothing -> fatal (astError "variable" v)
 exprFromValue v = valueAsList (astError "expression") v >>= \case
+  (loc, [Symbol _ "fn", valueAsSymList' -> Just args, body]) -> helper args
+    where helper [] = exprFromValue body
+          helper (h:t) = Ast.Lam <$> pure (LocalName h) <*> helper t <*> pure loc
+  (loc, (Symbol _ "fn":_)) -> fatal (astError "fn" v)
+
+  (loc, [Symbol _ "fn*", valueAsSymList' -> Just args, body]) -> helper args
+    where helper [] = exprFromValue body
+          helper (h:t) = Ast.CustomExpr <$> (ImplicitLam <$> pure (LocalName h) <*> helper t)
+                                        <*> pure loc
+  (loc, (Symbol _ "fn*":_)) -> fatal (astError "fn*" v)
+
+  (loc, [Symbol _ "fun", valueAsList' -> Just argTys, retTy]) -> helper argTys
+    where helper [] = exprFromValue retTy
+          helper (h:t) = Ast.Pi Nothing <$> exprFromValue h <*> helper t <*> pure Empty <*> pure loc
+  (loc, (Symbol _ "fun":_)) -> fatal (astError "fun" v)
+
+  (loc, [Symbol _ "fun*", valueAsList' -> Just argTys, retTy]) -> helper argTys
+    where helper [] = exprFromValue retTy
+          helper (h:t) = Ast.CustomExpr <$> (ImplicitPi Nothing <$> exprFromValue h
+                                                                <*> helper t
+                                                                <*> pure Empty)
+                                        <*> pure loc
+  (loc, (Symbol _ "fun*":_)) -> fatal (astError "fun*" v)
+
+  (loc, [Symbol _ "pi", Symbol _ "_", t1, t2]) ->
+    Ast.Pi Nothing <$> exprFromValue t1
+                   <*> exprFromValue t2
+                   <*> pure Empty
+                   <*> pure loc
+  (loc, [Symbol _ "pi", Symbol _ n, t1, t2]) ->
+    Ast.Pi (Just $ LocalName n) <$> exprFromValue t1
+                                <*> exprFromValue t2
+                                <*> pure Empty
+                                <*> pure loc
+  (loc, [Symbol _ "pi", Symbol _ "_", t1, t2, valueAsList' -> Just effs]) ->
+    Ast.Pi Nothing <$> exprFromValue t1
+                   <*> exprFromValue t2
+                   <*> mapM globalNameFromValue (Seq.fromList effs)
+                   <*> pure loc
+  (loc, [Symbol _ "pi", Symbol _ n, t1, t2, valueAsList' -> Just effs]) ->
+    Ast.Pi (Just $ LocalName n) <$> exprFromValue t1
+                                <*> exprFromValue t2
+                                <*> mapM globalNameFromValue (Seq.fromList effs)
+                                <*> pure loc
+  (loc, (Symbol _ "pi":_)) -> fatal (astError "pi" v)
+
+  (loc, [Symbol _ "pi*", Symbol _ "_", t1, t2]) ->
+    Ast.CustomExpr <$> (ImplicitPi Nothing <$> exprFromValue t1
+                                           <*> exprFromValue t2
+                                           <*> pure Empty)
+                   <*> pure loc
+  (loc, [Symbol _ "pi*", Symbol _ n, t1, t2]) ->
+    Ast.CustomExpr <$> (ImplicitPi (Just $ LocalName n) <$> exprFromValue t1
+                                                        <*> exprFromValue t2
+                                                        <*> pure Empty)
+                   <*> pure loc
+  (loc, [Symbol _ "pi*", Symbol _ "_", t1, t2, valueAsList' -> Just effs]) ->
+    Ast.CustomExpr <$> (ImplicitPi Nothing <$> exprFromValue t1
+                                           <*> exprFromValue t2
+                                           <*> mapM globalNameFromValue (Seq.fromList effs))
+                   <*> pure loc
+  (loc, [Symbol _ "pi*", Symbol _ n, t1, t2, valueAsList' -> Just effs]) ->
+    Ast.CustomExpr <$> (ImplicitPi (Just $ LocalName n) <$> exprFromValue t1
+                                                        <*> exprFromValue t2
+                                                        <*> mapM globalNameFromValue (Seq.fromList effs))
+                   <*> pure loc
+  (loc, (Symbol _ "pi*":_)) -> fatal (astError "pi*" v)
+
   (loc, l@(_:_)) -> appExprsFromExprs loc =<< mapM exprFromValue l
   _ -> fatal (astError "expression" v)
 
@@ -88,3 +157,11 @@ appExprsFromExprs :: MonadNonfatal Error m => Maybe Location -> [Expr] -> m Expr
 appExprsFromExprs _ [] = error "unreachable"
 appExprsFromExprs _ [x] = pure x
 appExprsFromExprs loc l@(_:_) = Ast.App <$> appExprsFromExprs loc (init l) <*> pure (last l) <*> pure loc
+
+globalNameFromValue :: MonadNonfatal Error m => Value -> m GlobalName
+globalNameFromValue v@(Symbol _ name) = helper (BS.split 0x3a name) -- 0x3a == ':'
+  where helper [] = fatal (astError "global name" v)
+        helper (h:t) = helper' h t
+        helper' _ [] = fatal (astError "global name" v)
+        helper' l l'@(_:_) = error $ show (l, init l', last l')
+globalNameFromValue v = fatal (astError "global name" v)

@@ -23,8 +23,8 @@ import Data.ByteString.UTF8 (ByteString)
 import qualified Data.ByteString.UTF8 as BS
 import Data.Foldable (toList)
 import Data.Sequence (Seq)
-import Language.Stahl.Internal.Util (Location(..))
 import Language.Stahl.Internal.Value (Value, location)
+import Language.Stahl.Util (Location(..))
 
 -- |The kind of an error.
 data ErrorKind

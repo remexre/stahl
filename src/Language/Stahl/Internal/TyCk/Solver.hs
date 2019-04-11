@@ -17,8 +17,8 @@ import Language.Stahl.Ast (Expr(..), exprAnnot, rewriteExpr)
 import Language.Stahl.Error (Error, ErrorKind(..), mkError)
 import Language.Stahl.Internal.Ast.Builtins (Builtin(..))
 import Language.Stahl.Internal.TyCk.Types (Constraint(..), TyCkExprAnnot(..), TyCkExprParams(..), UnifVar, var')
-import Language.Stahl.Internal.Util (repeatM)
 import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
+import Language.Stahl.Util (repeatM)
 
 -- |The internal state of the solver.
 data SolverState c a = SolverState

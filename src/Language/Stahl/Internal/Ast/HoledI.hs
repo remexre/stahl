@@ -17,7 +17,7 @@ import qualified Language.Stahl.Ast as Ast
 import qualified Language.Stahl.Internal.Env as Env
 import Language.Stahl.Internal.Env (lookupTy, lookupVal)
 import qualified Language.Stahl.Internal.Ast.Holed as Holed
-import Language.Stahl.Internal.Util (Location, convertConstM)
+import Language.Stahl.Util (Location, convertConstM)
 
 type Decl = Ast.Decl ExprCustom (Const Void) (Maybe Location) (Maybe Location)
 type Env = Env.Env ExprCustom (Maybe Location)
