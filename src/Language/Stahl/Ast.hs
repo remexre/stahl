@@ -21,6 +21,8 @@ module Language.Stahl.Ast
 import Control.Lens (Lens', Prism', lens, prism)
 import Control.Monad ((<=<))
 import Data.ByteString (ByteString)
+import Data.Foldable (toList)
+import qualified Data.ByteString as BS (intercalate)
 import qualified Data.ByteString.UTF8 as BS
 import Data.Functor.Identity (Identity(..))
 import Data.Sequence (Seq(..))
@@ -104,17 +106,27 @@ deriving instance (Show a, Show (c (Expr c a))) => Show (Expr c a)
 instance PP (c (Expr c a)) => PP (Expr c a) where
   pp (CustomExpr c _) = pp c
   pp (App l r _) = helper l (Cons Nothing (pp r) (Nil Nothing))
-    where helper :: Expr c a -> Value -> Value
-          helper (App l' r' _) t = helper l' (Cons Nothing (pp r') t)
+    where helper (App l' r' _) t = helper l' (Cons Nothing (pp r') t)
           helper e             t = Cons Nothing (pp e) t
   pp (Atom n _) = Symbol Nothing (BS.fromString ("#" <> show n <> "#"))
   pp (Builtin b _) = Symbol Nothing (BS.fromString ("#" <> show b <> "#"))
-  -- pp (Handle eff e1 e2 _)       = undefined
-  pp (Lam n e _) = pp [Symbol Nothing "fn", pp n, pp e]
-  -- pp (Perform eff b _)          = undefined
-  -- pp (Pi Nothing t1 t2 Empty _) = "(fun (" <> showPrec 0 t1 <> showFun t2
-  -- pp (Pi n t1 t2 effs _)        = undefined
+  pp (Handle eff e1 e2 _) = pp [Symbol Nothing "handle", pp eff, pp e1, pp e2]
+  pp (Lam n e _) = helper [n] e
+    where helper ns (Lam n' e' _) = helper (n':ns) e'
+          helper ns e             = pp [Symbol Nothing "fn", pp (pp <$> reverse ns), pp e]
+  pp (Perform eff b _) = pp [Symbol Nothing "perform", pp eff, pp b]
+  pp (Pi (Just n) t1 t2 Empty _) = pp [Symbol Nothing "pi", pp n, pp t1, pp t2]
+  pp (Pi Nothing t1 t2 Empty _)  = helper [t1] t2
+    where helper t1s (Pi Nothing t1' t2' Empty _) = helper (t1':t1s) t2'
+          helper t1s e                            = pp [Symbol Nothing "fun", pp (pp <$> reverse t1s), pp e]
+  pp (Pi (Just n) t1 t2 effs _)  = pp [Symbol Nothing "pi", pp n, pp t1, pp t2, pp effs]
+  pp (Pi Nothing t1 t2 effs _)   = pp [Symbol Nothing "pi", Symbol Nothing "_", pp t1, pp t2, pp effs]
   pp (Var n _) = pp n
+
+instance PP GlobalName where
+  pp (GlobalName (l, Empty, n)) = Symbol Nothing (l <> ":" <> n)
+  pp (GlobalName (l, ms, n)) = Symbol Nothing (l <> ":" <> ms' <> ":" <> n)
+    where ms' = BS.intercalate ":" (toList ms)
 
 instance PP LocalName where
   pp (LocalName n) = Symbol Nothing n

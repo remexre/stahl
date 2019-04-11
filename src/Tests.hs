@@ -2,19 +2,21 @@
 
 module Main (main) where
 
-import Control.Monad ((<=<), void)
+import Control.Monad ((<=<), mapM, void)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (runReader)
 import Control.Monad.Writer (execWriter)
 import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.Bifunctor (Bifunctor(..))
 import qualified Data.ByteString.Lazy as LBS
-import Data.ByteString.UTF8 (ByteString, fromString)
+import Data.ByteString.UTF8 (ByteString)
+import qualified Data.ByteString.UTF8 as BS
 import Data.Default (Default(..))
 import Data.Either (fromRight)
 import Data.Functor.Const (Const(..))
 import Data.Functor.Identity (Identity(..))
 import qualified Data.Map.Strict as Map
+import Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import Language.Stahl
 import Language.Stahl.Ast (rewriteExpr)
@@ -22,7 +24,7 @@ import Language.Stahl.Modules (loadLibMeta)
 import Language.Stahl.TyCk (UnifVar)
 import qualified Language.Stahl.Internal.Ast.Holed as Holed
 import Language.Stahl.Internal.Util
-import Language.Stahl.Internal.Util.MonadNonfatal (runNonfatal, runNonfatalT)
+import Language.Stahl.Internal.Util.MonadNonfatal (NonfatalT, runNonfatal, runNonfatalT)
 import Language.Stahl.Internal.Util.Value (PP(..))
 import Test.QuickCheck.Arbitrary (Arbitrary(..), vector)
 import Test.QuickCheck.Gen (oneof, sized)
@@ -67,6 +69,28 @@ tests = testGroup "Tests"
             assertEqual "" (unlines expected) w
         ]
       ]
+    , testGroup "Pretty-Printing"
+      [ testCase "(fn (x y) x)" $ do
+          let expr :: Holed.Expr
+              expr = Lam (LocalName "x") (Lam (LocalName "y") (Var (LocalName "x") Nothing) Nothing) Nothing
+          assertEqual "" "(fn (x y) x)" (showPP expr)
+      , testCase "(fn* (x y) x)" $ do
+          let expr = CustomExpr (Holed.ImplicitLam (LocalName "x")
+                       (CustomExpr (Holed.ImplicitLam (LocalName "y")
+                       (Var (LocalName "x") Nothing)) Nothing)) Nothing
+          assertEqual "" "(fn* (x y) x)" (showPP expr)
+      , testCase "(fun (T U) V)" $ do
+          let expr :: Holed.Expr
+              expr = Pi Nothing (Var (LocalName "T") Nothing)
+                       (Pi Nothing (Var (LocalName "U") Nothing)
+                          (Var (LocalName "V") Nothing) Empty Nothing) Empty Nothing
+          assertEqual "" "(fun (T U) V)" (showPP expr)
+      , testCase "(fun* (T U) V)" $ do
+          let expr = CustomExpr (Holed.ImplicitPi Nothing (Var (LocalName "T") Nothing)
+                       (CustomExpr (Holed.ImplicitPi Nothing (Var (LocalName "U") Nothing)
+                         (Var (LocalName "V") Nothing) Empty) Nothing) Empty) Nothing
+          assertEqual "" "(fun* (T U) V)" (showPP expr)
+      ]
     , testGroup "Properties"
       [ testProperty "Holed.exprFromValue . pp == id" $
         \expr -> Right expr === (first show . runNonfatal . Holed.exprFromValue . pp $ expr)
@@ -75,7 +99,7 @@ tests = testGroup "Tests"
   , testGroup "Parser"
     [ testGroup "Properties"
       [ testProperty "parse . show == id" $
-        \value -> Just value === (parseOne . fromString $ show value)
+        \value -> Just value === (parseOne . BS.fromString $ show value)
       ]
     , testGroup "Unit Tests"
       [ goldenVsString "Strings"
@@ -88,6 +112,22 @@ tests = testGroup "Tests"
         assertEqual "" (Just $ Nil Nothing) (parseOne "()")
       , testCase "Nil via Group" $
         assertEqual "" (Just $ Nil Nothing) (parseOne "group")
+      , testCase "1" $
+        assertEqual "" (Just $ Int Nothing 1) (parseOne "1")
+      , testCase "+1" $
+        assertEqual "" (Just $ Int Nothing 1) (parseOne "+1")
+      , testCase "1+" $
+        assertEqual "" (Just $ Symbol Nothing "1+") (parseOne "1+")
+      , testCase "-1" $
+        assertEqual "" (Just $ Int Nothing (-1)) (parseOne "-1")
+      , testCase "1-" $
+        assertEqual "" (Just $ Symbol Nothing "1-") (parseOne "1-")
+      , testCase "0" $
+        assertEqual "" (Just $ Int Nothing 0) (parseOne "0")
+      , testCase "-0" $
+        assertEqual "" (Just $ Int Nothing 0) (parseOne "-0")
+      , testCase "--0" $
+        assertEqual "" (Just $ Symbol Nothing "--0") (parseOne "--0")
       ]
     ]
   , testGroup "Typechecker"
@@ -151,6 +191,13 @@ must (Right x) = pure x
 must' :: Show e => Either [e] a -> IO ()
 must' = void . must
 
+must1 :: Show e => Either e a -> IO a
+must1 (Left err) = assertFailure ("Error: " <> show err)
+must1 (Right x) = pure x
+
+must1' :: Show e => NonfatalT e IO a -> IO a
+must1' = must <=< runNonfatalT
+
 parseOne :: ByteString -> Maybe Value
 parseOne = helper . parse "<test:tests>"
   where helper (Right [x]) = Just x
@@ -160,7 +207,7 @@ showParseFile :: FilePath -> IO LBS.ByteString
 showParseFile path = stringToLBS . unifyShowWith (unlines . map show) <$> (runExceptT $ parseFile path)
 
 stringToLBS :: String -> LBS.ByteString
-stringToLBS = LBS.fromStrict . fromString
+stringToLBS = LBS.fromStrict . BS.fromString
 
 unifyShowWith :: (Show e) => (a -> String) -> Either e a -> String
 unifyShowWith _ (Left e) = show e
@@ -173,9 +220,13 @@ arbitraryHelper baseClauses indClauses = sized helper
 
 arbitraryName :: Gen ByteString
 arbitraryName = do
-  len <- choose (1, 32)
-  s <- vectorOf len $ oneof $ [choose ('A', 'Z'), choose ('a', 'z')]
-  pure (fromString s)
+  len <- choose (1, 8)
+  BS.fromString <$> (vectorOf len $ oneof $ [choose ('A', 'Z'), choose ('a', 'z')])
+
+arbitraryString :: Gen ByteString
+arbitraryString = do
+  len <- choose (0, 8)
+  BS.fromString <$> vectorOf len (choose (' ', '~'))
 
 instance Arbitrary Builtin where
   arbitrary = oneof (pure <$> [TypeOfTypes, TypeOfTypeOfTypes])
@@ -217,9 +268,7 @@ instance Default a => Arbitrary (Holed.ExprCustom (Expr Holed.ExprCustom a)) whe
 instance Arbitrary Value where
   arbitrary = arbitraryHelper
     [ Int Nothing <$> arbitrary
-    , do
-        len <- choose (0, 32)
-        String Nothing . fromString <$> vectorOf len (choose (' ', '~'))
+    , String Nothing <$> arbitraryString
     , Symbol Nothing <$> arbitraryName
     , pure (Nil Nothing)
     ]

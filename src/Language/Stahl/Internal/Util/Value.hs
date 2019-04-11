@@ -6,8 +6,10 @@ module Language.Stahl.Internal.Util.Value
   ) where
 
 import Data.ByteString (ByteString)
+import Data.Foldable (toList)
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Const (Const(..))
+import Data.Sequence (Seq)
 import Data.Void (Void, absurd)
 import Language.Stahl.Error (Error)
 import Language.Stahl.Internal.Util (Location(..))
@@ -23,6 +25,9 @@ class PP a where
 instance PP [Value] where
   pp [] = Nil Nothing
   pp (h:t) = Cons Nothing h (pp t)
+
+instance PP a => PP (Seq a) where
+  pp = pp . map pp . toList
 
 instance PP (f (g a)) => PP (Compose f g a) where
   pp = pp . getCompose

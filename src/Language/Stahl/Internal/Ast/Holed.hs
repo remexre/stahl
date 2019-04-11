@@ -32,11 +32,17 @@ data ExprCustom expr
   | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)
   deriving (Eq, Functor, Foldable, Show, Traversable)
 
-instance PP expr => PP (ExprCustom expr) where
+instance PP (ExprCustom (Ast.Expr ExprCustom a)) where
   pp (Hole s) = Symbol Nothing ("_" <> s)
-  pp (ImplicitLam n e) = pp [Symbol Nothing "fn*", pp n, pp e]
-  pp (ImplicitPi n a r Empty) = pp [Symbol Nothing "TODO", undefined, undefined, undefined]
-  pp (ImplicitPi n a r es) = pp [Symbol Nothing "TODO", undefined, undefined, undefined, undefined]
+  pp (ImplicitLam n e) = helper [n] e
+    where helper ns (Ast.CustomExpr (ImplicitLam n' e') _) = helper (n':ns) e'
+          helper ns e = pp [Symbol Nothing "fn*", pp (pp <$> reverse ns), pp e]
+  pp (ImplicitPi (Just n) t1 t2 Empty) = pp [Symbol Nothing "pi*", pp n, pp t1, pp t2]
+  pp (ImplicitPi Nothing t1 t2 Empty)  = helper [t1] t2
+    where helper t1s (Ast.CustomExpr (ImplicitPi Nothing t1' t2' Empty) _) = helper (t1':t1s) t2'
+          helper t1s e = pp [Symbol Nothing "fun*", pp (pp <$> reverse t1s), pp e]
+  pp (ImplicitPi (Just n) t1 t2 effs)  = pp [Symbol Nothing "pi*", pp n, pp t1, pp t2, pp effs]
+  pp (ImplicitPi Nothing t1 t2 effs)   = pp [Symbol Nothing "pi*", Symbol Nothing "_", pp t1, pp t2, pp effs]
 
 declsFromValues :: MonadNonfatal Error m => [Value] -> m (Seq Decl)
 declsFromValues = fmap Seq.fromList . mapFatalsToNonfatals declFromValue
