@@ -1,5 +1,4 @@
-{-# LANGUAGE GADTs, GeneralizedNewtypeDeriving, MultiParamTypeClasses, StandaloneDeriving,
-             UndecidableInstances #-}
+{-# LANGUAGE GADTs, GeneralizedNewtypeDeriving, StandaloneDeriving, UndecidableInstances #-}
 
 module Language.Stahl.Internal.Util.MonadGensym
   ( MonadGensym(..)

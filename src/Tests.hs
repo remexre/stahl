@@ -1,10 +1,13 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, OverloadedStrings, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, OverloadedLists, OverloadedStrings,
+             UndecidableInstances #-}
 
 module Main (main) where
 
 import Control.Monad ((<=<), mapM, void)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (runReader)
+import Control.Monad.State (modify)
+import Control.Monad.State.Strict (execState)
 import Control.Monad.Writer (execWriter)
 import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.Bifunctor (Bifunctor(..))
@@ -20,9 +23,13 @@ import Data.Sequence (Seq(..))
 import qualified Data.Sequence as Seq
 import Language.Stahl
 import Language.Stahl.Ast (rewriteExpr)
+import Language.Stahl.Internal.Env (extendEnvWith)
 import Language.Stahl.Modules (loadLibMeta)
 import Language.Stahl.TyCk (UnifVar)
 import qualified Language.Stahl.Internal.Ast.Holed as Holed
+import Language.Stahl.Internal.Ast.HoledI (addImplicitApps')
+import qualified Language.Stahl.Internal.Ast.HoledI as HoledI
+import Language.Stahl.Internal.Util.MonadGensym (runGensymT)
 import Language.Stahl.Internal.Util.MonadNonfatal (NonfatalT, runNonfatal, runNonfatalT)
 import Language.Stahl.Internal.Util.Value (PP(..))
 import Language.Stahl.Util
@@ -142,6 +149,12 @@ tests = testGroup "Tests"
     [ testCase "((fn (x) x) (fun (TYPE) TYPE)) : TYPE" $ do
         res <- must . flip runReader def . runNonfatalT $ tyck exampleIdOfTyToTy Nothing
         assertEqual "" (exampleIdOfTyToTy, exampleTy) res
+    , testGroup "id id unit"
+      [ testCase "With implicits" $ do
+          undefined
+      , testCase "Without implicits" $ do
+          undefined
+      ]
     ]
   , testGroup "Modules"
     [ testCase "Loads std's lib.stahld" $ do
@@ -222,9 +235,12 @@ unifyShowWith _ (Left e) = show e
 unifyShowWith f (Right x) = f x
 
 arbitraryHelper :: [Gen a] -> [Gen a -> Gen a] -> Gen a
-arbitraryHelper baseClauses indClauses = sized helper
+arbitraryHelper baseClauses indClauses = sized (arbitraryHelper' baseClauses indClauses)
+
+arbitraryHelper' :: [Gen a] -> [Gen a -> Gen a] -> Int -> Gen a
+arbitraryHelper' baseClauses indClauses = helper
   where helper 0 = oneof baseClauses
-        helper n = oneof ((($ helper (n-1)) <$> indClauses) <> baseClauses)
+        helper n = oneof ((($ helper (n `div` 32)) <$> indClauses) <> baseClauses)
 
 arbitraryName :: Gen ByteString
 arbitraryName = do
@@ -250,28 +266,39 @@ instance Arbitrary GlobalName where
 instance Arbitrary LocalName where
   arbitrary = LocalName <$> arbitraryName
 
-instance (Arbitrary (e (Expr e a)), Default a) => Arbitrary (Expr e a) where
+instance (Arbitrary1 c, Default a, Traversable c) => Arbitrary (Expr c a) where
   arbitrary = arbitraryHelper
-    [ CustomExpr <$> arbitrary <*> pure def
+    [ CustomExpr <$> arbitrary1 <*> pure def
     -- , Atom <$> arbitrary <*> pure def
     -- , Builtin <$> arbitrary <*> pure def
     , Var <$> arbitrary <*> pure def
     ]
-    [ -- \r -> App (Expr c a) (Expr c a) a
-    -- , \r -> Handle GlobalName (Expr c a) (Expr c a) a
-    -- , \r -> Lam LocalName (Expr c a) a
-    -- , \r -> Perform GlobalName (Expr c a) a
-    -- , \r -> Pi (Maybe LocalName) (Expr c a) (Expr c a) (Seq GlobalName) a
+    [ \r -> App <$> r <*> r <*> pure def
+    , \r -> Handle <$> arbitrary <*> r <*> r <*> pure def
+    , \r -> Lam <$> arbitrary <*> r <*> pure def
+    , \r -> Perform <$> arbitrary <*> r <*> pure def
+    , \r -> Pi <$> arbitrary <*> r <*> r <*> arbitrary <*> pure def
     ]
+  shrink (CustomExpr c a) = CustomExpr <$> traverse shrink c <*> pure a
+  shrink (App e1 e2 a) = App <$> shrink e1 <*> shrink e2 <*> pure a
+  shrink (Atom n a) = Atom <$> shrink n <*> pure a
+  shrink (Builtin b a) = Builtin <$> shrink b <*> pure a
+  shrink (Handle eff e1 e2 a) = Handle <$> shrink eff <*> shrink e1 <*> shrink e2 <*> pure a
+  shrink (Lam n b a) = Lam <$> shrink n <*> shrink b <*> pure a
+  shrink (Perform eff b a) = Perform <$> shrink eff <*> shrink b <*> pure a
+  shrink (Pi n t1 t2 effs a) = Pi <$> shrink n <*> shrink t1 <*> shrink t2 <*> shrink effs <*> pure a
+  shrink (Var n a) = Var <$> shrink n <*> pure a
 
-instance Default a => Arbitrary (Holed.ExprCustom (Expr Holed.ExprCustom a)) where
-  arbitrary = arbitraryHelper
+instance Arbitrary1 Holed.ExprCustom where
+  liftArbitrary expr = oneof
     [ Holed.Hole <$> arbitraryName
-    , Holed.ImplicitLam <$> arbitrary <*> arbitrary
-    , Holed.ImplicitPi <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , Holed.ImplicitLam <$> arbitrary <*> expr
+    , Holed.ImplicitPi <$> arbitrary <*> expr <*> expr <*> arbitrary
     ]
-    [
-    ]
+  liftShrink shrinkExpr (Holed.Hole n) = Holed.Hole <$> pure n
+  liftShrink shrinkExpr (Holed.ImplicitLam n b) = Holed.ImplicitLam <$> shrink n <*> shrinkExpr b
+  liftShrink shrinkExpr (Holed.ImplicitPi n t1 t2 es) =
+    Holed.ImplicitPi <$> shrink n <*> shrinkExpr t1 <*> shrinkExpr t2 <*> shrink es
 
 instance Arbitrary Value where
   arbitrary = arbitraryHelper

@@ -30,6 +30,7 @@ import Language.Stahl.Internal.Ast.Builtins (Builtin(..))
 import Language.Stahl.Internal.Value (Value(..))
 import Language.Stahl.Internal.Util.Value (PP(..))
 
+-- |A top-level declaration.
 data Decl cE cD aE aD
   = CustomDecl (cD (Decl cE cD aE aD)) aD
   | Def LocalName (Expr cE aE) (Expr cE aE) aD
@@ -83,6 +84,7 @@ traverseCustomDecl' fCE fCD fAE fAD (DefTy n k cs a) =
     DefTy n <$> traverseCustomExpr' fCE fAE k <*> mapM ctorHelper cs <*> fAD a
   where ctorHelper (name, ty) = (name,) <$> traverseCustomExpr' fCE fAE ty
 
+-- |The name of a global binding.
 newtype GlobalName = GlobalName (ByteString, Seq ByteString, ByteString)
   deriving (Eq, Ord)
 
@@ -94,6 +96,7 @@ instance Show GlobalName where
 instance PP GlobalName where
   pp = Symbol Nothing . BS.fromString . show
 
+-- |The name of a local binding.
 newtype LocalName = LocalName ByteString
   deriving (Eq, Ord)
 
@@ -103,6 +106,7 @@ instance Show LocalName where
 instance PP LocalName where
   pp (LocalName n) = Symbol Nothing n
 
+-- |An expression.
 data Expr c a
   = CustomExpr (c (Expr c a)) a
   | App (Expr c a) (Expr c a) a
@@ -137,6 +141,7 @@ instance PP (c (Expr c a)) => PP (Expr c a) where
   pp (Pi Nothing t1 t2 effs _)   = pp [Symbol Nothing "pi", Symbol Nothing "_", pp t1, pp t2, pp effs]
   pp (Var n _) = pp n
 
+-- A 'Lens' for the annotation part of the expression.
 exprAnnot :: Lens' (Expr c a) a
 exprAnnot = lens get set
   where get (CustomExpr _ a)     = a
@@ -158,6 +163,7 @@ exprAnnot = lens get set
         set (Pi n t1 t2 effs _)  a = Pi n t1 t2 effs a
         set (Var n _)            a = Var n a
 
+-- A 'Lens' for the annotation part of the expression.
 exprCustom :: Prism' (Expr c a) (c (Expr c a), a)
 exprCustom = prism from to
   where from (c, a) = CustomExpr c a

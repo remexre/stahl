@@ -28,12 +28,14 @@ type Decl = Ast.Decl ExprCustom (Const Void) (Maybe Location) (Maybe Location)
 type Expr = Ast.Expr ExprCustom (Maybe Location)
 
 data ExprCustom expr
-  = Hole ByteString
+  = GlobalVar GlobalName
+  | Hole ByteString
   | ImplicitLam LocalName expr
   | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)
   deriving (Eq, Functor, Foldable, Show, Traversable)
 
 instance PP (ExprCustom (Ast.Expr ExprCustom a)) where
+  pp (GlobalVar n) = pp n
   pp (Hole s) = Symbol Nothing ("_" <> s)
   pp (ImplicitLam n e) = helper [n] e
     where helper ns (Ast.CustomExpr (ImplicitLam n' e') _) = helper (n':ns) e'
@@ -105,6 +107,14 @@ exprFromValue v = valueAsList (astError "expression") v >>= \case
                                         <*> pure loc
   (loc, (Symbol _ "fun*":_)) -> fatal (astError "fun*" v)
 
+  (loc, [Symbol _ "handle", globalNameFromValue -> eff, e1, e2]) ->
+    Ast.Handle <$> eff <*> exprFromValue e1 <*> exprFromValue e2 <*> pure loc
+  (loc, (Symbol _ "handle":_)) -> fatal (astError "handle" v)
+
+  (loc, [Symbol _ "perform", globalNameFromValue -> eff, e]) ->
+    Ast.Perform <$> eff <*> exprFromValue e <*> pure loc
+  (loc, (Symbol _ "perform":_)) -> fatal (astError "perform" v)
+
   (loc, [Symbol _ "pi", Symbol _ "_", t1, t2]) ->
     Ast.Pi Nothing <$> exprFromValue t1
                    <*> exprFromValue t2
@@ -163,5 +173,5 @@ globalNameFromValue v@(Symbol _ name) = helper (BS.split 0x3a name) -- 0x3a == '
   where helper [] = fatal (astError "global name" v)
         helper (h:t) = helper' h t
         helper' _ [] = fatal (astError "global name" v)
-        helper' l l'@(_:_) = error $ show (l, init l', last l')
+        helper' l l'@(_:_) = pure (GlobalName (l, Seq.fromList (init l'), last l'))
 globalNameFromValue v = fatal (astError "global name" v)

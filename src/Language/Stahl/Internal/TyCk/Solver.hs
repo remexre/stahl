@@ -1,11 +1,11 @@
-{-# LANGUAGE MultiParamTypeClasses, StandaloneDeriving, UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving, UndecidableInstances #-}
 
 -- |The constraint-solving parts of the typechecker.
 module Language.Stahl.Internal.TyCk.Solver
   ( solveConstraints
   ) where
 
-import Control.Lens (Traversal', (^.), (.=), to, use, view)
+import Control.Lens (Traversal', (^.), (.=), to, use)
 import Control.Lens.TH (makeLenses)
 import Control.Monad.State (StateT, execStateT)
 import Control.Monad.State.Class (modify)
@@ -16,7 +16,7 @@ import Data.Sequence (Seq)
 import Language.Stahl.Ast (Expr(..), exprAnnot, rewriteExpr)
 import Language.Stahl.Error (Error, ErrorKind(..), mkError)
 import Language.Stahl.Internal.Ast.Builtins (Builtin(..))
-import Language.Stahl.Internal.TyCk.Types (Constraint(..), TyCkExprAnnot(..), TyCkExprParams(..), UnifVar, var')
+import Language.Stahl.Internal.TyCk.Types (Constraint(..), TyCkExprAnnot(..), TyCkExprParams(..), UnifVar, inspectExprVar)
 import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
 import Language.Stahl.Util (repeatM)
 
@@ -63,8 +63,8 @@ solveConstraints' = repeatM $ do
 
 solveConstraint :: (MonadNonfatal Error m, Show a, Show (c (Expr c a)), TyCkExprParams c a)
                 => Constraint c a -> StateT (SolverState c a) m ()
-solveConstraint ((view var' -> Just l) :~: r) = modify $ replace l r
-solveConstraint (l :~: (view var' -> Just r)) = modify $ replace r l
+solveConstraint ((inspectExprVar -> Just (l, _)) :~: r) = modify $ replace l r
+solveConstraint (l :~: (inspectExprVar -> Just (r, _))) = modify $ replace r l
 solveConstraint c@(l :~: r) = case (l, r) of
   (Builtin l _, Builtin r _) -> ensure (l == r) c
   _ -> raise (mkError (Other $ "TODO: solveConstraint " <> show c) Nothing)
@@ -85,7 +85,7 @@ class Replaceable c a t where
 
 instance TyCkExprParams c a => Replaceable c a (Expr c a) where
   replace from to = runIdentity . rewriteExpr (Identity . helper)
-    where helper ex = if ex^.var' == Just from then to else ex
+    where helper ex = if (fst <$> inspectExprVar ex) == Just from then to else ex
 
 instance TyCkExprParams c a => Replaceable c a (Constraint c a) where
   replace from to = runIdentity . traverseConstraint (Identity . replace from to)

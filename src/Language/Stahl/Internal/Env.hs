@@ -4,6 +4,8 @@ module Language.Stahl.Internal.Env
   ( Env(..)
   , extendEnvWith
   , extendEnvWith'
+  , globals
+  , locals
   , lookupTy
   , lookupVal
   ) where

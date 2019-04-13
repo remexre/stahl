@@ -14,14 +14,13 @@ import Control.Monad.Reader.Class (MonadReader(..))
 import Control.Monad.Writer (WriterT(..))
 import Data.Sequence (Seq(..))
 import Language.Stahl.Ast (Expr(..))
-import Language.Stahl.Error (Error, ErrorKind(..), mkError)
+import Language.Stahl.Error (Error)
 import Language.Stahl.Internal.Env (Env(..))
 import Language.Stahl.Internal.TyCk.Generator (tyckExpr)
 import Language.Stahl.Internal.TyCk.Solver (solveConstraints)
 import Language.Stahl.Internal.TyCk.Types (TyCkExprAnnot(..), TyCkExprParams(..), UnifVar(..))
 import Language.Stahl.Internal.Util.MonadGensym (runGensymT)
 import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
-import Language.Stahl.Util (spanBetween')
 
 -- |Type-checks an expression.
 tyck :: ( TyCkExprParams c a

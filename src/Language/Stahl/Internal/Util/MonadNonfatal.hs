@@ -1,5 +1,5 @@
-{-# LANGUAGE FunctionalDependencies, GADTs, GeneralizedNewtypeDeriving, MultiParamTypeClasses,
-             StandaloneDeriving, UndecidableInstances #-}
+{-# LANGUAGE FunctionalDependencies, GADTs, GeneralizedNewtypeDeriving, StandaloneDeriving,
+             UndecidableInstances #-}
 
 module Language.Stahl.Internal.Util.MonadNonfatal
   ( MonadNonfatal(..)

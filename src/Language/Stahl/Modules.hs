@@ -64,6 +64,7 @@ import Language.Stahl.Internal.Modules.Types
   , path
   )
 import qualified Language.Stahl.Internal.Parser
+import Language.Stahl.Internal.Util.MonadGensym (runGensymT)
 import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
 import Language.Stahl.Internal.Value (Value, isSymbolish)
 import Language.Stahl.Util (Location, wholeFile)
@@ -105,7 +106,7 @@ loadModule libName expectedName path = do
   src <- liftIO $ readFile path
   (name, exports, imports, body) <- moduleHeaderFromValues (wholeFile path src) =<< parse path src
   decls <- declsFromValues body
-  decls' <- mapM (solveDeclForHoles <=< flip runReaderT def . addImplicitApps) decls
+  decls' <- mapM (solveDeclForHoles <=< flip runReaderT def . runGensymT . addImplicitApps) decls
 
   let splitOffLibPart sym = do
         let (modPart, name) = BS.break (== ':') sym

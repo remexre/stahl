@@ -1,0 +1,12 @@
+module test
+  test
+
+defty Unit TYPE
+  unit Unit
+
+def id
+  pi* ((T TYPE)) (pi ((x T)) T)
+  fn* (_) (fn (x) x)
+
+def test
+  id id unit

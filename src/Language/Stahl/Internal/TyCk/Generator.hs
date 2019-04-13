@@ -3,7 +3,7 @@ module Language.Stahl.Internal.TyCk.Generator
   ( tyckExpr
   ) where
 
-import Control.Lens ((^.), review)
+import Control.Lens ((^.))
 import Control.Monad.Reader.Class (MonadReader(..))
 import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.Sequence (Seq)
@@ -70,7 +70,7 @@ tyckExpr' (App e1 e2 _) =
       pure retT
     funT -> do
       argT <- tyckExpr e1 Nothing
-      retT <- flip CustomExpr defaultAnnot . review var <$> freshUnifVar
+      retT <- flip CustomExpr defaultAnnot . createVar <$> freshUnifVar
       funT =~= Pi Nothing argT retT Seq.empty defaultAnnot
       pure retT
 tyckExpr' (Atom n _) = undefined
@@ -80,7 +80,7 @@ tyckExpr' (Builtin TypeOfTypeOfTypes annot) =
   fatal (mkError (Other "The type of the type of TYPE does not exist") (annot^.loc))
 tyckExpr' (Handle eff e1 e2 _) = undefined
 tyckExpr' (Lam n b _) = do
-  argT <- flip CustomExpr defaultAnnot . review var <$> freshUnifVar
+  argT <- flip CustomExpr defaultAnnot . createVar <$> freshUnifVar
   bodyT <- local (extendEnvWith n argT Nothing) $
     tyckExpr b Nothing
   pure (Pi (Just n) argT bodyT Seq.empty defaultAnnot)
