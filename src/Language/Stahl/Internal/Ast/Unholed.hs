@@ -6,21 +6,26 @@ module Language.Stahl.Internal.Ast.Unholed
   , Expr(..)
   , ExprCustom(..)
   , solveDeclForHoles
-  , solveExprForHoles
   ) where
 
 import Control.Monad.Reader.Class (MonadReader(..))
+import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.Functor.Const (Const(..))
 import Data.Sequence (Seq)
-import Data.Void (Void, absurd)
+import Data.Void (Void)
 import Language.Stahl.Ast (GlobalName(..), LocalName(..))
 import qualified Language.Stahl.Ast as Ast
 import Language.Stahl.Error (Error)
 import Language.Stahl.Internal.Ast.Builtins (Builtin(..))
 import qualified Language.Stahl.Internal.Ast.HoledI as HoledI
+import Language.Stahl.Internal.TyCk.Generator (tyckExpr)
+import Language.Stahl.Internal.TyCk.Solver (solveConstraints)
+import qualified Language.Stahl.Internal.TyCk.Types as TyCk
+import Language.Stahl.Internal.Util.MonadGensym (MonadGensym)
 import Language.Stahl.Internal.Util.MonadNonfatal (MonadNonfatal(..))
 import Language.Stahl.Util (Location, convertConstM)
 
+type Constraint = TyCk.Constraint HoledI.ExprCustom (Maybe Location)
 type Decl = Ast.Decl ExprCustom (Const Void) (Maybe Location) (Maybe Location)
 type Expr = Ast.Expr ExprCustom (Maybe Location)
 
@@ -30,13 +35,22 @@ data ExprCustom expr
   | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)
   deriving (Functor, Foldable, Show, Traversable)
 
-solveDeclForHoles :: MonadNonfatal Error m => HoledI.Decl -> m Decl
-solveDeclForHoles (Ast.Def n t e a) = do
-  t' <- solveExprForHoles t Nothing
-  e' <- solveExprForHoles e (Just t')
-  pure (Ast.Def n t' e' a)
-solveDeclForHoles (Ast.DefTy n k cs a) = error "TODO: solveDeclForHoles DefTy"
-solveDeclForHoles (Ast.CustomDecl (Const void) _) = absurd void
+solveDeclForHoles :: ( MonadNonfatal Error m
+                     , MonadGensym m
+                     , MonadReader HoledI.Env m
+                     , MonadWriter (Seq Constraint) m
+                     )
+                  => HoledI.Decl
+                  -> m Decl
+solveDeclForHoles decl = do
+  undefined
 
-solveExprForHoles :: MonadNonfatal Error m => HoledI.Expr -> Maybe Expr -> m Expr
-solveExprForHoles = undefined
+generateDeclConstraints :: ( MonadNonfatal Error m
+                           , MonadGensym m
+                           , MonadReader HoledI.Env m
+                           , MonadWriter (Seq Constraint) m
+                           )
+                        => HoledI.Expr
+                        -> Maybe HoledI.Expr
+                        -> m HoledI.Expr
+generateDeclConstraints = undefined

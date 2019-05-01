@@ -13,7 +13,6 @@ library
     , Language.Stahl.Internal.Ast.Holed
     , Language.Stahl.Internal.Ast.HoledI
     , Language.Stahl.Internal.Ast.Unholed
-    , Language.Stahl.Internal.Ast.Unifying
     , Language.Stahl.Internal.Env
     , Language.Stahl.Internal.Lexer
     , Language.Stahl.Internal.Modules.FromValue

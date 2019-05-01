@@ -2,6 +2,7 @@
 -- holes, as well as implicits pis, lambdas, and applications.
 module Language.Stahl.Internal.Ast.HoledI
   ( Decl(..)
+  , Env(..)
   , Expr(..)
   , ExprCustom(..)
   , addImplicitApps
