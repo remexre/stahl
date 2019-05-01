@@ -60,6 +60,11 @@ class Monad m => MonadNonfatal e m | m -> e where
 
   fatal :: e -> m a
   fatal err = raise err >> abort
+  fatallyFromEither :: Either [e] a -> m a
+  fatallyFromEither (Left errs) = raiseAll errs >> abort
+  fatallyFromEither (Right x) = pure x
+  raiseAll :: [e] -> m ()
+  raiseAll = mapM_ raise
 
   default abort :: (MonadNonfatal e m', MonadTrans t, m ~ t m') => m a
   abort = lift abort
