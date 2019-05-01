@@ -16,6 +16,7 @@ import Control.Monad.Error.Class (MonadError(..))
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Fix (MonadFix(..))
 import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Reader (ReaderT(..))
 import Control.Monad.Reader.Class (MonadReader(..))
 import Control.Monad.State (StateT(..))
 import Control.Monad.State.Class (gets, modify)
@@ -81,6 +82,9 @@ instance Monad m => MonadNonfatal e (NonfatalT e m) where
 
 instance MonadNonfatal e m => MonadNonfatal e (GensymT m) where
   catch = GensymT . catch . unGensymT
+
+instance MonadNonfatal e m => MonadNonfatal e (ReaderT s m) where
+  catch = ReaderT . (\act r -> catch (act r)) . runReaderT
 
 instance MonadNonfatal e m => MonadNonfatal e (StateT s m) where
   catch = StateT . (\act s -> (,s) <$> catch (fst <$> act s)) . runStateT

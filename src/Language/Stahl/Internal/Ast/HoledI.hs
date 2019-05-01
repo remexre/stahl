@@ -6,7 +6,6 @@ module Language.Stahl.Internal.Ast.HoledI
   , Expr(..)
   , ExprCustom(..)
   , addImplicitApps
-  , addImplicitApps'
   ) where
 
 import Control.Monad.Reader.Class (MonadReader(..))
@@ -21,7 +20,7 @@ import qualified Language.Stahl.Internal.Ast.Holed as Holed
 import Language.Stahl.Internal.Env (lookupTy, lookupVal)
 import Language.Stahl.Internal.TyCk.Types (TyCkExprAnnot, TyCkExprParams(..), UnifVar, freshUnifVar)
 import Language.Stahl.Internal.Util.MonadGensym (MonadGensym)
-import Language.Stahl.Util (Location, convertConstM)
+import Language.Stahl.Util (Location, constVoid)
 
 type Decl = Ast.Decl ExprCustom (Const Void) (Maybe Location) (Maybe Location)
 type Env = Env.Env ExprCustom (Maybe Location)
@@ -40,11 +39,8 @@ instance TyCkExprAnnot a => TyCkExprParams ExprCustom a where
   inspectVar _ = Nothing
 
 addImplicitApps :: (MonadGensym m, MonadReader Env m) => Holed.Decl -> m Decl
-addImplicitApps = Ast.traverseCustomDecl helper convertConstM pure pure
-  where helper (Holed.GlobalVar n) = error "TODO"
-        helper (Holed.Hole bs) = Hole bs <$> freshUnifVar
-        helper (Holed.ImplicitLam n b) = pure $ ImplicitLam n b
-        helper (Holed.ImplicitPi n a r es) = pure $ ImplicitPi n a r es
-
-addImplicitApps' :: (MonadGensym m, MonadReader Env m) => Holed.Expr -> m Expr
-addImplicitApps' = undefined
+addImplicitApps = Ast.transformDeclCustom helper constVoid
+  where helper (Holed.GlobalVar n) loc = error "TODO"
+        helper (Holed.Hole bs) loc = Ast.CustomExpr <$> (Hole bs <$> freshUnifVar) <*> pure loc
+        helper (Holed.ImplicitLam n b) loc = pure $ Ast.CustomExpr (ImplicitLam n b) loc
+        helper (Holed.ImplicitPi n a r es) loc = pure $ Ast.CustomExpr (ImplicitPi n a r es) loc

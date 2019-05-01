@@ -5,6 +5,7 @@ module Language.Stahl.Util
   , _Const
   , colStart
   , colEnd
+  , constVoid
   , convertConst
   , convertConstM
   , eitherToMaybe
@@ -32,6 +33,7 @@ import Data.Bifunctor (Bifunctor(..))
 import Data.ByteString.UTF8 (ByteString)
 import Data.Functor.Compose (Compose(..))
 import Data.Functor.Const (Const(..))
+import Data.Void (Void, absurd)
 import System.Console.ANSI
   ( Color(Red)
   , ColorIntensity(Vivid)
@@ -108,6 +110,9 @@ _Compose = iso getCompose Compose
 -- |An 'Iso'' between a 'Const' functor and the value inside it.
 _Const :: Iso' (Const a b) a
 _Const = iso getConst Const
+
+constVoid :: Const Void a -> b
+constVoid = absurd . getConst
 
 convertConst :: Const a b -> Const a c
 convertConst (Const x) = Const x

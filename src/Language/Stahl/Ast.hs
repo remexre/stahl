@@ -8,12 +8,10 @@ module Language.Stahl.Ast
   , declAnnot
   , exprAnnot
   , exprCustom
-  , mapCustomDecl
-  , traverseCustomDecl
-  , traverseCustomDecl'
-  , mapCustomExpr
-  , traverseCustomExpr
-  , traverseCustomExpr'
+  , transformDeclCustom
+  , transformExprCustom
+  , traverseDecl
+  , traverseExpr
   , rewriteExpr
   , visitExpr
   ) where
@@ -24,7 +22,6 @@ import Data.ByteString (ByteString)
 import Data.Foldable (toList)
 import qualified Data.ByteString as BS (intercalate)
 import qualified Data.ByteString.UTF8 as BS
-import Data.Functor.Identity (Identity(..))
 import Data.Sequence (Seq(..))
 import Language.Stahl.Internal.Ast.Builtins (Builtin(..))
 import Language.Stahl.Internal.Value (Value(..))
@@ -48,41 +45,32 @@ declAnnot = lens get set
         set (Def n t e _)    a = Def n t e a
         set (DefTy n k cs _) a = DefTy n k cs a
 
-mapCustomDecl :: (Traversable cD, Traversable cD', Traversable cE, Traversable cE')
-              => (cE (Expr cE' aE') -> cE' (Expr cE' aE'))
-              -> (cD (Decl cE' cD' aE' aD') -> cD' (Decl cE' cD' aE' aD'))
-              -> (aE -> aE')
-              -> (aD -> aD')
-              -> Decl cE cD aE aD -> Decl cE' cD' aE' aD'
-mapCustomDecl fCE fCD fAE fAD = runIdentity . traverseCustomDecl fCE' fCD' fAE' fAD'
-  where fCE' = Identity . fCE
-        fCD' = Identity . fCD
-        fAE' = Identity . fAE
-        fAD' = Identity . fAD
+transformDeclCustom :: (Traversable cD, Traversable cE, Monad m)
+                    => (cE (Expr cE' aE) -> aE -> m (Expr cE' aE))
+                    -> (cD (Decl cE' cD' aE aD) -> aD -> m (Decl cE' cD' aE aD))
+                    -> Decl cE cD aE aD -> m (Decl cE' cD' aE aD)
+transformDeclCustom fE fD = traverseDecl helperE helperD pure pure
+  where helperD c a = do
+          c' <- traverse (transformDeclCustom fE fD) c
+          a' <- a
+          fD c' a'
+        helperE c a = do
+          c' <- traverse (transformExprCustom fE) c
+          a' <- a
+          fE c' a'
 
-traverseCustomDecl :: (Traversable cD, Traversable cD', Traversable cE, Traversable cE', Monad m)
-                   => (cE (Expr cE' aE') -> m (cE' (Expr cE' aE')))
-                   -> (cD (Decl cE' cD' aE' aD') -> m (cD' (Decl cE' cD' aE' aD')))
-                   -> (aE -> m aE')
-                   -> (aD -> m aD')
-                   -> Decl cE cD aE aD -> m (Decl cE' cD' aE' aD')
-traverseCustomDecl fCE fCD fAE fAD = traverseCustomDecl' fCE' fCD' fAE fAD
-  where fCD' = fCD <=< traverse (traverseCustomDecl fCE fCD fAE fAD)
-        fCE' = fCE <=< traverse (traverseCustomExpr fCE fAE)
-
-traverseCustomDecl' :: (Traversable cD, Traversable cD', Traversable cE, Traversable cE', Monad m)
-                    => (cE (Expr cE aE) -> m (cE' (Expr cE' aE')))
-                    -> (cD (Decl cE cD aE aD) -> m (cD' (Decl cE' cD' aE' aD')))
-                    -> (aE -> m aE')
-                    -> (aD -> m aD')
-                    -> Decl cE cD aE aD -> m (Decl cE' cD' aE' aD')
-traverseCustomDecl' fCE fCD fAE fAD (CustomDecl c a) =
-  CustomDecl <$> fCD c <*> fAD a
-traverseCustomDecl' fCE fCD fAE fAD (Def n t e a) =
-  Def n <$> traverseCustomExpr' fCE fAE t <*> traverseCustomExpr' fCE fAE e <*> fAD a
-traverseCustomDecl' fCE fCD fAE fAD (DefTy n k cs a) =
-    DefTy n <$> traverseCustomExpr' fCE fAE k <*> mapM ctorHelper cs <*> fAD a
-  where ctorHelper (name, ty) = (name,) <$> traverseCustomExpr' fCE fAE ty
+traverseDecl :: Applicative f
+             => (cE (Expr cE aE) -> f aE' -> f (Expr cE' aE'))
+             -> (cD (Decl cE cD aE aD) -> f aD' -> f (Decl cE' cD' aE' aD'))
+             -> (aE -> f aE')
+             -> (aD -> f aD')
+             -> Decl cE cD aE aD -> f (Decl cE' cD' aE' aD')
+traverseDecl fCE fCD fAE fAD (CustomDecl c a) = fCD c (fAD a)
+traverseDecl fCE fCD fAE fAD (Def n t e a) =
+  Def n <$> traverseExpr fCE fAE t <*> traverseExpr fCE fAE e <*> fAD a
+traverseDecl fCE fCD fAE fAD (DefTy n k cs a) =
+  let ctorHelper (name, ty) = (name,) <$> traverseExpr fCE fAE ty in
+  DefTy n <$> traverseExpr fCE fAE k <*> traverse ctorHelper cs <*> fAD a
 
 -- |The name of a global binding.
 newtype GlobalName = GlobalName (ByteString, Seq ByteString, ByteString)
@@ -170,12 +158,6 @@ exprCustom = prism from to
         to (CustomExpr c a) = Right (c, a)
         to expr = Left expr
 
-mapCustomExpr :: (Traversable c, Traversable c')
-              => (c (Expr c' a') -> c' (Expr c' a'))
-              -> (a -> a')
-              -> Expr c a -> Expr c' a'
-mapCustomExpr fC fA = runIdentity . traverseCustomExpr (Identity . fC) (Identity . fA)
-
 rewriteExpr :: (Traversable c, Monad m) => (Expr c a -> m (Expr c a)) -> (Expr c a -> m (Expr c a))
 rewriteExpr f = helper f <=< f
   where helper f (CustomExpr c a) = CustomExpr <$> traverse f c <*> pure a
@@ -191,37 +173,41 @@ rewriteExpr f = helper f <=< f
           Pi n <$> rewriteExpr f t1 <*> rewriteExpr f t2 <*> pure effs <*> pure a
         helper f (Var n a) = pure $ Var n a
 
-traverseCustomExpr :: (Traversable c, Traversable c', Monad m)
-               => (c (Expr c' a') -> m (c' (Expr c' a')))
-               -> (a -> m a')
-               -> Expr c a -> m (Expr c' a')
-traverseCustomExpr fC fA = traverseCustomExpr' (fC <=< traverse (traverseCustomExpr fC fA)) fA
+transformExprCustom :: (Traversable c, Monad m)
+                    => (c (Expr c' a) -> a -> m (Expr c' a))
+                    -> Expr c a
+                    -> m (Expr c' a)
+transformExprCustom f = traverseExpr helper pure
+  where helper c a = do
+          c' <- traverse (transformExprCustom f) c
+          a' <- a
+          f c' a'
 
-traverseCustomExpr' :: Monad m
-                    => ((c (Expr c a)) -> m (c' (Expr c' a')))
-                    -> (a -> m a')
-                    -> Expr c a -> m (Expr c' a')
-traverseCustomExpr' fC fA (CustomExpr c a) = CustomExpr <$> fC c <*> fA a
-traverseCustomExpr' fC fA (App e1 e2 a) =
-  App <$> traverseCustomExpr' fC fA e1 <*> traverseCustomExpr' fC fA e2 <*> fA a
-traverseCustomExpr' fC fA (Atom n a) = Atom n <$> fA a
-traverseCustomExpr' fC fA (Builtin b a) = Builtin b <$> fA a
-traverseCustomExpr' fC fA (Handle eff e1 e2 a) =
-  Handle eff <$> traverseCustomExpr' fC fA e1 <*> traverseCustomExpr' fC fA e2 <*> fA a
-traverseCustomExpr' fC fA (Lam n b a) = Lam n <$> traverseCustomExpr' fC fA b <*> fA a
-traverseCustomExpr' fC fA (Perform eff b a) = Perform eff <$> traverseCustomExpr' fC fA b <*> fA a
-traverseCustomExpr' fC fA (Pi n t1 t2 effs a) =
-  Pi n <$> traverseCustomExpr' fC fA t1 <*> traverseCustomExpr' fC fA t2 <*> pure effs <*> fA a
-traverseCustomExpr' fC fA (Var n a) = Var n <$> fA a
+traverseExpr :: Applicative f
+              => (c (Expr c a) -> f a' -> f (Expr c' a'))
+              -> (a -> f a')
+              -> Expr c a -> f (Expr c' a')
+traverseExpr fC fA (CustomExpr c a) = fC c (fA a)
+traverseExpr fC fA (App e1 e2 a) =
+  App <$> traverseExpr fC fA e1 <*> traverseExpr fC fA e2 <*> fA a
+traverseExpr fC fA (Atom n a) = Atom n <$> fA a
+traverseExpr fC fA (Builtin b a) = Builtin b <$> fA a
+traverseExpr fC fA (Handle eff e1 e2 a) =
+  Handle eff <$> traverseExpr fC fA e1 <*> traverseExpr fC fA e2 <*> fA a
+traverseExpr fC fA (Lam n b a) = Lam n <$> traverseExpr fC fA b <*> fA a
+traverseExpr fC fA (Perform eff b a) = Perform eff <$> traverseExpr fC fA b <*> fA a
+traverseExpr fC fA (Pi n t1 t2 effs a) =
+  Pi n <$> traverseExpr fC fA t1 <*> traverseExpr fC fA t2 <*> pure effs <*> fA a
+traverseExpr fC fA (Var n a) = Var n <$> fA a
 
 -- |Post-order traversal over an expression.
-visitExpr :: Monad m => (Expr c a -> m ()) -> Expr c a -> m ()
+visitExpr :: Applicative f => (Expr c a -> f ()) -> Expr c a -> f ()
 visitExpr f e@(CustomExpr _ _) = f e
-visitExpr f e@(App e1 e2 _) = visitExpr f e1 >> visitExpr f e2 >> f e
+visitExpr f e@(App e1 e2 _) = visitExpr f e1 *> visitExpr f e2 *> f e
 visitExpr f e@(Atom _ _) = f e
 visitExpr f e@(Builtin _ _) = f e
-visitExpr f e@(Handle _ e1 e2 _) = visitExpr f e1 >> visitExpr f e2 >> f e
-visitExpr f e@(Lam _ b _) = visitExpr f b >> f e
-visitExpr f e@(Perform _ b _) = visitExpr f b >> f e
-visitExpr f e@(Pi _ t1 t2 _ _) = visitExpr f t1 >> visitExpr f t2 >> f e
+visitExpr f e@(Handle _ e1 e2 _) = visitExpr f e1 *> visitExpr f e2 *> f e
+visitExpr f e@(Lam _ b _) = visitExpr f b *> f e
+visitExpr f e@(Perform _ b _) = visitExpr f b *> f e
+visitExpr f e@(Pi _ t1 t2 _ _) = visitExpr f t1 *> visitExpr f t2 *> f e
 visitExpr f e@(Var _ _) = f e

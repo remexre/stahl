@@ -27,7 +27,6 @@ import Language.Stahl.Internal.Env (extendEnvWith)
 import Language.Stahl.Modules (loadLibMeta)
 import Language.Stahl.TyCk (UnifVar)
 import qualified Language.Stahl.Internal.Ast.Holed as Holed
-import Language.Stahl.Internal.Ast.HoledI (addImplicitApps')
 import qualified Language.Stahl.Internal.Ast.HoledI as HoledI
 import Language.Stahl.Internal.Util.MonadGensym (runGensymT)
 import Language.Stahl.Internal.Util.MonadNonfatal (NonfatalT, runNonfatal, runNonfatalT)

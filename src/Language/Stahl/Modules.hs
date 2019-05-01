@@ -106,7 +106,7 @@ loadModule libName expectedName path = do
   src <- liftIO $ readFile path
   (name, exports, imports, body) <- moduleHeaderFromValues (wholeFile path src) =<< parse path src
   decls <- declsFromValues body
-  decls' <- mapM (solveDeclForHoles <=< flip runReaderT def . runGensymT . addImplicitApps) decls
+  decls' <- flip runReaderT def . runGensymT $ mapM (solveDeclForHoles <=< addImplicitApps) decls
 
   let splitOffLibPart sym = do
         let (modPart, name) = BS.break (== ':') sym

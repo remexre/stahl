@@ -35,18 +35,17 @@ data ExprCustom expr
   | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)
   deriving (Functor, Foldable, Show, Traversable)
 
-solveDeclForHoles :: ( MonadNonfatal Error m
-                     , MonadGensym m
+solveDeclForHoles :: ( MonadGensym m
+                     , MonadNonfatal Error m
                      , MonadReader HoledI.Env m
-                     , MonadWriter (Seq Constraint) m
                      )
                   => HoledI.Decl
                   -> m Decl
 solveDeclForHoles decl = do
   undefined
 
-generateDeclConstraints :: ( MonadNonfatal Error m
-                           , MonadGensym m
+generateDeclConstraints :: ( MonadGensym m
+                           , MonadNonfatal Error m
                            , MonadReader HoledI.Env m
                            , MonadWriter (Seq Constraint) m
                            )

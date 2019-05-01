@@ -13,6 +13,7 @@ import Control.Monad.State (StateT(..), evalStateT)
 import Control.Monad.State.Class (MonadState(..), modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.Writer (WriterT(..))
+import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.ByteString.UTF8 (ByteString)
 import qualified Data.ByteString.UTF8 as BS
 import Data.Functor.Identity (Identity(..))
@@ -22,6 +23,7 @@ newtype GensymT m a = GensymT
   } deriving (Applicative, Functor, Monad, MonadFix)
 
 deriving instance MonadReader r m => MonadReader r (GensymT m)
+deriving instance MonadWriter w m => MonadWriter w (GensymT m)
 
 instance MonadTrans GensymT where
   lift = GensymT . lift

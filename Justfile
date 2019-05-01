@@ -7,7 +7,7 @@ clean:
 	test ! -f docs/semantics/semantics.pdf || rm docs/semantics/semantics.pdf
 # Watches the given target.
 watch +TARGETS="all":
-	watchexec -cre cabal,hs,md,tex,y -- just {{TARGETS}}
+	watchexec -cre cabal,hs,md,y -- just {{TARGETS}}
 
 # Builds all docs.
 doc: haddock mdbook latex
