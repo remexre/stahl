@@ -12,6 +12,7 @@ import Control.Monad.Reader.Class (MonadReader(..))
 import Control.Monad.State (StateT(..), evalStateT)
 import Control.Monad.State.Class (MonadState(..), modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
+import Control.Monad.Reader (ReaderT(..))
 import Control.Monad.Writer (WriterT(..))
 import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.ByteString.UTF8 (ByteString)
@@ -49,4 +50,5 @@ instance Monad m => MonadGensym (GensymT m) where
     modify (1+)
     pure x
 
+instance MonadGensym m => MonadGensym (ReaderT r m)
 instance (MonadGensym m, Monoid w) => MonadGensym (WriterT w m)

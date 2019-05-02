@@ -24,7 +24,7 @@ import Control.Monad.Trans.Class (MonadTrans(..))
 import Control.Monad.Writer (WriterT(..))
 import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.Functor.Identity (Identity(..))
-import Language.Stahl.Internal.Util.MonadGensym (GensymT(..))
+import Language.Stahl.Internal.Util.MonadGensym (GensymT(..), MonadGensym)
 
 newtype NonfatalT e m a = NonfatalT
   { unNonfatalT :: ExceptT () (StateT [e] m) a
@@ -93,6 +93,8 @@ instance (MonadNonfatal e m, Monoid w) => MonadNonfatal e (WriterT w m) where
   catch = WriterT . fmap helper . catch . runWriterT
     where helper (es, Just (x, w)) = ((es, Just x), w)
           helper (es, Nothing) = ((es, Nothing), mempty)
+
+instance MonadGensym m => MonadGensym (NonfatalT e m)
 
 mapFatalsToNonfatals :: MonadNonfatal e m => (a -> m b) -> [a] -> m [b]
 mapFatalsToNonfatals f (h:t) = do

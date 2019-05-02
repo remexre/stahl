@@ -8,7 +8,7 @@ import Control.Monad.Reader.Class (MonadReader(..))
 import Control.Monad.Writer.Class (MonadWriter(..))
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
-import Language.Stahl.Ast (Expr(..))
+import Language.Stahl.Ast (Expr(..), LocalName(..))
 import Language.Stahl.Error (Error, ErrorKind(..), mkError)
 import Language.Stahl.Internal.Ast.Builtins (Builtin(..))
 import Language.Stahl.Internal.Env (Env(..), extendEnvWith, lookupTy)
@@ -31,8 +31,8 @@ constrain = tell . Seq.singleton
 
 -- |A wrapper around 'tyckExpr'' that enforces the check-type.
 tyckExpr :: ( TyCkExprParams c a
-            , MonadNonfatal Error m
             , MonadGensym m
+            , MonadNonfatal Error m
             , MonadReader (Env c a) m
             , MonadWriter (Seq (Constraint c a)) m
             )
@@ -52,8 +52,8 @@ tyckExpr expr chkTy = do
 -- |The main type-checking function, which produces constraints on the
 -- expressions that must be solved later.
 tyckExpr' :: ( TyCkExprParams c a
-             , MonadNonfatal Error m
              , MonadGensym m
+             , MonadNonfatal Error m
              , MonadReader (Env c a) m
              , MonadWriter (Seq (Constraint c a)) m
              )
@@ -71,7 +71,8 @@ tyckExpr' (App e1 e2 _) =
     funT -> do
       argT <- tyckExpr e1 Nothing
       retT <- flip CustomExpr defaultAnnot . createVar <$> freshUnifVar
-      funT =~= Pi Nothing argT retT Seq.empty defaultAnnot
+      newName <- genSym
+      funT =~= Pi (LocalName newName, True) argT retT Seq.empty defaultAnnot
       pure retT
 tyckExpr' (Atom n _) = undefined
 tyckExpr' (Builtin TypeOfTypes _) =
@@ -79,11 +80,11 @@ tyckExpr' (Builtin TypeOfTypes _) =
 tyckExpr' (Builtin TypeOfTypeOfTypes annot) =
   fatal (mkError (Other "The type of the type of TYPE does not exist") (annot^.loc))
 tyckExpr' (Handle eff e1 e2 _) = undefined
-tyckExpr' (Lam n b _) = do
+tyckExpr' (Lam (n, isGensym) b _) = do
   argT <- flip CustomExpr defaultAnnot . createVar <$> freshUnifVar
   bodyT <- local (extendEnvWith n argT Nothing) $
     tyckExpr b Nothing
-  pure (Pi (Just n) argT bodyT Seq.empty defaultAnnot)
+  pure (Pi (n, isGensym) argT bodyT Seq.empty defaultAnnot)
 tyckExpr' (Perform eff b _) = undefined
 tyckExpr' (Pi n t1 t2 effs _) = do
   constrain (TypeLike t1)

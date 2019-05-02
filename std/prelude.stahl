@@ -11,25 +11,21 @@
   Symbol
   the
   TYPE
-  type-of
   Unit unit elim-Unit
   ; Vect nil-Vect cons-Vect elim-Vect
   Void elim-Void)
 
 import compiler-builtins (Fixnum fixnum-add String Symbol TYPE)
 
-def const (pi ((T TYPE) (U TYPE) (_ T)) (pi ((_ U)) T))
-  fn (_ _ x) (fn (_) x)
-
-def id (pi ((T TYPE)) (pi ((_ T)) T))
-  fn (_)
+def id (pi* T TYPE (pi _ T T))
+  fn* (_)
     fn (x) x
 
-def the (pi ((T TYPE) (_ T)) T)
-  fn (_ x) x
+def const (fun* ((T TYPE) (U TYPE)) (fun ((_ T) (_ U)) T))
+  fn (_ _ x) (fn (_) x)
 
-def type-of (pi ((T TYPE) (_ T)) TYPE)
-  fn (T _) T
+def the (fun ((T TYPE) (_ T)) T)
+  fn (_ x) x
 
 defty Void TYPE
 

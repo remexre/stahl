@@ -16,6 +16,7 @@ import Data.ByteString.UTF8 (ByteString)
 import qualified Data.ByteString.UTF8 as BS
 import Data.Default (Default(..))
 import Data.Either (fromRight)
+import Data.Foldable (toList)
 import Data.Functor.Const (Const(..))
 import Data.Functor.Identity (Identity(..))
 import qualified Data.Map.Strict as Map
@@ -86,28 +87,29 @@ tests = testGroup "Tests"
           assertEqual "" "(x (y z))" (showPP expr)
       , testCase "(fn (x y) x)" $ do
           let expr :: Holed.Expr
-              expr = Lam (LocalName "x") (Lam (LocalName "y") (Var (LocalName "x") Nothing) Nothing) Nothing
+              expr = Lam (LocalName "x", False) (Lam (LocalName "y", False) (Var (LocalName "x") Nothing) Nothing) Nothing
           assertEqual "" "(fn (x y) x)" (showPP expr)
       , testCase "(fn* (x y) x)" $ do
-          let expr = CustomExpr (Holed.ImplicitLam (LocalName "x")
-                       (CustomExpr (Holed.ImplicitLam (LocalName "y")
+          let expr = CustomExpr (Holed.ImplicitLam (LocalName "x", False)
+                       (CustomExpr (Holed.ImplicitLam (LocalName "y", False)
                        (Var (LocalName "x") Nothing)) Nothing)) Nothing
           assertEqual "" "(fn* (x y) x)" (showPP expr)
       , testCase "(fun (T U) V)" $ do
           let expr :: Holed.Expr
-              expr = Pi Nothing (Var (LocalName "T") Nothing)
-                       (Pi Nothing (Var (LocalName "U") Nothing)
+              expr = Pi (LocalName "_1", True) (Var (LocalName "T") Nothing)
+                       (Pi (LocalName "_2", True) (Var (LocalName "U") Nothing)
                           (Var (LocalName "V") Nothing) Empty Nothing) Empty Nothing
           assertEqual "" "(fun (T U) V)" (showPP expr)
       , testCase "(fun* (T U) V)" $ do
-          let expr = CustomExpr (Holed.ImplicitPi Nothing (Var (LocalName "T") Nothing)
-                       (CustomExpr (Holed.ImplicitPi Nothing (Var (LocalName "U") Nothing)
+          let expr = CustomExpr (Holed.ImplicitPi (LocalName "_3", True) (Var (LocalName "T") Nothing)
+                       (CustomExpr (Holed.ImplicitPi (LocalName "_4", True) (Var (LocalName "U") Nothing)
                          (Var (LocalName "V") Nothing) Empty) Nothing) Empty) Nothing
           assertEqual "" "(fun* (T U) V)" (showPP expr)
       ]
     , testGroup "Properties"
       [ testProperty "Holed.exprFromValue . pp == id" $
-        \expr -> Right expr === (first show . runNonfatal . Holed.exprFromValue . pp $ expr)
+        let helper = first show . runNonfatal . runGensymT . Holed.exprFromValue . pp in
+        \expr -> helper expr === (helper =<< helper expr)
       ]
     ]
   , testGroup "Parser"
@@ -150,9 +152,9 @@ tests = testGroup "Tests"
         assertEqual "" (exampleIdOfTyToTy, exampleTy) res
     , testGroup "id id unit"
       [ testCase "With implicits" $ do
-          undefined
+          error "TODO write a test"
       , testCase "Without implicits" $ do
-          undefined
+          error "TODO write a test"
       ]
     ]
   , testGroup "Modules"
@@ -195,11 +197,11 @@ tests = testGroup "Tests"
   ]
 
 exampleId :: Expr (Const UnifVar) (Maybe Location)
-exampleId = Lam (LocalName "x") (Var (LocalName "x") Nothing) Nothing
+exampleId = Lam (LocalName "x", False) (Var (LocalName "x") Nothing) Nothing
 
 exampleIdOfTyToTy :: Expr (Const UnifVar) (Maybe Location)
 exampleIdOfTyToTy = App exampleId pi Nothing
-  where pi = Pi Nothing exampleTy exampleTy Seq.empty Nothing
+  where pi = Pi (LocalName "_exampleIdOfTyToTy", True) exampleTy exampleTy Seq.empty Nothing
 
 exampleTy :: Expr (Const UnifVar) (Maybe Location)
 exampleTy = Builtin TypeOfTypes Nothing
@@ -278,13 +280,13 @@ instance (Arbitrary1 c, Default a, Traversable c) => Arbitrary (Expr c a) where
     , \r -> Perform <$> arbitrary <*> r <*> pure def
     , \r -> Pi <$> arbitrary <*> r <*> r <*> arbitrary <*> pure def
     ]
-  shrink (CustomExpr c a) = CustomExpr <$> traverse shrink c <*> pure a
-  shrink (App e1 e2 a) = App <$> shrink e1 <*> shrink e2 <*> pure a
+  shrink (CustomExpr c a) = (CustomExpr <$> traverse shrink c <*> pure a) <> toList c
+  shrink (App e1 e2 a) = (App <$> shrink e1 <*> shrink e2 <*> pure a) <> [e1] -- why doesn't this work for e2?
   shrink (Atom n a) = Atom <$> shrink n <*> pure a
   shrink (Builtin b a) = Builtin <$> shrink b <*> pure a
   shrink (Handle eff e1 e2 a) = Handle <$> shrink eff <*> shrink e1 <*> shrink e2 <*> pure a
-  shrink (Lam n b a) = Lam <$> shrink n <*> shrink b <*> pure a
-  shrink (Perform eff b a) = Perform <$> shrink eff <*> shrink b <*> pure a
+  shrink (Lam n b a) = (Lam <$> shrink n <*> shrink b <*> pure a) <> shrink b
+  shrink (Perform eff b a) = (Perform <$> shrink eff <*> shrink b <*> pure a) <> shrink b
   shrink (Pi n t1 t2 effs a) = Pi <$> shrink n <*> shrink t1 <*> shrink t2 <*> shrink effs <*> pure a
   shrink (Var n a) = Var <$> shrink n <*> pure a
 

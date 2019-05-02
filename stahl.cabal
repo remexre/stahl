@@ -45,6 +45,7 @@ library
     , monad-loops            >= 0.4.3  && < 0.5
     , transformers           >= 0.5.5  && < 0.6
     , utf8-string            >= 1.0.1  && < 1.1
+    , validation
   ghc-options: -funbox-strict-fields -fwarn-incomplete-patterns -fwarn-tabs -fwarn-unused-imports -O2
   default-language: Haskell2010
   default-extensions:

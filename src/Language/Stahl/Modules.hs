@@ -22,7 +22,7 @@ module Language.Stahl.Modules
   ) where
 
 import Control.Lens ((^.))
-import Control.Monad ((<=<))
+import Control.Monad ((<=<), forM)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Reader (ReaderT(..))
 import Control.Monad.IO.Class (MonadIO(..))
@@ -105,8 +105,12 @@ loadModule :: (MonadIO m, MonadNonfatal Error m) => LibName -> Seq ByteString ->
 loadModule libName expectedName path = do
   src <- liftIO $ readFile path
   (name, exports, imports, body) <- moduleHeaderFromValues (wholeFile path src) =<< parse path src
-  decls <- declsFromValues body
-  decls' <- flip runReaderT def . runGensymT $ mapM (solveDeclForHoles <=< addImplicitApps) decls
+  decls <- runGensymT $ do
+    decls <- declsFromValues body
+    decls' <- flip runReaderT def . forM decls $ \decl -> do
+      decl' <- addImplicitApps decl
+      solveDeclForHoles decl'
+    pure decls'
 
   let splitOffLibPart sym = do
         let (modPart, name) = BS.break (== ':') sym
@@ -114,7 +118,7 @@ loadModule libName expectedName path = do
         undefined
 
   -- imports' <- fmap (_ . map (uncurry Map.singleton)) $ _ imports
-  pure $ Module libName name exports (undefined imports) decls'
+  pure $ Module libName name exports (undefined imports) decls
 
 parse :: (MonadIO m, MonadNonfatal Error m) => FilePath -> ByteString -> m [Value]
 parse path = either fatal pure <=< liftIO . runExceptT . Language.Stahl.Internal.Parser.parse path

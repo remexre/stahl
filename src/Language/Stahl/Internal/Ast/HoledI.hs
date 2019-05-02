@@ -29,8 +29,8 @@ type Expr = Ast.Expr ExprCustom (Maybe Location)
 data ExprCustom expr
   = Hole ByteString UnifVar
   | ImplicitApp expr expr
-  | ImplicitLam LocalName expr
-  | ImplicitPi (Maybe LocalName) expr expr (Seq GlobalName)
+  | ImplicitLam (LocalName, Bool) expr
+  | ImplicitPi (LocalName, Bool) expr expr (Seq GlobalName)
   deriving (Functor, Foldable, Show, Traversable)
 
 instance TyCkExprAnnot a => TyCkExprParams ExprCustom a where
@@ -42,5 +42,5 @@ addImplicitApps :: (MonadGensym m, MonadReader Env m) => Holed.Decl -> m Decl
 addImplicitApps = Ast.transformDeclCustom helper constVoid
   where helper (Holed.GlobalVar n) loc = error "TODO"
         helper (Holed.Hole bs) loc = Ast.CustomExpr <$> (Hole bs <$> freshUnifVar) <*> pure loc
-        helper (Holed.ImplicitLam n b) loc = pure $ Ast.CustomExpr (ImplicitLam n b) loc
-        helper (Holed.ImplicitPi n a r es) loc = pure $ Ast.CustomExpr (ImplicitPi n a r es) loc
+        helper (Holed.ImplicitLam (n, isGensym) b) loc = pure $ Ast.CustomExpr (ImplicitLam (n, isGensym) b) loc
+        helper (Holed.ImplicitPi (n, isGensym) a r es) loc = pure $ Ast.CustomExpr (ImplicitPi (n, isGensym) a r es) loc

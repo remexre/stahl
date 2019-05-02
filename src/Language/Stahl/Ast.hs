@@ -13,6 +13,7 @@ module Language.Stahl.Ast
   , traverseDecl
   , traverseExpr
   , rewriteExpr
+  , visitDecl
   , visitExpr
   ) where
 
@@ -72,6 +73,12 @@ traverseDecl fCE fCD fAE fAD (DefTy n k cs a) =
   let ctorHelper (name, ty) = (name,) <$> traverseExpr fCE fAE ty in
   DefTy n <$> traverseExpr fCE fAE k <*> traverse ctorHelper cs <*> fAD a
 
+-- |Post-order traversal over a declaration.
+visitDecl :: Applicative f => (Expr cE aE -> f ()) -> (Decl cE cD aE aD -> f ()) -> Decl cE cD aE aD -> f ()
+visitDecl fE fD d@(CustomDecl _ _) = fD d
+visitDecl fE fD d@(Def _ t e _) = visitExpr fE t *> visitExpr fE e *> fD d
+visitDecl fE fD d@(DefTy _ k cs _) = visitExpr fE k *> traverse (visitExpr fE . snd) cs *> fD d
+
 -- |The name of a global binding.
 newtype GlobalName = GlobalName (ByteString, Seq ByteString, ByteString)
   deriving (Eq, Ord)
@@ -101,9 +108,9 @@ data Expr c a
   | Atom GlobalName a
   | Builtin Builtin a
   | Handle GlobalName (Expr c a) (Expr c a) a
-  | Lam LocalName (Expr c a) a
+  | Lam (LocalName, Bool) (Expr c a) a
   | Perform GlobalName (Expr c a) a
-  | Pi (Maybe LocalName) (Expr c a) (Expr c a) (Seq GlobalName) a
+  | Pi (LocalName, Bool) (Expr c a) (Expr c a) (Seq GlobalName) a
   | Var LocalName a
 
 deriving instance (Eq a, Eq (c (Expr c a))) => Eq (Expr c a)
@@ -117,16 +124,17 @@ instance PP (c (Expr c a)) => PP (Expr c a) where
   pp (Atom n _) = Symbol Nothing (BS.fromString ("#" <> show n <> "#"))
   pp (Builtin b _) = Symbol Nothing (BS.fromString ("#" <> show b <> "#"))
   pp (Handle eff e1 e2 _) = pp [Symbol Nothing "handle", pp eff, pp e1, pp e2]
-  pp (Lam n e _) = helper [n] e
-    where helper ns (Lam n' e' _) = helper (n':ns) e'
-          helper ns e             = pp [Symbol Nothing "fn", pp (pp <$> reverse ns), pp e]
+  pp (Lam (n, False) e _) = helper [n] e
+    where helper ns (Lam (n', False) e' _) = helper (n':ns) e'
+          helper ns e = pp [Symbol Nothing "fn", pp (pp <$> reverse ns), pp e]
+  pp (Lam (n, True) e _) = pp [Symbol Nothing "fn", pp [pp n], pp e]
   pp (Perform eff b _) = pp [Symbol Nothing "perform", pp eff, pp b]
-  pp (Pi (Just n) t1 t2 Empty _) = pp [Symbol Nothing "pi", pp n, pp t1, pp t2]
-  pp (Pi Nothing t1 t2 Empty _)  = helper [t1] t2
-    where helper t1s (Pi Nothing t1' t2' Empty _) = helper (t1':t1s) t2'
-          helper t1s e                            = pp [Symbol Nothing "fun", pp (pp <$> reverse t1s), pp e]
-  pp (Pi (Just n) t1 t2 effs _)  = pp [Symbol Nothing "pi", pp n, pp t1, pp t2, pp effs]
-  pp (Pi Nothing t1 t2 effs _)   = pp [Symbol Nothing "pi", Symbol Nothing "_", pp t1, pp t2, pp effs]
+  pp (Pi (n, False) t1 t2 Empty _) = pp [Symbol Nothing "pi", pp n, pp t1, pp t2]
+  pp (Pi (n, False) t1 t2 effs _)  = pp [Symbol Nothing "pi", pp n, pp t1, pp t2, pp effs]
+  pp (Pi (_, True) t1 t2 Empty _)  = helper [t1] t2
+    where helper t1s (Pi (_, True) t1' t2' Empty _) = helper (t1':t1s) t2'
+          helper t1s e                              = pp [Symbol Nothing "fun", pp (pp <$> reverse t1s), pp e]
+  pp (Pi (_, True) t1 t2 effs _)  = pp [Symbol Nothing "pi", Symbol Nothing "_", pp t1, pp t2, pp effs]
   pp (Var n _) = pp n
 
 -- A 'Lens' for the annotation part of the expression.
