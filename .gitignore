@@ -1,0 +1,7 @@
+.*
+!.gitignore
+!.travis/
+!.travis.yml
+
+out/
+tmp/

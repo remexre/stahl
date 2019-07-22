@@ -1,0 +1,26 @@
+language: minimal
+os: linux
+services:
+- docker
+cache:
+  bundler: true
+  directories:
+    - $HOME/docker
+
+before_install:
+- if [[ -e $HOME/docker/stahl-builder.tgz ]]; then zcat $HOME/docker/stahl-builder.tgz | docker load; fi
+- docker build -t remexre/stahl-builder .travis
+
+script: docker run -v "$PWD:/code" --rm remexre/stahl-builder make ci-inner
+
+before_cache:
+- mkdir -p $HOME/docker
+- docker save remexre/stahl-builder $(docker history -q remexre/stahl-builder | grep -v missing) | gzip > $HOME/docker/stahl-builder.tgz
+
+deploy:
+- provider: releases
+  api_key: $GITHUB_TOKEN
+  file: out/stahl.fth
+  on:
+    tags: true
+  skip_cleanup: true
