@@ -1,20 +1,18 @@
-all: out/stahl.fth
+all: tmp/stahl-bootstrap.fth
 ci:
 	docker build -t remexre/stahl-builder .travis
 	docker run -v "$(shell pwd):/code" --rm remexre/stahl-builder make ci-inner
 ci-inner:
 	sh -c "trap 'chown -R $(shell stat -c "%u:%g" Makefile) .' EXIT; $(MAKE) clean all"
 clean:
-	rm -rf tmp out
+	rm -rf out tmp
 watch:
-	watchexec -cre stahl $(MAKE)
+	watchexec -cre py,stahl $(MAKE)
 .PHONY: all build ci ci-inner clean watch
 
-out/stahl.fth: tmp/stahl-bootstrap $(SRCS)
-	@mkdir -p $(dir $@)
-	tmp/stahl-bootstrap $(SRCS) -o $@
-.PHONY: out/stahl
+BOOTSTRAP_SRCS := $(shell find bootstrap -name '*.py')
+SRCS := $(shell find -name '*.stahl')
 
-tmp/stahl-bootstrap:
+tmp/stahl-bootstrap.fth: $(BOOTSTRAP_SRCS) $(SRCS)
 	@mkdir -p $(dir $@)
-	scripts/get-stahl-bootstrap.sh
+	cd bootstrap && pipenv run ./main.py > ../$@
