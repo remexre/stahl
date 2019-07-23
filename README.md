@@ -8,35 +8,25 @@ A dependently typed Lisp with algebraic effects.
 Implementation Goals
 --------------------
 
--	[ ] Typechecking for core language
--	[ ] Modules
--	[ ] ADTs
--	[ ] Recursion principles
--	[ ] CPDT arithmetic interpreter example
--	[ ] Interfaces/Typeclasses/Traits
--	[ ] Group theory in `std`
--	[ ] Effects
--	[ ] Basic IO
--	[ ] FFI
--	[ ] Fast interpreter
--	[ ] Compile to CAM
--	[ ] Compile to Forth
--	[ ] Compile to WebAssembly
-	-	[ ] [Lucet](https://github.com/fastly/lucet) for native-code?
--	[ ] Elaborator scripts
--	[ ] Elaborator reflection
--	[ ] Macro support
--	[ ] Web framework (with heavy "cheating" as a runtime)
--	[ ] Compile to native code
--	[ ] Rewrite the world!
-
-Language Goals
---------------
-
--	[ ] Prove soundness
-	-	[ ] Prove `typeOf E T -> evalStep E E' -> typeOf E' T`
-	-	[ ] Prove totality / strong normalization
--	[ ] Prove parametricity
+-	Syntax
+	-	[ ] Define
+	-	[ ] Lexer
+	-	[ ] Parser
+-	Core Language
+	-	[ ] Define
+	-	[ ] Typeck
+	-	[ ] Codegen
+	-	[ ] Prove progress
+	-	[ ] Prove preservation
+	-	[ ] Prove totality
+	-	[ ] Prove codegen correctness
+-	Effects
+	-	[ ] Typeck
+	-	[ ] Codegen
+	-	[ ] Prove progress
+	-	[ ] Prove preservation
+	-	[ ] Prove totality
+	-	[ ] Prove codegen correctness
 
 License
 -------

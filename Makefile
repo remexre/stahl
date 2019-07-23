@@ -7,12 +7,12 @@ ci-inner:
 clean:
 	rm -rf out tmp
 watch:
-	watchexec -cre py,stahl $(MAKE)
+	watchexec -cre rkt,stahl $(MAKE)
 .PHONY: all build ci ci-inner clean watch
 
-BOOTSTRAP_SRCS := $(shell find bootstrap -name '*.py')
+BOOTSTRAP_SRCS := $(shell find bootstrap -name '*.rkt')
 SRCS := $(shell find -name '*.stahl')
 
 tmp/stahl-bootstrap.fth: $(BOOTSTRAP_SRCS) $(SRCS)
 	@mkdir -p $(dir $@)
-	cd bootstrap && pipenv run ./main.py > ../$@
+	racket bootstrap/main.rkt | tee $@
