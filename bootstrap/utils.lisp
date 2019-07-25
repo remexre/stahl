@@ -10,7 +10,10 @@
     (format stream "~a:~a:~a" (or file "<unknown>") line col)))
 
 (defclass syntax-object ()
-  ((loc :accessor loc :initarg :loc)))
+  ((loc :accessor loc :initarg :loc :initform (error "Must specify :loc"))))
+
+(defclass derived-syntax-object (syntax-object)
+  ((origin :accessor origin :initarg :origin :initform (error "Must specify :origin"))))
 
 (defun walk-directory (dir cb)
   (loop for file in (uiop:directory-files dir)

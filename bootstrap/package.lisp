@@ -11,5 +11,5 @@
   (:export #:parse-file-to-cst))
 
 (defpackage #:bootstrap
-  (:use #:bootstrap-cst #:bootstrap-utils #:cl)
+  (:use #:bootstrap-cst #:bootstrap-utils #:cl #:trivia)
   (:export #:main))

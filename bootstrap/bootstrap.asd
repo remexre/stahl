@@ -7,5 +7,6 @@
   :components ((:file "package")
                (:file "ast")
                (:file "cst")
+               (:file "cst-to-ast")
                (:file "main")
                (:file "utils")))

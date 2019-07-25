@@ -5,5 +5,6 @@ RUN apk add --no-cache curl ecl ecl-dev gcc gc-dev g++ gmp-dev libc-dev libffi-d
 	             --eval '(quicklisp-quickstart:install)' \
 	             --eval '(ql:add-to-init-file)' \
 	             --eval '(quit)'
+RUN ecl --eval '(ql:quickload :trivia)' --eval '(quit)'
 VOLUME /code
 WORKDIR /code
