@@ -1,3 +1,14 @@
-(defpackage #:bootstrap
+(defpackage #:bootstrap-utils
   (:use #:cl)
+  (:export
+    #:loc ; #:file #:line #:col
+    #:syntax-object
+    #:walk-directory #:walk-directory-to-list))
+
+(defpackage #:bootstrap-cst
+  (:use #:bootstrap-utils #:cl)
+  (:export #:parse-file-to-cst))
+
+(defpackage #:bootstrap
+  (:use #:bootstrap-cst #:bootstrap-utils #:cl)
   (:export #:main))

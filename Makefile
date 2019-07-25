@@ -1,3 +1,5 @@
+LISP := ecl
+
 all: tmp/stahl-bootstrap.fth
 ci:
 	docker build -t remexre/stahl-builder .travis
@@ -18,4 +20,4 @@ SRCS := $(shell find -name '*.stahl')
 
 tmp/stahl-bootstrap.fth: bootstrap.lisp $(BOOTSTRAP_SRCS) $(SRCS)
 	@mkdir -p $(dir $@)
-	ecl --load bootstrap.lisp
+	$(LISP) --load bootstrap.lisp

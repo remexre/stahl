@@ -5,6 +5,7 @@
   :version "0.0.1"
   :serial t
   :components ((:file "package")
+               (:file "ast")
+               (:file "cst")
                (:file "main")
-               (:file "syntax")
                (:file "utils")))
