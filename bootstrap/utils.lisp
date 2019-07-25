@@ -12,9 +12,6 @@
 (defclass syntax-object ()
   ((loc :accessor loc :initarg :loc)))
 
-(defun TODO ()
-  (error "TODO"))
-
 (defun walk-directory (dir cb)
   (loop for file in (uiop:directory-files dir)
     do (funcall cb file))

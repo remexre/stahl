@@ -1,4 +1,5 @@
 LISP := ecl
+SWANK := $(HOME)/.local/share/nvim/plugged/slimv/slime/start-swank.lisp
 
 all: tmp/stahl-bootstrap.fth
 ci:
@@ -12,12 +13,15 @@ watch:
 	watchexec -cre asd,lisp,stahl $(MAKE)
 .PHONY: all build ci ci-inner clean watch
 
-bootstrap-repl:
-.PHONY: bootstrap-repl
+bootstrap-swank:
+	$(LISP) --load bootstrap.lisp --load $(SWANK)
+.PHONY: bootstrap-swank
 
 BOOTSTRAP_SRCS := $(shell find bootstrap -name '*.lisp')
 SRCS := $(shell find -name '*.stahl')
 
 tmp/stahl-bootstrap.fth: bootstrap.lisp $(BOOTSTRAP_SRCS) $(SRCS)
 	@mkdir -p $(dir $@)
-	$(LISP) --load bootstrap.lisp
+	$(LISP) --load bootstrap.lisp \
+		--eval '(bootstrap:main (merge-pathnames (truename "tmp") "stahl-bootstrap.fth"))' \
+		--eval '(quit)'

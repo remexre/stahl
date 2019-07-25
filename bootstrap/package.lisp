@@ -3,6 +3,7 @@
   (:export
     #:loc ; #:file #:line #:col
     #:syntax-object
+    #:read-file
     #:walk-directory #:walk-directory-to-list))
 
 (defpackage #:bootstrap-cst

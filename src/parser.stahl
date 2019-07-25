@@ -2,17 +2,9 @@
 (export parse-string)
 (import std (Either String))
 (import std/fs (Path))
+(import std/sexpr (Sexpr))
+(import std/util (TODO))
 
 (type parse-string Path String -> (Either Error Sexpr))
-
-(type replicate
-  (the TYPE T) T (the Nat n) -> (Vect T n))
-(defn replicate (T x n)
-  (case n
-    (S n2) (cons x (replicate T x n2))
-	Z      nil))
-
-(type main (List String) -> Byte)
-(defn main (args)
-  (println "Hello, world!")
-  0)
+(defn parse-string (path str)
+  TODO)
