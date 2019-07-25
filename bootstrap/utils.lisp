@@ -5,3 +5,8 @@
 	do (funcall cb file))
   (loop for subdir in (uiop:subdirectories dir)
 	do (walk-directory subdir cb)))
+
+(defun walk-directory-to-list (dir)
+  (let ((files nil))
+	(walk-directory dir #'(lambda (file) (push file files)))
+	files))
