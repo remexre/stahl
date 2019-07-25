@@ -7,12 +7,15 @@ ci-inner:
 clean:
 	rm -rf out tmp
 watch:
-	watchexec -cre rkt,stahl $(MAKE)
+	watchexec -cre asd,lisp,stahl $(MAKE)
 .PHONY: all build ci ci-inner clean watch
 
-BOOTSTRAP_SRCS := $(shell find bootstrap -name '*.rkt')
+bootstrap-repl:
+.PHONY: bootstrap-repl
+
+BOOTSTRAP_SRCS := $(shell find bootstrap -name '*.lisp')
 SRCS := $(shell find -name '*.stahl')
 
-tmp/stahl-bootstrap.fth: $(BOOTSTRAP_SRCS) $(SRCS)
+tmp/stahl-bootstrap.fth: bootstrap.lisp $(BOOTSTRAP_SRCS) $(SRCS)
 	@mkdir -p $(dir $@)
-	racket bootstrap/main.rkt | tee $@
+	ecl --load bootstrap.lisp

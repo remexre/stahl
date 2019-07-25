@@ -1,6 +1,9 @@
-(module main)
-(export main replicate)
-(import std (List Nat Vect S Z nil))
+(module parser)
+(export parse-string)
+(import std (Either String))
+(import std/fs (Path))
+
+(type parse-string Path String -> (Either Error Sexpr))
 
 (type replicate
   (the TYPE T) T (the Nat n) -> (Vect T n))
