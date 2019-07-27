@@ -4,9 +4,10 @@
   :license  "Apache-2.0/MIT"
   :version "0.0.1"
   :serial t
+  :depends-on (:trivia)
   :components ((:file "package")
-               (:file "ast")
+               (:file "utils")
                (:file "cst")
+               (:file "ast")
                (:file "cst-to-ast")
-               (:file "main")
-               (:file "utils")))
+               (:file "main")))

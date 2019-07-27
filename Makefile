@@ -13,6 +13,8 @@ watch:
 	watchexec -cre asd,lisp,stahl $(MAKE)
 .PHONY: all build ci ci-inner clean watch
 
+bootstrap-repl:
+	$(LISP) --load bootstrap.lisp --eval '(in-package :bootstrap)'
 bootstrap-swank:
 	$(LISP) --load bootstrap.lisp --load $(SWANK)
 .PHONY: bootstrap-swank

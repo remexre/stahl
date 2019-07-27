@@ -9,8 +9,8 @@
   (format stream "~s" (to-lisp node)))
 
 (defclass cst-cons (cst)
-  ((cst-car :accessor cst-car :initarg :cst-car)
-   (cst-cdr :accessor cst-cdr :initarg :cst-cdr)))
+  ((cst-car :accessor cst-car :initarg :cst-car :initform (error "Must specify :cst-car"))
+   (cst-cdr :accessor cst-cdr :initarg :cst-cdr :initform (error "Must specify :cst-cdr"))))
 (defmethod to-lisp ((node cst-cons))
   (with-slots (cst-car cst-cdr) node
     (cons cst-car cst-cdr)))
@@ -21,12 +21,12 @@
   nil)
 
 (defclass cst-string (cst)
-  ((value :accessor value :initarg :value)))
+  ((value :accessor value :initarg :value :initform (error "Must specify :value"))))
 (defmethod to-lisp ((node cst-string))
   (value node))
 
 (defclass cst-symbol (cst)
-  ((value :accessor value :initarg :value)))
+  ((value :accessor value :initarg :value :initform (error "Must specify :value"))))
 (defmethod to-lisp ((node cst-symbol))
   ; Should this actually be a symbol?
   (make-symbol (value node)))
@@ -110,7 +110,7 @@
           until (eq raw-ch #\")
           for ch = (if (eq raw-ch #\\) (parse-escape stream) raw-ch)
           do (vector-push-extend ch chs))
-    chs))
+    (coerce chs 'simple-string)))
 
 (defun parse-symbol (stream)
   (let ((chs (make-array 0 :adjustable t :element-type 'character :fill-pointer 0)))
@@ -118,7 +118,7 @@
           while (symbolishp ch)
           do (vector-push-extend ch chs)
           do (next-char stream))
-    chs))
+    (coerce chs 'simple-string)))
 
 (defun spacep (ch)
   (char< ch #\!))

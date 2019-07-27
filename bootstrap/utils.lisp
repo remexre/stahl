@@ -15,6 +15,17 @@
 (defclass derived-syntax-object (syntax-object)
   ((origin :accessor origin :initarg :origin :initform (error "Must specify :origin"))))
 
+(defmacro matches? (expr pat)
+  `(match ,expr (,pat t)))
+
+(defun span (pred list)
+  (cons
+    (loop until (null list)
+          until (not (funcall pred (car list)))
+          collect (car list)
+          do (setf list (cdr list)))
+    list))
+
 (defun walk-directory (dir cb)
   (loop for file in (uiop:directory-files dir)
     do (funcall cb file))

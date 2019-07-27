@@ -1,6 +1,6 @@
 (in-package #:bootstrap)
 
-(defclass module (derived-syntax-object)
+(defclass module (syntax-object)
   ((name :accessor name :initarg :name)
    (exports :accessor exports :initarg :exports)
    (imports :accessor imports :initarg :imports)
