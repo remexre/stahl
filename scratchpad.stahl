@@ -1,0 +1,8 @@
+# This file is just for testing the compiler; it's not meant to be useful to
+# anyone in any way, and is basically a scratchpad.
+
+(module debug)
+(import std (Nat))
+
+(type numbah *)
+(def numbah Nat)

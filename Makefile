@@ -15,9 +15,13 @@ watch:
 
 bootstrap-repl:
 	$(LISP) --load bootstrap.lisp --eval '(in-package :bootstrap)'
+bootstrap-scratchpad: scratchpad.stahl
+	$(LISP) --load bootstrap.lisp \
+		--eval '(bootstrap::scratchpad #p"scratchpad.stahl")' \
+		--eval '(quit)'
 bootstrap-swank:
 	$(LISP) --load bootstrap.lisp --load $(SWANK)
-.PHONY: bootstrap-swank
+.PHONY: bootstrap-repl bootstrap-scratchpad bootstrap-swank
 
 BOOTSTRAP_SRCS := $(shell find bootstrap -name '*.lisp')
 SRCS := $(shell find -name '*.stahl')

@@ -6,6 +6,9 @@
   (loop for path in (walk-directory-to-list "src/")
 		do (process-file path)))
 
+(defun scratchpad (path)
+  (process-file path))
+
 (defun process-file (path)
   (format t "path = ~a~%" path)
   (let ((module (parse-file path)))

@@ -127,4 +127,4 @@
   (or (and (char<= #\0 ch) (char<= ch #\9))
       (and (char<= #\A ch) (char<= ch #\Z))
       (and (char<= #\a ch) (char<= ch #\z))
-      (member ch '(#\- #\/ #\: #\< #\= #\>))))
+      (member ch '(#\* #\+ #\- #\/ #\: #\< #\= #\> #\?))))

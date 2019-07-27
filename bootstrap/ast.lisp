@@ -8,7 +8,7 @@
 
 (defmethod print-object ((module module) stream)
   (with-slots (name exports imports decls) module
-    (format stream "#<module :name ~s :exports ~s :imports ~s :decls ~s>" name
+    (format stream "#<~<module~_:name ~s~_:exports ~s~_:imports ~s~_:decls ~s~:>>" name
                    exports imports decls)))
 
 (defclass name (derived-syntax-object)

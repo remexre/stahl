@@ -46,3 +46,7 @@
 
 (defun-ematch parse-decl (cst)
   (_ (format nil "todo parse-decl ~a" cst)))
+
+(defun-ematch parse-expr (cst)
+  ((cst-symbol "*" :loc loc)
+   (make-instance 'expr-type-of-types :loc loc)))
