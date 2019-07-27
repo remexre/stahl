@@ -1,4 +1,4 @@
-LISP := ecl
+LISP := sbcl
 SWANK := $(HOME)/.local/share/nvim/plugged/slimv/slime/start-swank.lisp
 
 all: tmp/stahl-bootstrap.fth

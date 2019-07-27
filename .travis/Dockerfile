@@ -1,10 +1,11 @@
 FROM alpine:edge
-RUN apk add --no-cache curl ecl ecl-dev gcc gc-dev g++ gmp-dev libc-dev libffi-dev make && \
+RUN apk add --no-cache curl make && \
+	apk add --no-cache -X http://dl-cdn.alpinelinux.org/alpine/edge/testing sbcl && \
 	curl https://beta.quicklisp.org/quicklisp.lisp -o /tmp/quicklisp.lisp && \
-	yes "" | ecl --load /tmp/quicklisp.lisp \
+	yes "" | sbcl --load /tmp/quicklisp.lisp \
 	             --eval '(quicklisp-quickstart:install)' \
 	             --eval '(ql:add-to-init-file)' \
 	             --eval '(quit)'
-RUN ecl --eval '(ql:quickload :trivia)' --eval '(quit)'
+RUN sbcl --eval '(ql:quickload :trivia)' --eval '(quit)'
 VOLUME /code
 WORKDIR /code
