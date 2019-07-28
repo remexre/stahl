@@ -5,6 +5,5 @@
 (import std/sexpr (Sexpr))
 (import std/util (TODO))
 
-(type parse-string Path String -> (Either Error Sexpr))
-(defn parse-string (path str)
+(defn parse-string (path Path) (str String) -> (Either Error Sexpr)
   TODO)

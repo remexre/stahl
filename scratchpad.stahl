@@ -2,7 +2,8 @@
 # anyone in any way, and is basically a scratchpad.
 
 (module debug)
+(export numbah)
 (import std (Nat))
 
-(type numbah *)
-(def numbah Nat)
+(def numbah *
+  Nat)

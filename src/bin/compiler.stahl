@@ -1,15 +1,12 @@
 (module main)
 (export main replicate)
-(import std (List Nat Vect S Z nil))
+(import std (Byte List Nat Vect S Z nil))
 
-(type replicate
-  (the TYPE T) T (the Nat n) -> (Vect T n))
-(defn replicate (T x n)
+(defn replicate (T *) (x T) (n Nat) -> (Vect T n)
   (case n
     (S n2) (cons x (replicate T x n2))
 	Z      nil))
 
-(type main (List String) -> Byte)
-(defn main (args)
+(defn main (args (List String)) -> Byte
   (println "Hello, world!")
   0)

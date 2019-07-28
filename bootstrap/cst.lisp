@@ -13,7 +13,7 @@
    (cst-cdr :accessor cst-cdr :initarg :cst-cdr :initform (error "Must specify :cst-cdr"))))
 (defmethod to-lisp ((node cst-cons))
   (with-slots (cst-car cst-cdr) node
-    (cons cst-car cst-cdr)))
+    (cons (to-lisp cst-car) (to-lisp cst-cdr))))
 
 (defclass cst-nil (cst) ())
 (defmethod to-lisp ((node cst-nil))
@@ -50,6 +50,10 @@
       (setf buffer-char (read-char inner-stream)))
     (values buffer-char buffer-loc)))
 
+(defun peek-loc-stream* (stream)
+  (handler-case (peek-loc-stream stream)
+    (end-of-file () nil)))
+
 (defun next-char (stream)
   (multiple-value-bind (ch loc) (peek-loc-stream stream)
     (with-slots (col line) stream
@@ -65,13 +69,19 @@
        (when ,name
          (push ,name ,place)))))
 
+(defun parse-exprs (stream)
+  (let ((output nil))
+    (handler-case (loop do (push-if (parse-expr stream) output))
+      (end-of-file () nil))
+    (reverse output)))
+
 (defun parse-file-to-cst (path)
-  (with-open-file (plain-stream path)
-    (let ((stream (make-instance 'loc-stream :file path :stream plain-stream))
-          (output nil))
-      (handler-case (loop do (push-if (parse-expr stream) output))
-        (end-of-file ()))
-      (reverse output))))
+  (with-open-file (stream path)
+    (parse-exprs (make-instance 'loc-stream :file path :stream stream))))
+
+(defun parse-string-to-cst (str &key (path "<string>"))
+  (let ((stream (make-string-input-stream str)))
+    (parse-exprs (make-instance 'loc-stream :file path :stream stream))))
 
 (defun parse-expr (stream)
   (multiple-value-bind (ch loc) (peek-loc-stream stream)
@@ -114,7 +124,7 @@
 
 (defun parse-symbol (stream)
   (let ((chs (make-array 0 :adjustable t :element-type 'character :fill-pointer 0)))
-    (loop for ch = (peek-loc-stream stream)
+    (loop for ch = (peek-loc-stream* stream)
           while (symbolishp ch)
           do (vector-push-extend ch chs)
           do (next-char stream))
@@ -124,7 +134,8 @@
   (char< ch #\!))
 
 (defun symbolishp (ch)
-  (or (and (char<= #\0 ch) (char<= ch #\9))
-      (and (char<= #\A ch) (char<= ch #\Z))
-      (and (char<= #\a ch) (char<= ch #\z))
-      (member ch '(#\* #\+ #\- #\/ #\: #\< #\= #\> #\?))))
+  (and ch
+    (or (and (char<= #\0 ch) (char<= ch #\9))
+        (and (char<= #\A ch) (char<= ch #\Z))
+        (and (char<= #\a ch) (char<= ch #\z))
+        (member ch '(#\* #\+ #\- #\/ #\: #\< #\= #\> #\?)))))
