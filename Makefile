@@ -1,4 +1,5 @@
 LISP := sbcl
+STRIP := strip
 SWANK := $(HOME)/.local/share/nvim/plugged/slimv/slime/start-swank.lisp
 
 all: tmp/stahl-bootstrap.fth
@@ -14,20 +15,27 @@ watch:
 .PHONY: all build ci ci-inner clean watch
 
 bootstrap-repl:
-	$(LISP) --load bootstrap.lisp --eval '(in-package :bootstrap)'
+	$(LISP) --load bootstrap/bootstrap.asd --eval '(ql:quickload :bootstrap)' --eval '(in-package :bootstrap)'
 bootstrap-scratchpad: scratchpad.stahl
-	$(LISP) --load bootstrap.lisp \
+	$(LISP) --load bootstrap/bootstrap.asd \
+		--eval '(ql:quickload :bootstrap)' \
 		--eval '(bootstrap::scratchpad #p"scratchpad.stahl")' \
 		--eval '(quit)'
 bootstrap-swank:
-	$(LISP) --load bootstrap.lisp --load $(SWANK)
+	$(LISP) --load bootstrap/bootstrap.asd \
+		--eval '(ql:quickload :bootstrap)' \
+		--load $(SWANK)
 .PHONY: bootstrap-repl bootstrap-scratchpad bootstrap-swank
 
 BOOTSTRAP_SRCS := $(shell find bootstrap -name '*.lisp')
 SRCS := $(shell find -name '*.stahl')
 
-tmp/stahl-bootstrap.fth: bootstrap.lisp $(BOOTSTRAP_SRCS) $(SRCS)
+tmp/bootstrap: bootstrap/bootstrap.asd $(BOOTSTRAP_SRCS)
 	@mkdir -p $(dir $@)
-	$(LISP) --load bootstrap.lisp \
-		--eval '(bootstrap:main (merge-pathnames (truename "tmp") "stahl-bootstrap.fth"))' \
-		--eval '(quit)'
+	$(LISP) --load bootstrap/bootstrap.asd \
+		--eval '(ql:quickload :bootstrap)' \
+		--eval "(sb-ext:save-lisp-and-die #P\"$@\" :toplevel #'bootstrap:main :executable t)"
+
+tmp/stahl-bootstrap.fth: tmp/bootstrap $(SRCS)
+	@mkdir -p $(dir $@)
+	tmp/bootstrap $@ $(SRCS)

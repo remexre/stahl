@@ -4,7 +4,8 @@
     #:loc ; #:file #:line #:col
     #:syntax-object #:derived-syntax-object #:origin
     #:matches? #:pprint-object-with-slots #:span
-    #:walk-directory #:walk-directory-to-list))
+    ; #:walk-directory #:walk-directory-to-list
+    ))
 
 (defpackage #:bootstrap-cst
   (:use #:bootstrap-utils #:cl)

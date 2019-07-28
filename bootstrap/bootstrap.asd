@@ -4,7 +4,10 @@
   :license  "Apache-2.0/MIT"
   :version "0.0.1"
   :serial t
-  :depends-on (:trivia)
+  :build-operation "program-op"
+  :build-pathname "tmp/bootstrap"
+  :entry-point "bootstrap:main"
+  :depends-on (:trivia :unix-opts)
   :components ((:file "package")
                (:file "utils")
                (:file "cst")

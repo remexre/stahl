@@ -6,6 +6,9 @@ RUN apk add --no-cache curl make && \
 	             --eval '(quicklisp-quickstart:install)' \
 	             --eval '(ql:add-to-init-file)' \
 	             --eval '(quit)'
-RUN sbcl --eval '(ql:quickload :trivia)' --eval '(quit)'
+RUN sbcl \
+	--eval '(ql:quickload :trivia)' \
+	--eval '(ql:quickload :unix-opts)' \
+	--eval '(quit)'
 VOLUME /code
 WORKDIR /code

@@ -1,10 +1,14 @@
 (in-package #:bootstrap)
 
-(defun main (output-file)
-  (format t "output-file = ~a~%" output-file)
-  ; (with-open-file (*standard-output* output-file :direction :output)
-  (loop for path in (walk-directory-to-list "src/")
-		do (process-file path)))
+(opts:define-opts)
+
+(defun main ()
+  (multiple-value-bind (options args) (opts:get-opts)
+	(let ((output-file (car args))
+		  (src-paths (cdr args)))
+       (format t "output-file = ~a~%" output-file)
+       (loop for src-path in src-paths
+	     do (process-file src-path)))))
 
 (defun scratchpad (path)
   (process-file path))
