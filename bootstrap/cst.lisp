@@ -91,8 +91,28 @@
                                                          :value (parse-string stream)))
       ((eq ch #\#)     (loop for ch = (next-char stream) until (eq ch #\newline)) nil)
       ((eq ch #\()     (next-char stream) (parse-list-tail stream loc))
+      ((eq ch #\{)     (next-char stream) (parse-brack-tail stream loc))
       ((symbolishp ch) (make-instance 'cst-symbol :loc loc :value (parse-symbol stream)))
       (t               (error "Unexpected character ~s~%" ch)))))
+
+(defun parse-brack-tail (stream loc)
+  (let ((acc #'(lambda (last) last))
+        (last (make-instance 'cst-nil :loc loc)))
+    (loop for ch = (peek-loc-stream stream)
+          until (eq ch #\})
+          do (cond
+               ((spacep ch) (next-char stream))
+               (t
+                (let ((head (parse-expr stream)))
+                  (when head
+                    (let ((prev-acc acc))
+                      (setf acc #'(lambda (last)
+                        (funcall prev-acc (make-instance 'cst-cons :cst-car head :cst-cdr last
+                                                         :loc loc))))))))))
+    (next-char stream)
+	(make-instance 'cst-cons :loc loc
+	  :cst-car (make-instance 'cst-symbol :loc loc :value "!")
+	  :cst-cdr (funcall acc last))))
 
 (defun parse-list-tail (stream loc)
   (let ((acc #'(lambda (last) last))
@@ -138,4 +158,4 @@
     (or (and (char<= #\0 ch) (char<= ch #\9))
         (and (char<= #\A ch) (char<= ch #\Z))
         (and (char<= #\a ch) (char<= ch #\z))
-        (member ch '(#\* #\+ #\- #\. #\/ #\: #\< #\= #\> #\?)))))
+        (member ch '(#\! #\* #\+ #\- #\. #\/ #\: #\< #\= #\> #\?)))))

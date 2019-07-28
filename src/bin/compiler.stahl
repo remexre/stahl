@@ -7,11 +7,11 @@
 (import std/string (String))
 (import std/vect (Vect vnil vcons))
 
-(defn replicate (T TYPE) (x T) (n Nat) -> (Vect T n)
+(defn replicate {T TYPE} (x T) (n Nat) -> (Vect T n)
   (elim-Nat (Vect T)
     vnil
-	(fn (n tl) (vcons x tl))
-	n))
+    (fn (n tl) (vcons x tl))
+    n))
 
 (defn main (args (List String)) -> Unit
-  (println (replicate String "a" (length args))))
+  (println (replicate "a" (length args))))

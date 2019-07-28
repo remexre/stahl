@@ -38,4 +38,4 @@ tmp/bootstrap: bootstrap/bootstrap.asd $(BOOTSTRAP_SRCS)
 
 tmp/stahl-bootstrap.fth: tmp/bootstrap $(SRCS)
 	@mkdir -p $(dir $@)
-	tmp/bootstrap $@ $(SRCS)
+	tmp/bootstrap -o $@ $(SRCS)

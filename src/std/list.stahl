@@ -3,11 +3,11 @@
 (import std (const))
 (import std/nat (Nat S Z))
 
-(type List : (T TYPE) -> TYPE
+(type List : {T TYPE} -> TYPE
   (nil : (List T))
   (cons : (hd T) (tl (List T)) -> (List T)))
 
 (defn length (T TYPE) (l (List T)) -> Nat
-  (elim-List T (const TYPE (List T) Nat)
+  (elim-List T (const Nat)
     Z
-	(fn (hd tl n) (S n))))
+    (fn (hd tl n) (S n))))

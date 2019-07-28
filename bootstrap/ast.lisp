@@ -91,16 +91,17 @@
 (defclass expr-pi (expr)
   ((var :accessor var :initarg :var)
    (dom :accessor dom :initarg :dom)
-   (cod :accessor cod :initarg :cod)))
+   (cod :accessor cod :initarg :cod)
+   (implicitp :accessor implicitp :initarg :implicitp :initform nil)))
 
-(defun make-expr-pi (var dom cod)
+(defun make-expr-pi (var dom cod &key implicitp)
   (check-type var name)
   (check-type dom expr)
   (check-type cod expr)
-  (make-instance 'expr-pi :var var :dom dom :cod cod :origin *origin*))
+  (make-instance 'expr-pi :var var :dom dom :cod cod :implicitp implicitp :origin *origin*))
 
 (defmethod print-object ((expr expr-pi) stream)
-  (pprint-object-with-slots stream expr '(var dom cod)))
+  (pprint-object-with-slots stream expr '(var dom cod implicitp)))
 
 (defclass expr-type-of-types (expr) ())
 

@@ -2,6 +2,6 @@
 (export Vect vnil vcons)
 (import std/nat (Nat S Z))
 
-(type Vect : (T TYPE) -> (n Nat) -> TYPE
+(type Vect : {T TYPE} -> (n Nat) -> TYPE
   (vnil : (Vect T Z))
-  (vcons : (hd T) (tl (Vect T n)) -> (Vect T (S n))))
+  (vcons : {n Nat} (hd T) (tl (Vect T n)) -> (Vect T (S n))))
