@@ -1,0 +1,9 @@
+(module std)
+(export const)
+(export Unit elim-Unit unit)
+
+(defn const (T TYPE) (U TYPE) (x T) (y U) -> T
+  x)
+
+(type Unit : TYPE
+  (unit : Unit))

@@ -12,8 +12,13 @@
 (defclass syntax-object ()
   ((loc :accessor loc :initarg :loc :initform (error "Must specify :loc"))))
 
-(defclass derived-syntax-object (syntax-object)
-  ((origin :accessor origin :initarg :origin :initform (error "Must specify :origin"))))
+(defclass derived-syntax-object ()
+  ((loc :initarg :loc :initform nil)
+   (origin :accessor origin :initarg :origin :initform (error "Must specify :origin"))))
+
+(defmethod loc ((obj derived-syntax-object))
+  (or (slot-value obj 'loc)
+      (loc (origin obj))))
 
 (defmacro matches? (expr pat)
   `(match ,expr (,pat t)))

@@ -1,0 +1,4 @@
+(module std/string)
+(export String)
+
+(builtin String)

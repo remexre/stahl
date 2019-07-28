@@ -1,0 +1,6 @@
+(module std/nat)
+(export Nat elim-Nat S Z)
+
+(type Nat : TYPE
+  (Z : Nat)
+  (S : (n Nat) -> Nat))

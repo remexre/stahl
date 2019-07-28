@@ -1,0 +1,5 @@
+(module std/io)
+(export IO println)
+
+(builtin IO)
+(builtin println)

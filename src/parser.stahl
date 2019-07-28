@@ -1,9 +1,0 @@
-(module parser)
-(export parse-string)
-(import std (Either String))
-(import std/fs (Path))
-(import std/sexpr (Sexpr))
-(import std/util (TODO))
-
-(defn parse-string (path Path) (str String) -> (Either Error Sexpr)
-  TODO)

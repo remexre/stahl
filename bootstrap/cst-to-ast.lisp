@@ -22,6 +22,9 @@
     `(cst-cons ,(car args) (cst-list* _ ,@(cdr args)) :loc ,loc)
     (car args)))
 
+(defpattern cst-string (value &key loc)
+  `(class cst-string :value ,value :loc ,loc))
+
 (defpattern cst-symbol (value &key loc)
   `(class cst-symbol :value ,value :loc ,loc))
 
@@ -58,13 +61,14 @@
               ((cst-symbol s) s)
               (_ cst)))))
 
-(defun-match parse-name (cst)
-  ((cst-symbol (or "*" "->"))
-   (error 'invalid-name :cst cst))
-  ((cst-symbol value :loc loc)
-   (make-instance 'name :value value :origin cst :loc loc))
-  (_
-   (error 'invalid-name :cst cst)))
+(defun parse-name (cst)
+  (match-with-origin cst
+    ((cst-symbol (or "_" "->" "TYPE"))
+     (error 'invalid-name :cst cst))
+    ((cst-symbol value)
+     (make-instance 'name :str value :origin cst))
+    (_
+     (error 'invalid-name :cst cst))))
 
 (defun-ematch parse-export (cst)
   ((cst-list* _ (cst-symbol "export") names)
@@ -75,9 +79,41 @@
    (let ((names (mapcar #'parse-name (cst-list-to-list names))))
      (cons (parse-name module) names))))
 
-(defun-ematch parse-decl (cst)
-  (_ (format nil "todo parse-decl ~a" cst)))
+(defun parse-decl (cst)
+  (ematch-with-origin cst
+    ((cst-list loc (cst-symbol "builtin") name)
+     (format t "todo @ ~a: builtin ~a" loc name))  
+    ((cst-list loc (cst-symbol "def") name ty expr)
+     (make-decl (parse-name name) (parse-expr ty) (parse-expr expr) :loc loc))
+    ((cst-list* loc (cst-symbol "defn") name rest)
+     (let* ((name (parse-name name))
+            (parts (span #'(lambda (form) (not (matches? form (cst-symbol "->"))))
+                         (cst-list-to-list rest)))
+            (args (car parts))
+            (return-type (caddr parts))
+            (body (cadddr parts))
+            (ty (parse-expr return-type)))
+       (assert (null (cddddr parts)))
+       (loop for arg in (reverse args)
+             do (ematch arg
+                  ((cst-list _ arg-name arg-ty)
+                   (setf ty (make-expr-pi (parse-name arg-name)
+                                          (parse-expr arg-ty)
+                                          ty)))))
+       (make-decl-def name ty (parse-expr body))))
+    ((cst-list* loc (cst-symbol "type") rest)
+     (format t "todo @ ~a: type ~a" loc rest))))
 
-(defun-ematch parse-expr (cst)
-  ((cst-symbol "*" :loc loc)
-   (make-instance 'expr-type-of-types :loc loc)))
+(defun parse-expr (cst)
+  (ematch-with-origin cst
+    ((cst-list* _ func args)
+     (let ((func (parse-expr func)))
+       (loop for arg in (cst-list-to-list args)
+             do (setf func (make-expr-app func (parse-expr arg))))
+       func))
+    ((cst-string s)
+     (make-expr-lit-string s))
+    ((cst-symbol "TYPE")
+     (make-expr-type-of-types))
+    ((cst-symbol _)
+     (make-expr-var (parse-name cst)))))
