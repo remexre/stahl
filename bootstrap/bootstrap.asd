@@ -13,4 +13,5 @@
                (:file "cst")
                (:file "ast")
                (:file "cst-to-ast")
+               (:file "names")
                (:file "main")))

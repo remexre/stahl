@@ -11,21 +11,21 @@
    :long        "output"
    :arg-parser  #'identity))
 
-(defun main ()
+(defun cli-main ()
   (multiple-value-bind (options args) (opts:get-opts)
     (when (getf options :help)
       (opts:describe
         :prefix "The Stahl bootstrap compiler. Usage:"
         :args "[source files]")
       (opts:exit))
+    (main args (getf options :output-path))))
 
-     (loop for src-path in args
-       do (process-file src-path))))
-
-(defun scratchpad (path)
-  (process-file path))
+(defun main (src-paths output-path)
+  (declare (ignore output-path))
+  (mapc #'process-file src-paths))
 
 (defun process-file (path)
   (format t "path = ~a~%" path)
   (let ((module (parse-file path)))
+    (resolve-names-for-module module)
     (format t "module = ~a~%" module)))

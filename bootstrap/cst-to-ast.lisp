@@ -82,9 +82,9 @@
 (defun parse-decl (cst)
   (ematch-with-origin cst
     ((cst-list loc (cst-symbol "builtin") name)
-     (format t "todo @ ~a: builtin ~a" loc name))  
+     (make-decl-builtin (parse-name name)))
     ((cst-list loc (cst-symbol "def") name ty expr)
-     (make-decl (parse-name name) (parse-expr ty) (parse-expr expr) :loc loc))
+     (make-decl-def (parse-name name) (parse-expr ty) (parse-expr expr) :loc loc))
     ((cst-list* loc (cst-symbol "defn") name rest)
      (let* ((name (parse-name name))
             (parts (span #'(lambda (form) (not (matches? form (cst-symbol "->"))))

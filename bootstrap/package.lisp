@@ -15,4 +15,4 @@
 
 (defpackage #:bootstrap
   (:use #:bootstrap-cst #:bootstrap-utils #:cl #:trivia)
-  (:export #:main))
+  (:export #:cli-main #:main))

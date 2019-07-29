@@ -36,6 +36,18 @@
 (defclass decl (derived-syntax-object)
   ())
 
+(defclass decl-builtin (decl)
+  ((name :accessor name :initarg :name)))
+
+(defun make-decl-builtin (name &key loc)
+  (check-type name name)
+  (check-type loc  (or loc null))
+
+  (make-instance 'decl-builtin :name name :origin *origin* :loc loc))
+
+(defmethod print-object ((decl decl-builtin) stream)
+  (pprint-object-with-slots stream decl '(name)))
+
 (defclass decl-def (decl)
   ((name :accessor name :initarg :name)
    (ty   :accessor ty   :initarg :ty)
