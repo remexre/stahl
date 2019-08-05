@@ -28,10 +28,20 @@
   (pprint-object-with-slots stream module '(name exports imports decls)))
 
 (defclass name (derived-syntax-object)
-  ((str :accessor str :initarg :str)))
+  ((str :accessor str :initarg :str)
+   (refers-to :accessor refers-to :initform nil)
+   (module-name :accessor module-name :initform nil)))
+
+(defun name= (l r)
+  (check-type l name)
+  (check-type r name)
+  (string= (str l) (str r)))
 
 (defmethod print-object ((name name) stream)
-  (format stream "~s" (str name)))
+  (with-slots (str refers-to module-name) name
+    (if (or refers-to module-name *pprint-loc*)
+      (pprint-object-with-slots stream name '(str refers-to module-name))
+      (format stream "~s" (str name)))))
 
 (defclass decl (derived-syntax-object)
   ())

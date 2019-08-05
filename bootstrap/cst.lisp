@@ -110,9 +110,9 @@
                         (funcall prev-acc (make-instance 'cst-cons :cst-car head :cst-cdr last
                                                          :loc loc))))))))))
     (next-char stream)
-	(make-instance 'cst-cons :loc loc
-	  :cst-car (make-instance 'cst-symbol :loc loc :value "!")
-	  :cst-cdr (funcall acc last))))
+    (make-instance 'cst-cons :loc loc
+      :cst-car (make-instance 'cst-symbol :loc loc :value "!")
+      :cst-cdr (funcall acc last))))
 
 (defun parse-list-tail (stream loc)
   (let ((acc #'(lambda (last) last))

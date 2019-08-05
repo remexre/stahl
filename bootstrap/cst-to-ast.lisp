@@ -106,7 +106,7 @@
                                           ty :implicitp t)))))
        (make-decl-def name ty (parse-expr body))))
     ((cst-list* loc (cst-symbol "type") rest)
-     (format t "todo @ ~a: type ~a" loc rest))))
+     (format t "todo @ ~a: type ~a~%" loc rest))))
 
 (defun parse-expr (cst)
   (ematch-with-origin cst

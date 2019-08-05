@@ -20,6 +20,13 @@
   (or (slot-value obj 'loc)
       (loc (origin obj))))
 
+(defun assoc-equal-value (item alist)
+  (cdr (assoc item alist :test #'equal)))
+
+(defmacro let-push (var expr &body body)
+  `(let ((,var (cons ,expr ,var)))
+     ,@body))
+
 (defmacro matches? (expr pat)
   `(match ,expr (,pat t)))
 
@@ -27,11 +34,15 @@
   (declare (ignore colonp atsignp))
   (format stream ":~(~w~) ~w" (car pair) (cdr pair)))
 
-(defun pprint-object (stream name slots)
+(defparameter *pprint-loc* nil)
+
+(defun pprint-object (stream name obj slots)
+  (when (and *pprint-loc* (not (assoc 'loc slots)))
+    (push (cons 'loc (loc obj)) slots))
   (format stream "#<~@<~(~w~)~{ ~_~/bootstrap-utils::pprint-object-pair/~}~:>>" name slots))
 
 (defun pprint-object-with-slots (stream obj slots)
-  (pprint-object stream (class-name (class-of obj))
+  (pprint-object stream (class-name (class-of obj)) obj
                  (mapcar #'(lambda (slot) (cons slot (slot-value obj slot))) slots)))
 
 (defun span (pred list)

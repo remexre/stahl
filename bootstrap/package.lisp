@@ -3,7 +3,8 @@
   (:export
     #:loc ; #:file #:line #:col
     #:syntax-object #:derived-syntax-object #:origin
-    #:matches? #:pprint-object-with-slots #:span
+    #:assoc-equal-value #:let-push #:matches? #:pprint-object-with-slots #:span
+    #:*pprint-loc*
     ; #:walk-directory #:walk-directory-to-list
     ))
 
