@@ -74,6 +74,36 @@
 (defmethod print-object ((decl decl-def) stream)
   (pprint-object-with-slots stream decl '(name ty expr)))
 
+(defclass decl-type (decl)
+  ((name  :accessor name  :initarg :name)
+   (kind  :accessor kind  :initarg :kind)
+   (ctors :accessor ctors :initarg ctors)))
+
+(defun make-decl-type (name kind ctors &key loc)
+  (check-type name name)
+  (check-type kind expr)
+  (check-type ctors list) ; of ctors
+
+  (make-instance 'decl-type :name name :kind kind :ctors ctors :origin *origin* :loc loc))
+
+(defmethod print-object ((decl decl-type) stream)
+  (pprint-object-with-slots stream decl '(name kind ctors)))
+
+(defclass ctor (derived-syntax-object)
+  ((name    :accessor name    :initarg :name)
+   (fields  :accessor fields  :initarg :fields)
+   (ty-args :accessor ty-args :initarg :ty-args)))
+
+(defun make-ctor (name fields ty-args &key loc)
+  (check-type name    name)
+  (check-type fields  list) ; of exprs
+  (check-type ty-args list) ; of exprs
+
+  (make-instance 'ctor :name name :fields fields :ty-args ty-args :origin *origin* :loc loc))
+
+(defmethod print-object ((ctor ctor) stream)
+  (pprint-object-with-slots stream ctor '(name fields ty-args)))
+
 (defclass expr (derived-syntax-object)
   ((ty :accessor ty)))
 
@@ -91,15 +121,16 @@
 
 (defclass expr-lam (expr)
   ((var  :accessor var  :initarg :var)
-   (body :accessor body :initarg :body)))
+   (body :accessor body :initarg :body)
+   (implicitp :accessor implicitp :initarg :implicitp :initform nil)))
 
-(defun make-expr-lam (var body)
+(defun make-expr-lam (var body &key implicitp)
   (check-type var  name)
   (check-type body expr)
-  (make-instance 'expr-lam :var var :body body :origin *origin*))
+  (make-instance 'expr-lam :var var :body body :implicitp implicitp :origin *origin*))
 
 (defmethod print-object ((expr expr-lam) stream)
-  (pprint-object-with-slots stream expr '(var body)))
+  (pprint-object-with-slots stream expr '(var implicitp body)))
 
 (defclass expr-lit-string (expr)
   ((str :accessor str :initarg :str)))
@@ -123,7 +154,7 @@
   (make-instance 'expr-pi :var var :dom dom :cod cod :implicitp implicitp :origin *origin*))
 
 (defmethod print-object ((expr expr-pi) stream)
-  (pprint-object-with-slots stream expr '(var dom cod implicitp)))
+  (pprint-object-with-slots stream expr '(var implicitp dom cod)))
 
 (defclass expr-type-of-types (expr) ())
 

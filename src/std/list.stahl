@@ -3,7 +3,7 @@
 (import std (const))
 (import std/nat (Nat S Z))
 
-(type List : {T TYPE} -> TYPE
+(type List : (T TYPE) -> TYPE
   (nil : (List T))
   (cons : (hd T) (tl (List T)) -> (List T)))
 

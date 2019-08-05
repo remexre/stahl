@@ -60,9 +60,8 @@
               (loc name) name))))
 
 (defmethod resolve-names-for-expr ((expr expr-var))
-  (format t "touching ~a in scope ~a~%" expr *name-resolution-scope*)
   (with-slots (name) expr
-    (let ((scope-var (car (member (str name) *name-resolution-scope*))))
+    (let ((scope-var (car (member name *name-resolution-scope* :test #'name=))))
       (if scope-var
         (setf (refers-to name) scope-var)
         (error 'unbound-name :name name)))))
