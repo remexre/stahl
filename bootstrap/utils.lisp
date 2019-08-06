@@ -56,9 +56,12 @@
           do (setf list (cdr list)))
     list))
 
-(defun toposort (vals must-be-after-p)
-  nil ; TODO
-  )
+(defun toposort (input must-be-after-p)
+  (let ((output nil))
+    (format t "toposort  input = ~a~%" input)
+    ; TODO
+    (format t "toposort output = ~a~%" output)
+    output))
 
 #|
 (defun walk-directory (dir cb)
