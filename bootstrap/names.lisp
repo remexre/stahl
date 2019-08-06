@@ -1,37 +1,45 @@
 (in-package #:bootstrap)
 
-(defvar *name-current-module*)
 (defvar *name-resolution-scope*)
 
-(defun resolve-names-for-module (module)
-  (format t "module = ~a~%" module)
-  (let ((*name-current-module* (name module))
-        (*name-resolution-scope* nil))
-    (mapc #'resolve-names-for-decl (decls module))))
+(defun resolve-names-for-module (module loaded-modules)
+  (with-slots (name exports imports decls) module
+    (let ((*name-resolution-scope* nil))
+      (loop for clause in imports
+            do (resolve-names-for-import-clause clause loaded-modules))
+      (loop for decl in decls
+            do (resolve-names-for-decl decl name))
+      (format t "TODO handle exports ~a vs scope ~a~%" exports *name-resolution-scope*))))
 
-(defgeneric resolve-names-for-decl (decl))
+(defun resolve-names-for-import-clause (import-clause loaded-modules)
+  (declare (ignore loaded-modules))
+  (destructuring-bind (module . names) import-clause
+    (format t "TODO import ~a from ~a~%" names module)))
 
-(defmethod resolve-names-for-decl ((decl decl-builtin))
-  (setf (module-name (name decl)) *name-current-module*)
-  (push (name decl) *name-resolution-scope*))
+(defgeneric resolve-names-for-decl (decl module-name))
 
-(defmethod resolve-names-for-decl ((decl decl-def))
+(defmethod resolve-names-for-decl ((decl decl-builtin) module-name)
+  (with-slots (name) decl
+    (setf (module-name name) module-name)
+    (push name *name-resolution-scope*)))
+
+(defmethod resolve-names-for-decl ((decl decl-def) module-name)
   (with-slots (name ty expr) decl
-    (setf (module-name name) *name-current-module*)
+    (setf (module-name name) module-name)
     (resolve-names-for-expr ty)
     (resolve-names-for-expr expr)
     (push name *name-resolution-scope*)))
 
-(defmethod resolve-names-for-decl ((decl decl-type))
-  (with-slots (name kind ctors) decl
-    (resolve-names-for-expr kind)
+(defmethod resolve-names-for-decl ((decl decl-type) module-name)
+  (with-slots (name ty-args ctors) decl
+    (format t "TODO ty-args ~a~%" ty-args)
     (push name *name-resolution-scope*)
     (loop for ctor in ctors
-          do (with-slots (fields ty-args) ctor
+          do (with-slots (fields ctor-ty-args) ctor
                (loop for field in fields
                      do (format t "field = ~a~%" field))
-               (loop for ty-arg in ty-args
-                     do (format t "ty-arg = ~a~%" ty-arg))))
+               (loop for ctor-ty-arg in ctor-ty-args
+                     do (format t "ctor-ty-arg = ~a~%" ctor-ty-arg))))
     (loop for ctor in ctors
           do (push (name ctor) *name-resolution-scope*))))
 

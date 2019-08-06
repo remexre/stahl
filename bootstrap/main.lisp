@@ -22,10 +22,9 @@
 
 (defun main (src-paths output-path)
   (declare (ignore output-path))
-  (mapc #'process-file src-paths))
-
-(defun process-file (path)
-  (format t "path = ~a~%" path)
-  (let ((module (parse-file path)))
-    (resolve-names-for-module module)
-    (format t "module = ~a~%" module)))
+  (let* ((parsed-modules (mapcar #'parse-file src-paths))
+         (loaded-modules nil))
+    (format t "parsed-modules = ~a~%" parsed-modules)
+    (loop for module in (toposort parsed-modules #'module-depends-on)
+          do (resolve-names-for-module module loaded-modules)
+          do (push (cons (name module) module) loaded-modules))))

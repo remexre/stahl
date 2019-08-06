@@ -52,7 +52,6 @@
 (defun make-decl-builtin (name &key loc)
   (check-type name name)
   (check-type loc  (or loc null))
-
   (make-instance 'decl-builtin :name name :origin *origin* :loc loc))
 
 (defmethod print-object ((decl decl-builtin) stream)
@@ -68,41 +67,52 @@
   (check-type ty   expr)
   (check-type expr expr)
   (check-type loc  (or loc null))
-
   (make-instance 'decl-def :name name :ty ty :expr expr :origin *origin* :loc loc))
 
 (defmethod print-object ((decl decl-def) stream)
   (pprint-object-with-slots stream decl '(name ty expr)))
 
 (defclass decl-type (decl)
-  ((name  :accessor name  :initarg :name)
-   (kind  :accessor kind  :initarg :kind)
-   (ctors :accessor ctors :initarg :ctors)))
+  ((name    :accessor name    :initarg :name)
+   (ty-args :accessor ty-args :initarg :ty-args)
+   (ctors   :accessor ctors   :initarg :ctors)))
 
-(defun make-decl-type (name kind ctors &key loc)
-  (check-type name name)
-  (check-type kind expr)
-  (check-type ctors list) ; of ctors
-
-  (make-instance 'decl-type :name name :kind kind :ctors ctors :origin *origin* :loc loc))
+(defun make-decl-type (name ty-args ctors &key loc)
+  (check-type name    name)
+  (check-type ty-args list) ; of args
+  (check-type ctors   list) ; of ctors
+  (make-instance 'decl-type :name name :ty-args ty-args :ctors ctors :origin *origin* :loc loc))
 
 (defmethod print-object ((decl decl-type) stream)
-  (pprint-object-with-slots stream decl '(name kind ctors)))
+  (pprint-object-with-slots stream decl '(name ty-args ctors)))
 
 (defclass ctor (derived-syntax-object)
-  ((name    :accessor name    :initarg :name)
-   (fields  :accessor fields  :initarg :fields)
-   (ty-args :accessor ty-args :initarg :ty-args)))
+  ((name         :accessor name         :initarg :name)
+   (ctor-args    :accessor ctor-args    :initarg :ctor-args)
+   (ctor-ty-args :accessor ctor-ty-args :initarg :ctor-ty-args)))
 
-(defun make-ctor (name fields ty-args &key loc)
-  (check-type name    name)
-  (check-type fields  list) ; of exprs
-  (check-type ty-args list) ; of exprs
-
-  (make-instance 'ctor :name name :fields fields :ty-args ty-args :origin *origin* :loc loc))
+(defun make-ctor (name ctor-args ctor-ty-args &key loc)
+  (check-type name         name)
+  (check-type ctor-args    list) ; of args
+  (check-type ctor-ty-args list) ; of exprs
+  (make-instance 'ctor :name name :ctor-args ctor-args :ctor-ty-args ctor-ty-args
+                 :origin *origin* :loc loc))
 
 (defmethod print-object ((ctor ctor) stream)
-  (pprint-object-with-slots stream ctor '(name fields ty-args)))
+  (pprint-object-with-slots stream ctor '(name ctor-args ctor-ty-args)))
+
+(defclass arg (derived-syntax-object)
+  ((name      :accessor name      :initarg :name)
+   (ty        :accessor ty        :initarg :ty)
+   (implicitp :accessor implicitp :initarg :implicitp :initform nil)))
+
+(defun make-arg (name ty &key implicitp loc)
+  (check-type name name)
+  (check-type ty   expr)
+  (make-instance 'arg :name name :ty ty :implicitp implicitp :origin *origin* :loc loc))
+
+(defmethod print-object ((arg arg) stream)
+  (pprint-object-with-slots stream arg '(name ty implicitp)))
 
 (defclass expr (derived-syntax-object)
   ((ty :accessor ty)))
@@ -117,9 +127,7 @@
   (make-instance 'expr-app :func func :arg arg :origin *origin*))
 
 (defmethod print-object ((expr expr-app) stream)
-  (pprint-object-with-slots stream expr '(func arg)))
-
-(defclass expr-lam (expr)
+  (pprint-object-with-slots stream expr '(func arg))) (defclass expr-lam (expr)
   ((var  :accessor var  :initarg :var)
    (body :accessor body :initarg :body)
    (implicitp :accessor implicitp :initarg :implicitp :initform nil)))

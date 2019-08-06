@@ -12,6 +12,7 @@
                (:file "utils")
                (:file "cst")
                (:file "ast")
+               (:file "modules")
                (:file "cst-to-ast")
                (:file "names")
                (:file "main")))

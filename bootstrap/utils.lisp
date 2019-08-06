@@ -56,6 +56,10 @@
           do (setf list (cdr list)))
     list))
 
+(defun toposort (vals must-be-after-p)
+  nil ; TODO
+  )
+
 #|
 (defun walk-directory (dir cb)
   (loop for file in (uiop:directory-files dir)
