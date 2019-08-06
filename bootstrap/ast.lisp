@@ -77,7 +77,7 @@
 (defclass decl-type (decl)
   ((name  :accessor name  :initarg :name)
    (kind  :accessor kind  :initarg :kind)
-   (ctors :accessor ctors :initarg ctors)))
+   (ctors :accessor ctors :initarg :ctors)))
 
 (defun make-decl-type (name kind ctors &key loc)
   (check-type name name)

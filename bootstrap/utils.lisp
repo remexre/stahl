@@ -23,6 +23,9 @@
 (defun assoc-equal-value (item alist)
   (cdr (assoc item alist :test #'equal)))
 
+(defmacro elet1 (pat expr &body body)
+  `(ematch ,expr (,pat ,@body)))
+
 (defmacro let-push (var expr &body body)
   `(let ((,var (cons ,expr ,var)))
      ,@body))

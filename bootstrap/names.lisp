@@ -11,10 +11,6 @@
 
 (defgeneric resolve-names-for-decl (decl))
 
-(defmethod resolve-names-for-decl ((decl null))
-  (format t "TODO: resolve-names-for-decl on nil decl...~%")
-  nil)
-
 (defmethod resolve-names-for-decl ((decl decl-builtin))
   (setf (module-name (name decl)) *name-current-module*)
   (push (name decl) *name-resolution-scope*))
@@ -25,6 +21,19 @@
     (resolve-names-for-expr ty)
     (resolve-names-for-expr expr)
     (push name *name-resolution-scope*)))
+
+(defmethod resolve-names-for-decl ((decl decl-type))
+  (with-slots (name kind ctors) decl
+    (resolve-names-for-expr kind)
+    (push name *name-resolution-scope*)
+    (loop for ctor in ctors
+          do (with-slots (fields ty-args) ctor
+               (loop for field in fields
+                     do (format t "field = ~a~%" field))
+               (loop for ty-arg in ty-args
+                     do (format t "ty-arg = ~a~%" ty-arg))))
+    (loop for ctor in ctors
+          do (push (name ctor) *name-resolution-scope*))))
 
 (defgeneric resolve-names-for-expr (expr))
 

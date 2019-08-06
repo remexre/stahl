@@ -50,6 +50,22 @@
 (defun is-import? (cst)
   (matches? cst (cst-list* _ (cst-symbol "import") _)))
 
+(define-condition invalid-ctor-type (error)
+  ((cst     :initarg :cst)
+   (ty-name :initarg :ty-name)))
+
+(defmethod print-object ((err invalid-ctor-type) string)
+  (with-slots (cst) err
+    (format stream "At ~a: ~a is not a valid type for a constructor of type ~a"
+            (loc cst) cst ty-name)))
+
+(define-condition invalid-kind (error)
+  ((kind :initarg :kind)))
+
+(defmethod print-object ((err invalid-kind) string)
+  (with-slots (ty) err
+    (format stream "At ~a: ~a is not a valid kind" (loc kind) kind)))
+
 (define-condition invalid-name (error)
   ((cst :initarg :cst)))
 
@@ -81,15 +97,16 @@
 
 (defun parse-decl (cst)
   (ematch-with-origin cst
-    ((cst-list loc (cst-symbol "builtin") name)
+    ((cst-list _ (cst-symbol "builtin") name)
      (make-decl-builtin (parse-name name)))
-    ((cst-list loc (cst-symbol "def") name ty expr)
-     (make-decl-def (parse-name name) (parse-expr ty) (parse-expr expr) :loc loc))
-    ((cst-list* loc (cst-symbol "defn") name rest)
-     (multiple-value-bind (args return-type body-cst) (parse-infix-type rest)
+    ((cst-list _ (cst-symbol "def") name ty expr)
+     (make-decl-def (parse-name name) (parse-expr ty) (parse-expr expr)))
+    ((cst-list* _ (cst-symbol "defn") name rest)
+     (multiple-value-bind (args return-type after-type) (parse-infix-type rest)
        (let ((name (parse-name name))
-             (body (parse-expr body-cst))
+             (body (parse-expr (car after-type)))
              (ty (parse-expr return-type)))
+         (assert (null (cdr after-type)))
          (loop for arg in (reverse args)
                do (ematch arg
                     ((cst-list _ arg-name-cst arg-ty-cst)
@@ -103,18 +120,62 @@
                        (setf ty (make-expr-pi arg-name arg-ty ty :implicitp t))
                        (setf body (make-expr-lam arg-name body :implicitp t))))))
          (make-decl-def name ty body))))
-    ((cst-list* loc (cst-symbol "type") rest)
-     (format t "todo @ ~a: type ~a~%" loc rest))))
+    ((cst-list* _ (cst-symbol "type") name (cst-symbol ":") rest)
+     (if (has-arrow-p rest)
+       (multiple-value-bind (args return-type ctors) (parse-infix-type rest)
+         (format t "a = ~s~%" args)
+         (format t "r = ~s~%" return-type)
+         (format t "c = ~s~%" ctors)
+         (error "TODO: polymorphic type"))
+       (elet1 (cst-cons kind ctors) rest
+         (let ((ty-name (parse-name name)))
+           (make-decl-type ty-name (parse-expr kind) (parse-ctors ctors ty-name))))))))
+
+(defun has-arrow-p (cst)
+  "Checks if a cst list contains the symbol ->."
+  (ematch cst
+    ((cst-cons (cst-symbol "->") _) t)
+    ((cst-cons _ tl)                (has-arrow-p tl))
+    ((cst-nil)                      nil)))
 
 (defun parse-infix-type (cst)
   (let* ((parts (span #'(lambda (form) (not (matches? form (cst-symbol "->"))))
                 (cst-list-to-list cst)))
-         (ignored (format t "parts = ~s~%" parts))
          (args (car parts))
          (return-type (caddr parts))
-         (body-cst (cadddr parts)))
-    (assert (null (cddddr parts)))
-    (values args return-type body-cst)))
+         (after-type (cdddr parts)))
+    (values args return-type after-type)))
+
+(defun parse-ctors (cst ty-name)
+  (let ((parsed nil))
+    (loop until (matches? cst (cst-nil))
+          do (push (parse-ctor (cst-car cst) ty-name) parsed)
+          do (setf cst (cst-cdr cst)))
+    (nreverse parsed)))
+
+(defun parse-ctor (cst ty-name)
+  (ematch-with-origin cst
+    ((cst-list* _ name (cst-symbol ":") rest)
+     (if (has-arrow-p rest)
+       (multiple-value-bind (args return-type after-type) (parse-infix-type rest)
+         (format t "name  = ~a~%" (parse-name name))
+         (format t "args  = ~a~%" args)
+         (format t "ret   = ~a~%" return-type)
+         (format t "after = ~a~%" after-type)
+         (error "TODO parse-ctor ~a" cst))
+       (elet1 (cst-list _ ty) rest
+         (make-ctor (parse-name name) nil (parse-ctor-return-ty ty ty-name)))))))
+
+(defun parse-ctor-return-ty (cst ty-name)
+  (ematch-with-origin cst
+    ((cst-symbol name)
+     (unless (string= name (str ty-name))
+       (error 'invalid-ctor-type :cst cst :ty-name ty-name))
+     nil)
+    ((cst-list* _ hd tl)
+     (format t "hd = ~a~%" hd)
+     (format t "tl = ~a~%" tl)
+     (error "TODO"))))
 
 (defun parse-expr (cst)
   (ematch-with-origin cst
