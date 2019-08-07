@@ -2,16 +2,24 @@ LISP := sbcl
 STRIP := strip
 
 all: tmp/stahl-bootstrap.fth
-ci:
-	docker build -t remexre/stahl-builder .travis
-	docker run -v "$(shell pwd):/code" --rm remexre/stahl-builder make ci-inner
-ci-inner:
-	sh -c "trap 'chown -R $(shell stat -c "%u:%g" Makefile) .' EXIT; $(MAKE) clean all"
 clean:
 	rm -rf out tmp
 watch:
 	watchexec -cre asd,lisp,stahl $(MAKE)
-.PHONY: all build ci ci-inner clean watch
+.PHONY: all build clean watch
+
+ci:
+	docker build -t remexre/stahl-builder .travis
+	docker run -v "$(shell pwd):/code" --rm remexre/stahl-builder make ci-inner
+ci-cron:
+	docker build -t remexre/stahl-builder .travis
+	docker run -v "$(shell pwd):/code" --rm remexre/stahl-builder make ci-cron-inner
+.PHONY: ci ci-cron
+
+ci-cron-inner: ci-inner
+ci-inner:
+	sh -c "trap 'chown -R $(shell stat -c "%u:%g" Makefile) .' EXIT; $(MAKE) clean all"
+.PHONY: ci-cron-inner ci-inner
 
 bootstrap-repl:
 	$(LISP) --load bootstrap/entrypoints/repl.lisp --eval '(in-package #:bootstrap)'
