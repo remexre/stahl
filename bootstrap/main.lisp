@@ -25,6 +25,19 @@
   (let* ((parsed-modules (mapcar #'parse-file src-paths))
          (loaded-modules nil))
     (format t "parsed-modules = ~a~%" parsed-modules)
-    (loop for module in (toposort parsed-modules #'module-depends-on)
-          do (resolve-names-for-module module loaded-modules)
-          do (push (cons (name module) module) loaded-modules))))
+    (dolist (module (toposort parsed-modules #'module-depends-on))
+      (resolve-names-for-module module loaded-modules)
+      (push (cons (name module) module) loaded-modules))))
+
+(defun test-main ()
+  "A main function for debugging."
+  (main
+    (list
+      "./src/std/list.stahl"
+      "./src/std/io.stahl"
+      "./src/std/string.stahl"
+      "./src/std/vect.stahl"
+      "./src/std/nat.stahl"
+      "./src/std.stahl"
+      "./src/bin/compiler.stahl")
+    "tmp/stahl-bootstrap.fth"))

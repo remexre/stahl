@@ -13,7 +13,7 @@
   ((loc :accessor loc :initarg :loc :initform (error "Must specify :loc"))))
 
 (defclass derived-syntax-object ()
-  ((loc :initarg :loc :initform nil)
+  ((loc                     :initarg :loc    :initform nil)
    (origin :accessor origin :initarg :origin :initform (error "Must specify :origin"))))
 
 (defmethod loc ((obj derived-syntax-object))
@@ -48,27 +48,44 @@
   (pprint-object stream (class-name (class-of obj)) obj
                  (mapcar #'(lambda (slot) (cons slot (slot-value obj slot))) slots)))
 
-(defun span (pred list)
+(defun span (pred lst)
   (cons
-    (loop until (null list)
-          until (not (funcall pred (car list)))
-          collect (car list)
-          do (setf list (cdr list)))
-    list))
+    (loop until (null lst)
+          until (not (funcall pred (car lst)))
+          collect (car lst)
+          do (setf lst (cdr lst)))
+    lst))
 
 (defun toposort (input must-be-after-p)
   (let ((output nil))
-    (format t "toposort  input = ~a~%" input)
-    ; TODO
-    (format t "toposort output = ~a~%" output)
+    (dolist (val input)
+      (setf output (insert-after-required output val must-be-after-p)))
+    (validate-toposort output must-be-after-p)
     output))
+
+(defun insert-after-required (vals val must-be-after-p)
+  (cond
+    ((null vals) (list val))
+    ((funcall must-be-after-p val (car vals))
+     (setf (cdr vals) (insert-after-required (cdr vals) val must-be-after-p))
+     vals)
+    (t
+     (cons val vals))))
+
+(defun validate-toposort (vals must-be-after-p)
+  (loop for val in vals
+        for i from 0
+        do (loop for earlier in vals
+                 for j from 0
+                 until (= i j)
+                 do (assert (not (funcall must-be-after-p earlier val))))))
 
 #|
 (defun walk-directory (dir cb)
-  (loop for file in (uiop:directory-files dir)
-    do (funcall cb file))
-  (loop for subdir in (uiop:subdirectories dir)
-    do (walk-directory subdir cb)))
+  (dolist (file (uiop:directory-files dir))
+    (funcall cb file))
+  (dolist (subdir (uiop:subdirectories dir))
+    (walk-directory subdir cb)))
 
 (defun walk-directory-to-list (dir)
   (let ((files nil))

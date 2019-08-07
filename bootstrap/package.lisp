@@ -17,4 +17,4 @@
 
 (defpackage #:bootstrap
   (:use #:bootstrap-cst #:bootstrap-utils #:cl #:trivia)
-  (:export #:cli-main #:main))
+  (:export #:cli-main #:main #:test-main))

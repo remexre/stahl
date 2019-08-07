@@ -7,3 +7,5 @@
 
 (type Unit : TYPE
   (unit : Unit))
+
+(elim Unit elim-Unit)

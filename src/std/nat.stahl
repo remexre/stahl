@@ -4,3 +4,5 @@
 (type Nat : TYPE
   (Z : Nat)
   (S : (n Nat) -> Nat))
+
+(elim Nat elim-Nat)

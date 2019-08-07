@@ -28,14 +28,22 @@
   (pprint-object-with-slots stream module '(name exports imports decls)))
 
 (defclass name (derived-syntax-object)
-  ((str :accessor str :initarg :str)
-   (refers-to :accessor refers-to :initform nil)
+  ((str         :accessor str         :initarg :str)
+   (refers-to   :accessor refers-to   :initform nil)
    (module-name :accessor module-name :initform nil)))
+
+(defmethod resolved-module-name ((name name))
+  (or (slot-value name 'module-name)
+      (resolved-module-name (refers-to name))))
 
 (defun name= (l r)
   (check-type l name)
   (check-type r name)
   (string= (str l) (str r)))
+
+(defmethod module-name ((name name))
+  (or (slot-value name 'module-name)
+      (module-name (refers-to name))))
 
 (defmethod print-object ((name name) stream)
   (with-slots (str refers-to module-name) name
@@ -71,6 +79,18 @@
 
 (defmethod print-object ((decl decl-def) stream)
   (pprint-object-with-slots stream decl '(name ty expr)))
+
+(defclass decl-elim (decl)
+  ((name    :accessor name    :initarg :name)
+   (ty-name :accessor ty-name :initarg :ty-name)))
+
+(defun make-decl-elim (name ty-name &key loc)
+  (check-type name    name)
+  (check-type ty-name name)
+  (make-instance 'decl-elim :name name :ty-name ty-name :origin *origin* :loc loc))
+
+(defmethod print-object ((decl decl-elim) stream)
+  (pprint-object-with-slots stream decl '(name ty-name)))
 
 (defclass decl-type (decl)
   ((name    :accessor name    :initarg :name)

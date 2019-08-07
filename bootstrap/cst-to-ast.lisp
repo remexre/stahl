@@ -66,6 +66,13 @@
   (with-slots (kind) err
     (format stream "At ~a: ~a is not a valid kind" (loc kind) kind)))
 
+(define-condition invalid-lambda (error)
+  ((cst :initarg :cst)))
+
+(defmethod print-object ((err invalid-lambda) stream)
+  (with-slots (cst) err
+    (format stream "At ~a: ~a is not a valid lambda" (loc cst) cst)))
+
 (define-condition invalid-name (error)
   ((cst :initarg :cst)))
 
@@ -107,19 +114,21 @@
              (body (parse-expr (car after-type)))
              (ty (parse-expr return-type)))
          (assert (null (cdr after-type)))
-         (loop for arg in (reverse args)
-               do (ematch arg
-                    ((cst-list _ arg-name-cst arg-ty-cst)
-                     (let ((arg-name (parse-name arg-name-cst))
-                           (arg-ty   (parse-expr arg-ty-cst)))
-                       (setf ty (make-expr-pi arg-name arg-ty ty))
-                       (setf body (make-expr-lam arg-name body))))
-                    ((cst-list _ (cst-symbol "!") arg-name-cst arg-ty-cst)
-                     (let ((arg-name (parse-name arg-name-cst))
-                           (arg-ty   (parse-expr arg-ty-cst)))
-                       (setf ty (make-expr-pi arg-name arg-ty ty :implicitp t))
-                       (setf body (make-expr-lam arg-name body :implicitp t))))))
+         (dolist (arg (nreverse args))
+            (ematch arg
+              ((cst-list _ arg-name-cst arg-ty-cst)
+               (let ((arg-name (parse-name arg-name-cst))
+                     (arg-ty   (parse-expr arg-ty-cst)))
+                 (setf ty (make-expr-pi arg-name arg-ty ty))
+                 (setf body (make-expr-lam arg-name body))))
+              ((cst-list _ (cst-symbol "!") arg-name-cst arg-ty-cst)
+               (let ((arg-name (parse-name arg-name-cst))
+                     (arg-ty   (parse-expr arg-ty-cst)))
+                 (setf ty (make-expr-pi arg-name arg-ty ty :implicitp t))
+                 (setf body (make-expr-lam arg-name body :implicitp t))))))
          (make-decl-def name ty body))))
+    ((cst-list _ (cst-symbol "elim") ty-name name)
+     (make-decl-elim (parse-name name) (parse-name ty-name)))
     ((cst-list* _ (cst-symbol "type") name (cst-symbol ":") rest)
      (let ((ty-name (parse-name name)))
        (if (has-arrow-p rest)
@@ -188,6 +197,13 @@
 
 (defun parse-expr (cst)
   (ematch-with-origin cst
+    ((cst-list _ (cst-symbol "fn") args expr)
+     (let ((expr (parse-expr expr)))
+       (loop for arg in (cst-list-to-list args)
+             do (setf expr (make-expr-lam (parse-name arg) expr)))
+       expr))
+    ((cst-list* _ (cst-symbol "fn") _)
+     (error 'invalid-lambda :cst cst))
     ((cst-list* _ func args)
      (let ((func (parse-expr func)))
        (loop for arg in (cst-list-to-list args)

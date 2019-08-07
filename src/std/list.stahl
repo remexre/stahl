@@ -7,6 +7,8 @@
   (nil : (List T))
   (cons : (hd T) (tl (List T)) -> (List T)))
 
+(elim List elim-List)
+
 (defn length (T TYPE) (l (List T)) -> Nat
   (elim-List T (const Nat)
     Z
