@@ -12,11 +12,11 @@ before_install:
 - docker build -t remexre/stahl-builder .travis
 
 script:
-- if [[ $TRAVIS_EVENT_TYPE = cron ]]; then \
-    docker run -v "$PWD:/code" --rm remexre/stahl-builder make ci-cron-inner; \
-  else \
-    docker run -v "$PWD:/code" --rm remexre/stahl-builder make ci-inner; \
-  fi;
+- if [[ $TRAVIS_EVENT_TYPE = cron ]]; then
+    docker run -v "$PWD:/code" --rm remexre/stahl-builder make ci-cron-inner;
+  else
+    docker run -v "$PWD:/code" --rm remexre/stahl-builder make ci-inner;
+  fi
 
 before_cache:
 - mkdir -p $HOME/docker
