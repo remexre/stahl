@@ -1,6 +1,5 @@
 LISP := sbcl
 STRIP := strip
-SWANK := 
 
 all: tmp/stahl-bootstrap.fth
 ci:
