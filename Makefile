@@ -1,12 +1,14 @@
 LISP := sbcl
 STRIP := strip
 
-all: tmp/stahl-bootstrap.fth
+all: out/stahl-bootstrap.fth proofs
 clean:
 	rm -rf out tmp
+proofs:
+	$(MAKE) -C proofs
 watch:
-	watchexec -cre asd,lisp,stahl $(MAKE)
-.PHONY: all build clean watch
+	watchexec -cre asd,lean,lisp,stahl $(MAKE)
+.PHONY: all build clean proofs watch
 
 ci:
 	docker build -t remexre/stahl-builder .travis
@@ -34,6 +36,6 @@ tmp/bootstrap: bootstrap/bootstrap.asd $(BOOTSTRAP_SRCS)
 	@mkdir -p $(dir $@)
 	$(LISP) --load bootstrap/entrypoints/compile.lisp
 
-tmp/stahl-bootstrap.fth: tmp/bootstrap $(SRCS)
+out/stahl-bootstrap.fth: tmp/bootstrap $(SRCS)
 	@mkdir -p $(dir $@)
 	tmp/bootstrap -o $@ $(SRCS)
