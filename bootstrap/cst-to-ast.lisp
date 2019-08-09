@@ -86,7 +86,9 @@
 
 (defun parse-name (cst)
   (match-with-origin cst
-    ((cst-symbol (or "_" "->" "TYPE"))
+    ((cst-symbol (or "!" "->" ":" "_" "TYPE" "auto-impl" "builtin" "class"
+                     "def" "defn" "elim" "export" "fn" "impl" "import" "module"
+                     "type"))
      (error 'invalid-name :cst cst))
     ((cst-symbol value)
      (make-instance 'name :str value :origin cst))

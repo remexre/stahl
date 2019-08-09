@@ -30,7 +30,7 @@
       (push (cons (name module) module) loaded-modules))))
 
 (defun test-main ()
-  "A main function for debugging."
+  "A main function for debugging in SLIME."
   (main
     (list
       "./src/std/list.stahl"

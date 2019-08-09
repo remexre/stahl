@@ -35,7 +35,8 @@
         (resolve-names-for-import-clause clause loaded-modules))
       (dolist (decl decls)
         (resolve-names-for-decl decl name))
-      (format t "TODO handle exports ~a vs scope ~a~%" exports *name-resolution-scope*))))
+      (dolist (name exports)
+        (resolve-name name)))))
 
 (defun resolve-names-for-import-clause (import-clause loaded-modules)
   (destructuring-bind (sought-module . names) import-clause
@@ -76,17 +77,31 @@
 
 (defmethod resolve-names-for-decl ((decl decl-type) module-name)
   (with-slots (name ty-args ctors) decl
-    (format t "TODO ty-args ~a~%" ty-args)
     (setf (module-name name) module-name)
     (push name *name-resolution-scope*)
+
+    ; The implicit arguments to the type are in scope for all constructor definitions.
+    (let ((*name-resolution-scope* *name-resolution-scope*))
+      (dolist (ty-arg ty-args)
+        (when (implicitp ty-arg)
+          (push (name ty-arg) *name-resolution-scope*))
+        (format t "TODO ty-arg ~a~%" ty-arg))
+
+      (dolist (ctor ctors)
+        (with-slots (name ctor-args ctor-ty-args) ctor
+          (setf (module-name name) module-name)
+          (let ((*name-resolution-scope* *name-resolution-scope*))
+            (dolist (ctor-arg ctor-args)
+              (with-slots (name) ctor-arg
+                (setf (local name) t)
+                (push name *name-resolution-scope*))
+              (format t "TODO ctor-arg    = (THE ~a ~a)~%" (type-of ctor-arg) ctor-arg))
+            (format t "scope = ~a~%" *name-resolution-scope*)
+            (dolist (ctor-ty-arg ctor-ty-args)
+              (resolve-names-for-expr ctor-ty-arg))))))
+
+    ; The constructors themselves aren't defined until after the constructors.
     (dolist (ctor ctors)
-      (with-slots (ctor-args ctor-ty-args) ctor
-        (dolist (ctor-arg ctor-args)
-          (format t "TODO ctor-arg    = ~a~%" ctor-arg))
-        (dolist (ctor-ty-arg ctor-ty-args)
-          (format t "TODO ctor-ty-arg = ~a~%" ctor-ty-arg))))
-    (dolist (ctor ctors)
-      (setf (module-name (name ctor)) module-name)
       (push (name ctor) *name-resolution-scope*))))
 
 (defmethod resolve-names-for-expr ((expr expr-app))
@@ -96,6 +111,7 @@
 
 (defmethod resolve-names-for-expr ((expr expr-lam))
   (with-slots (var body) expr
+    (setf (local var) t)
     (let-push *name-resolution-scope* var
       (resolve-names-for-expr body))))
 
@@ -104,6 +120,7 @@
 
 (defmethod resolve-names-for-expr ((expr expr-pi))
   (with-slots (var dom cod) expr
+    (setf (local var) t)
     (resolve-names-for-expr dom)
     (let-push *name-resolution-scope* var
       (resolve-names-for-expr cod))))

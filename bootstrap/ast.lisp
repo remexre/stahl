@@ -30,11 +30,8 @@
 (defclass name (derived-syntax-object)
   ((str         :accessor str         :initarg :str)
    (refers-to   :accessor refers-to   :initform nil)
+   (local       :accessor local       :initform nil)
    (module-name :accessor module-name :initform nil)))
-
-(defmethod resolved-module-name ((name name))
-  (or (slot-value name 'module-name)
-      (resolved-module-name (refers-to name))))
 
 (defun name= (l r)
   (check-type l name)
@@ -42,14 +39,12 @@
   (string= (str l) (str r)))
 
 (defmethod module-name ((name name))
-  (or (slot-value name 'module-name)
-      (module-name (refers-to name))))
+  (unless (local name)
+    (or (slot-value name 'module-name)
+        (module-name (refers-to name)))))
 
 (defmethod print-object ((name name) stream)
-  (with-slots (str refers-to module-name) name
-    (if (or refers-to module-name *pprint-loc*)
-      (pprint-object-with-slots stream name '(str refers-to module-name))
-      (format stream "~s" (str name)))))
+  (pprint-object-with-slots stream name '(str refers-to local module-name)))
 
 (defclass decl (derived-syntax-object)
   ())

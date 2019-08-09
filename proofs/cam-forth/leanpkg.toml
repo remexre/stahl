@@ -1,0 +1,8 @@
+[package]
+name = "cam-forth"
+version = "0.1"
+lean_version = "3.4.2"
+path = "src"
+timeout = 500000
+
+[dependencies]

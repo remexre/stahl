@@ -57,6 +57,7 @@
     lst))
 
 (defun toposort (input must-be-after-p)
+  "Sorts an input list topologically."
   (let ((output nil))
     (dolist (val input)
       (setf output (insert-after-required output val must-be-after-p)))
@@ -73,6 +74,7 @@
      (cons val vals))))
 
 (defun validate-toposort (vals must-be-after-p)
+  "Because I don't 100% trust that I did the toposort right."
   (loop for val in vals
         for i from 0
         do (loop for earlier in vals

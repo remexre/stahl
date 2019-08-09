@@ -3,5 +3,9 @@
 !.travis/
 !.travis.yml
 
+*.olean
+_target/
+leanpkg.path
+
 out/
 tmp/
