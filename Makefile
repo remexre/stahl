@@ -4,6 +4,7 @@ STRIP := strip
 all: out/stahl-bootstrap.fth proofs
 clean:
 	rm -rf out tmp
+	$(MAKE) -C proofs clean
 proofs:
 	$(MAKE) -C proofs
 watch:
