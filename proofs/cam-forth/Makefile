@@ -1,7 +1,7 @@
 all:
 	leanpkg build
 clean:
-	find -name '*.olean' | xargs rm
+	find -name '*.olean' -exec rm {} \;
 run:
 	leanpkg build -- --run src/main.lean
 watch:
