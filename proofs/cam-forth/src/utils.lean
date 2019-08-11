@@ -5,14 +5,18 @@ variables {α : Type u} {β : Type v} {m n : nat}
 
 
 
-notation x ` then `:1 f:0 := f x
+notation x ` ▶ `:1 f:0 := f x
 
 def compose_all : list (α → α) → α → α
 | list.nil := (λ x, x)
 | (list.cons h t) := h ∘ compose_all t
 
+def compose_all' : α → list (α → α) → α := flip compose_all
+
 example : compose_all [(λ n, n * 2), (λ n, n + 1)] 1 = 4 := rfl
 example : compose_all [(λ n, n + 1), (λ n, n * 2)] 1 = 3 := rfl
+example : compose_all' 1 [(λ n, n * 2), (λ n, n + 1)] = 4 := rfl
+example : compose_all' 1 [(λ n, n + 1), (λ n, n * 2)] = 3 := rfl
 
 
 

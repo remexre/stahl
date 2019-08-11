@@ -7,20 +7,20 @@ inductive forth_word : Type
 | drop : forth_word
 | dup : forth_word
 | fst : forth_word
-| literal : int → forth_word
+| lit : int → forth_word
 | print : forth_word
 | quote : nat → forth_word
 | snd : forth_word
 | swap : forth_word
 
 inductive forth_word_any : Type
-| exit : forth_word_any
+| exit : bool → forth_word_any
 | word : forth_word → forth_word_any
 
 namespace forth_word_any
   def from_option : option forth_word → forth_word_any
   | (some w) := word w
-  | none := exit
+  | none := exit ff -- TODO: bool should be "was it from main"
 end forth_word_any
 
 -- Programs in our stack language.
@@ -37,8 +37,8 @@ structure forth_pc (prg : forth_program) :=
 (word_idx : fin (nat.succ (list.length (vector.nth (forth_program.defs prg) def_idx))))
 
 namespace forth_program
-  def empty : forth_program :=
-    forth_program.mk 1 (vector.cons list.nil vector.nil) (nat.succ_ne_zero _)
+  def new : list forth_word → forth_program :=
+    λ main, forth_program.mk 1 (vector.cons main vector.nil) (nat.succ_ne_zero _)
 
   def define : list forth_word → forth_program → forth_program :=
     λ new_word old,
@@ -72,17 +72,14 @@ structure forth_vm (prg : forth_program) :=
 (return_stack : list (forth_value prg))
 (output : list int)
 
-namespace forth_vm
-  variables {α β : Type}
-  variables {prg : forth_program}
-
-  def load : forth_vm prg :=
-    mk
-      (forth_pc.mk (fin.zero (forth_program.prf_main_exists prg)) 0)
-      list.nil list.nil list.nil
-
-  structure eval (prg : forth_program) (α : Type) : Type :=
+structure eval (prg : forth_program) (α : Type) : Type :=
   (run : state_t (forth_vm prg) (except_t string id) α)
+
+namespace eval
+  open forth_vm
+
+  variables {α β : Type}
+  variable {prg : forth_program}
 
   @[inline]
   protected def pure (a : α) : eval prg α :=
@@ -93,8 +90,8 @@ namespace forth_vm
     eval.mk (do a ← x.run, (f a).run)
 
   instance : monad (eval prg) :=
-  { pure := λ α, @forth_vm.pure α prg
-  , bind := λ α β, @forth_vm.bind α β prg
+  { pure := λ α, @eval.pure α prg
+  , bind := λ α β, @eval.bind α β prg
   }
 
   instance : monad_except string (eval prg) :=
@@ -109,8 +106,8 @@ namespace forth_vm
 
   def advance_pc : eval prg unit :=
     modify (λ prev,
-      mk (forth_pc.advance (pc prev)) (data_stack prev) (return_stack prev)
-         (output prev))
+      forth_vm.mk (forth_pc.advance (pc prev)) (data_stack prev)
+                  (return_stack prev) (output prev))
 
   protected def pop_value_helper : list α → eval prg (α × list α)
   | list.nil := throw "Stack underflow"
@@ -118,51 +115,66 @@ namespace forth_vm
 
   def pop_value : eval prg (forth_value prg) := do
     vm ← get,
-    stack ← forth_vm.pop_value_helper (data_stack vm),
-    put (mk (pc vm) stack.2 (return_stack vm) (output vm)),
+    stack ← eval.pop_value_helper (data_stack vm),
+    put (forth_vm.mk (pc vm) stack.2 (return_stack vm) (output vm)),
     return stack.1
 
   protected def pop_int_helper : forth_value prg → eval prg int
   | (forth_value.num _ n) := return n
-  | val := throw "Type error"
+  | val := throw "Type error (wanted int)"
 
-  def pop_int : eval prg int := pop_value >>= forth_vm.pop_int_helper
+  def pop_int : eval prg int :=
+    pop_value >>= eval.pop_int_helper
+
+  protected def pop_pc_helper : forth_value prg → eval prg (forth_pc prg)
+  | (forth_value.addr pc) := return pc
+  | val := throw "Type error (wanted forth_pc)"
+
+  def pop_pc : eval prg (forth_pc prg) :=
+    pop_value >>= eval.pop_pc_helper
 
   def push_value : forth_value prg → eval prg unit :=
     λ val, do
       vm ← get,
       let stack := list.cons val (data_stack vm),
-      put (mk (pc vm) stack (return_stack vm) (output vm)),
+      put (forth_vm.mk (pc vm) stack (return_stack vm) (output vm)),
       return ()
 
   def next_word : eval prg forth_word_any := do
     vm ← get,
     return (forth_pc.word (pc vm))
-
-  def next : eval prg unit := do
-    word ← next_word,
-    return ()
-end forth_vm
+end eval
 
 namespace forth_vm
+  open eval
   open forth_value
   open forth_vm
   open forth_word
   open forth_word_any
 
-  variables {prg : forth_program}
+  variable {prg : forth_program}
 
-  def print_int : int → eval prg unit :=
+  def new : Π (prg : forth_program), forth_vm prg :=
+    λ prg, mk
+      (forth_pc.mk (fin.zero (forth_program.prf_main_exists prg)) 0)
+      list.nil list.nil list.nil
+
+  protected def print_int : int → eval prg unit :=
     λ n, sorry
 
   def do_word : forth_word_any → eval prg unit
-  | exit := sorry
+  | (exit from_main) := sorry
   | (word app) := sorry
-  | (word drop) := sorry
-  | (word dup) := sorry
+  | (word drop) := do
+      pop_value,
+      return ()
+  | (word dup) := do
+      a ← pop_value,
+      push_value a,
+      push_value a
   | (word fst) := sorry
-  | (word (literal n)) := sorry
-  | (word print) := pop_int >>= print_int
+  | (word (lit n)) := push_value (num prg n)
+  | (word print) := pop_int >>= forth_vm.print_int
   | (word (quote name)) := sorry
   | (word snd) := sorry
   | (word swap) := do
@@ -170,4 +182,27 @@ namespace forth_vm
       b ← pop_value,
       push_value a,
       push_value b
+
+  def step : eval prg unit := eval.next_word >>= do_word
+
+  def stopped : forth_vm prg → bool :=
+    λ vm, ff -- TODO
+
+  def steps : nat → eval prg unit
+  | 0 := return ()
+  | (n+1) := do
+    vm ← get,
+    if stopped vm then
+      return ()
+    else
+      (step >> steps n)
 end forth_vm
+
+namespace forth_program
+  def run : nat → forth_program → except string (option (list int)) :=
+    λ num_steps prg,
+      let output_if_done : forth_vm prg → option (list int) :=
+        λ vm, not vm.stopped |> vm.output in
+      let m := (forth_vm.steps num_steps).run.run (forth_vm.new prg) in
+      except.map (output_if_done ∘ prod.snd) m.run
+end forth_program
