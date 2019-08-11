@@ -35,16 +35,16 @@ end fin
 
 
 namespace list
-  def snoc : α → list α → list α
-  | x list.nil        := list.cons x list.nil
-  | x (list.cons h t) := list.cons h (snoc x t)
+  def snoc : list α → α → list α
+  | list.nil        x := list.cons x list.nil
+  | (list.cons h t) x := list.cons h (snoc t x)
 
-  theorem snoc_len (x : α) : Π l, list.length (list.snoc x l) = nat.succ (list.length l)
-  | list.nil := rfl
-  | (list.cons h t) := congr_arg nat.succ (snoc_len t)
+  theorem snoc_len : Π (l : list α) (x : α), (l.snoc x).length = l.length.succ
+  | list.nil        _ := rfl
+  | (list.cons h t) x := congr_arg nat.succ (snoc_len t x)
 end list
 
 namespace vector
-  def snoc : α -> vector α n -> vector α (nat.succ n)
-  | x ⟨lst, prf⟩ := ⟨list.snoc x lst, by { rw (symm prf), rw (list.snoc_len x lst) }⟩
+  def snoc : vector α n → α → vector α (nat.succ n)
+  | ⟨lst, prf⟩ x := ⟨lst.snoc x, by { rw (symm prf), rw (list.snoc_len lst x) }⟩
 end vector

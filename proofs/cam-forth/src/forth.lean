@@ -2,6 +2,7 @@ import data.vector
 import utils
 
 -- The words of our stack language that can appear in definitions.
+@[derive decidable_eq]
 inductive forth_word : Type
 | app : forth_word
 | drop : forth_word
@@ -13,6 +14,7 @@ inductive forth_word : Type
 | snd : forth_word
 | swap : forth_word
 
+@[derive decidable_eq]
 inductive forth_word_any : Type
 | exit : bool → forth_word_any
 | word : forth_word → forth_word_any
@@ -24,6 +26,7 @@ namespace forth_word_any
 end forth_word_any
 
 -- Programs in our stack language.
+@[derive decidable_eq]
 structure forth_program :=
 (fresh : nat)
 (defs : vector (list forth_word) fresh)
@@ -32,9 +35,10 @@ structure forth_program :=
 -- The program counter, constructed so as to always represent a valid
 -- definition, and either a valid word, or one word past the end of the definition
 -- (for exit).
+@[derive decidable_eq]
 structure forth_pc (prg : forth_program) :=
-(def_idx : fin (forth_program.fresh prg))
-(word_idx : fin (nat.succ (list.length (vector.nth (forth_program.defs prg) def_idx))))
+(def_idx : fin prg.fresh)
+(word_idx : fin (prg.defs.nth def_idx).length.succ)
 
 namespace forth_program
   def new : list forth_word → forth_program :=
@@ -44,7 +48,7 @@ namespace forth_program
     λ new_word old,
       forth_program.mk
         (nat.succ (forth_program.fresh old))
-        (vector.snoc new_word (forth_program.defs old))
+        ((forth_program.defs old).snoc new_word)
         (nat.succ_ne_zero _)
 end forth_program
 
@@ -56,16 +60,15 @@ namespace forth_pc
 
   def word {prg : forth_program} : forth_pc prg → forth_word_any :=
     λ pc,
-      forth_word_any.from_option
-        (list.nth
-          (vector.nth (forth_program.defs prg) (def_idx pc))
-          (word_idx pc).1)
+      forth_word_any.from_option ((prg.defs.nth pc.def_idx).nth pc.word_idx.1)
 end forth_pc
 
+@[derive decidable_eq]
 inductive forth_value (prg : forth_program) : Type
 | addr : forth_pc prg → forth_value
 | num  : int → forth_value
 
+@[derive decidable_eq]
 structure forth_vm (prg : forth_program) :=
 (pc : forth_pc prg)
 (data_stack : list (forth_value prg))
@@ -106,8 +109,8 @@ namespace eval
 
   def advance_pc : eval prg unit :=
     modify (λ prev,
-      forth_vm.mk (forth_pc.advance (pc prev)) (data_stack prev)
-                  (return_stack prev) (output prev))
+      forth_vm.mk prev.pc.advance prev.data_stack prev.return_stack
+                  prev.output)
 
   protected def pop_value_helper : list α → eval prg (α × list α)
   | list.nil := throw "Stack underflow"
@@ -116,8 +119,8 @@ namespace eval
   def pop_value : eval prg (forth_value prg) := do
     vm ← get,
     stack ← eval.pop_value_helper (data_stack vm),
-    put (forth_vm.mk (pc vm) stack.2 (return_stack vm) (output vm)),
-    return stack.1
+    put (forth_vm.mk vm.pc stack.snd (return_stack vm) (output vm)),
+    return stack.fst
 
   protected def pop_int_helper : forth_value prg → eval prg int
   | (forth_value.num _ n) := return n
@@ -137,12 +140,12 @@ namespace eval
     λ val, do
       vm ← get,
       let stack := list.cons val (data_stack vm),
-      put (forth_vm.mk (pc vm) stack (return_stack vm) (output vm)),
+      put (forth_vm.mk vm.pc stack (return_stack vm) (output vm)),
       return ()
 
   def next_word : eval prg forth_word_any := do
     vm ← get,
-    return (forth_pc.word (pc vm))
+    return vm.pc.word
 end eval
 
 namespace forth_vm
@@ -186,7 +189,7 @@ namespace forth_vm
   def step : eval prg unit := eval.next_word >>= do_word
 
   def stopped : forth_vm prg → bool :=
-    λ vm, ff -- TODO
+    λ vm, sorry
 
   def steps : nat → eval prg unit
   | 0 := return ()
