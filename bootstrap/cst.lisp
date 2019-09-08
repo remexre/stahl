@@ -32,36 +32,42 @@
   (make-symbol (value node)))
 
 (defclass loc-stream ()
-  ((col :initform 0)
-   (line :initform 1)
-   (file :initarg :file :initform nil)
+  ((file :initarg :file :initform nil)
+   (inner-next-col :initform 0)
+   (inner-next-line :initform 1)
    (inner-stream :initarg :stream :initform (error "Must specify :stream"))
-   (buffer-char :accessor buffer-char :initform nil)
-   (buffer-loc :accessor buffer-loc :initform nil)))
+   (buffer-char :accessor buffer-char :initform nil)))
 
-(defun loc-at (stream)
-  (with-slots (col line file) stream
-    (make-instance 'loc :col col :line line :file file)))
+(defun loc-from (stream marker)
+  (with-slots (file inner-next-line inner-next-col) stream
+    (make-instance 'loc :start-line (car marker) :start-col (cdr marker)
+                   :end-line inner-next-line :end-col inner-next-col
+                   :file file)))
 
-(defun peek-loc-stream (stream)
-  (with-slots (buffer-char buffer-loc inner-stream) stream
+(defun loc-marker (stream)
+  (with-slots (inner-next-line inner-next-col) stream
+    (cons inner-next-line inner-next-col)))
+
+(defun peek (stream)
+  (with-slots (buffer-char inner-stream) stream
+    ; Should only need to fire once?
     (unless buffer-char
-      (setf buffer-loc (loc-at stream))
       (setf buffer-char (read-char inner-stream)))
-    (values buffer-char buffer-loc)))
+    (values buffer-char (loc-marker stream))))
 
-(defun peek-loc-stream* (stream)
-  (handler-case (peek-loc-stream stream)
+(defun peek-or-nil (stream)
+  (handler-case (peek stream)
     (end-of-file () nil)))
 
-(defun next-char (stream)
-  (multiple-value-bind (ch loc) (peek-loc-stream stream)
-    (with-slots (col line) stream
+(defun advance (stream)
+  (let ((ch (peek stream)))
+    (with-slots (inner-next-col inner-next-line) stream
       (cond
-        ((eq ch #\newline) (incf line) (setf col 1))
-        (t                 (incf col))))
+        ((eq ch #\newline) (incf inner-next-line)
+                           (setf inner-next-col 1))
+        (t                 (incf inner-next-col))))
     (setf (buffer-char stream) nil)
-    (values ch loc)))
+    ch))
 
 (defmacro push-if (expr place)
   (let ((name (gensym)))
@@ -84,45 +90,50 @@
     (parse-exprs (make-instance 'loc-stream :file path :stream stream))))
 
 (defun parse-expr (stream)
-  (multiple-value-bind (ch loc) (peek-loc-stream stream)
+  (loop while (and (peek stream) (spacep (peek stream)))
+        do (advance stream))
+  (multiple-value-bind (ch marker) (peek stream)
     (cond
-      ((spacep ch)     (next-char stream) nil)
-      ((eq ch #\")     (next-char stream) (make-instance 'cst-string :loc loc
-                                                         :value (parse-string stream)))
-      ((eq ch #\#)     (loop for ch = (next-char stream) until (eq ch #\newline)) nil)
-      ((eq ch #\()     (next-char stream) (parse-list-tail stream loc))
-      ((eq ch #\{)     (next-char stream) (parse-brack-tail stream loc))
-      ((symbolishp ch) (make-instance 'cst-symbol :loc loc :value (parse-symbol stream)))
+      ((eq ch #\")     (advance stream)
+                       (parse-string stream marker))
+      ((eq ch #\#)     (loop for ch = (advance stream)
+                             until (eq ch #\newline))
+                       nil)
+      ((eq ch #\()     (advance stream)
+                       (parse-list-tail stream marker))
+      ((eq ch #\{)     (advance stream)
+                       (parse-brack-tail stream marker))
+      ((symbolishp ch) (parse-symbol stream marker))
       (t               (error "Unexpected character ~s~%" ch)))))
 
-(defun parse-brack-tail (stream loc)
+(defun parse-brack-tail (stream marker)
   (let ((acc #'(lambda (last) last))
-        (last (make-instance 'cst-nil :loc loc)))
-    (loop for ch = (peek-loc-stream stream)
+        (last (make-instance 'cst-nil :loc (loc-from stream marker))))
+    (loop for ch = (peek stream)
           until (eq ch #\})
           do (cond
-               ((spacep ch) (next-char stream))
+               ((spacep ch) (advance stream))
                (t
                 (let ((head (parse-expr stream)))
                   (when head
                     (let ((prev-acc acc))
                       (setf acc #'(lambda (last)
                         (funcall prev-acc (make-instance 'cst-cons :cst-car head :cst-cdr last
-                                                         :loc loc))))))))))
-    (next-char stream)
-    (make-instance 'cst-cons :loc loc
-      :cst-car (make-instance 'cst-symbol :loc loc :value "!")
+                                                         :loc (loc-from stream marker)))))))))))
+    (advance stream)
+    (make-instance 'cst-cons :loc (loc-from stream marker)
+      :cst-car (make-instance 'cst-symbol :loc (loc-from stream marker) :value "!")
       :cst-cdr (funcall acc last))))
 
-(defun parse-list-tail (stream loc)
+(defun parse-list-tail (stream marker)
   (let ((acc #'(lambda (last) last))
-        (last (make-instance 'cst-nil :loc loc)))
-    (loop for ch = (peek-loc-stream stream)
+        (last (make-instance 'cst-nil :loc (loc-from stream marker))))
+    (loop for ch = (peek stream)
           until (eq ch #\))
           do (cond
-               ((spacep ch) (next-char stream))
+               ((spacep ch) (advance stream))
                ((eq ch #\|)
-                (next-char stream)
+                (advance stream)
                 (setf last (parse-expr stream)))
                (t
                 (let ((head (parse-expr stream)))
@@ -130,25 +141,25 @@
                     (let ((prev-acc acc))
                       (setf acc #'(lambda (last)
                         (funcall prev-acc (make-instance 'cst-cons :cst-car head :cst-cdr last
-                                                         :loc loc))))))))))
-    (next-char stream)
+                                                         :loc (loc-from stream marker)))))))))))
+    (advance stream)
     (funcall acc last)))
 
-(defun parse-string (stream)
+(defun parse-string (stream marker)
   (let ((chs (make-array 0 :adjustable t :element-type 'character :fill-pointer 0)))
-    (loop for raw-ch = (next-char stream)
+    (loop for raw-ch = (advance stream)
           until (eq raw-ch #\")
           for ch = (if (eq raw-ch #\\) (parse-escape stream) raw-ch)
           do (vector-push-extend ch chs))
-    (coerce chs 'simple-string)))
+    (make-instance 'cst-string :loc (loc-from stream marker) :value (coerce chs 'simple-string))))
 
-(defun parse-symbol (stream)
+(defun parse-symbol (stream marker)
   (let ((chs (make-array 0 :adjustable t :element-type 'character :fill-pointer 0)))
-    (loop for ch = (peek-loc-stream* stream)
+    (loop for ch = (peek-or-nil stream)
           while (symbolishp ch)
           do (vector-push-extend ch chs)
-          do (next-char stream))
-    (coerce chs 'simple-string)))
+          do (advance stream))
+    (make-instance 'cst-symbol :loc (loc-from stream marker) :value (coerce chs 'simple-string))))
 
 (defun spacep (ch)
   (char< ch #\!))

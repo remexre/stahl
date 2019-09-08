@@ -22,22 +22,16 @@
 
 (defun main (src-paths output-path)
   (declare (ignore output-path))
-  (let* ((parsed-modules (mapcar #'parse-file src-paths))
+  (let* ((*print-circle* t)
+         (parsed-modules (mapcar #'parse-file src-paths))
          (loaded-modules nil))
-    (format t "parsed-modules = ~a~%" parsed-modules)
     (dolist (module (toposort parsed-modules #'module-depends-on))
       (resolve-names-for-module module loaded-modules)
-      (push (cons (name module) module) loaded-modules))))
+      (push (cons (name module) module) loaded-modules))
+    (format t "parsed-modules = ~a~%" parsed-modules)))
 
 (defun test-main ()
   "A main function for debugging in SLIME."
   (main
-    (list
-      "./src/std/list.stahl"
-      "./src/std/io.stahl"
-      "./src/std/string.stahl"
-      "./src/std/vect.stahl"
-      "./src/std/nat.stahl"
-      "./src/std.stahl"
-      "./src/bin/compiler.stahl")
+    '("./examples/sandbox.stahl")
     "tmp/stahl-bootstrap.fth"))

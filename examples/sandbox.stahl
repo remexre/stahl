@@ -1,0 +1,14 @@
+(module sandbox)
+(export main)
+
+(defn id {T TYPE} (x T) -> T
+  x)
+
+(type Unit : TYPE
+  (unit : Unit))
+
+(def unused Unit
+  unit)
+
+(def main Unit
+  ((id id) unit))

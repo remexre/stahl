@@ -2,12 +2,15 @@
 
 (defclass loc ()
   ((file :accessor file :initarg :file :initform nil)
-   (line :accessor line :initarg :line)
-   (col  :accessor col :initarg :col)))
+   (start-line :accessor start-line :initarg :start-line)
+   (start-col  :accessor start-col  :initarg :start-col)
+   (end-line   :accessor end-line   :initarg :end-line)
+   (end-col    :accessor end-col    :initarg :end-col)))
 
 (defmethod print-object ((loc loc) stream)
-  (with-slots (file line col) loc
-    (format stream "~a:~a:~a" (or file "<unknown>") line col)))
+  (with-slots (file start-line start-col end-line end-col) loc
+    (format stream "In ~a: ~a:~a-~a:~a" (or file "<unknown>")
+      start-line start-line end-line end-col)))
 
 (defclass syntax-object ()
   ((loc :accessor loc :initarg :loc :initform (error "Must specify :loc"))))
@@ -29,6 +32,9 @@
 (defmacro let-push (var expr &body body)
   `(let ((,var (cons ,expr ,var)))
      ,@body))
+
+(defun make-resizable-vector ()
+  (make-array 0 :fill-pointer 0 :adjustable t))
 
 (defmacro matches? (expr pat)
   `(match ,expr (,pat t)))

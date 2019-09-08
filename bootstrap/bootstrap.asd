@@ -7,12 +7,19 @@
   :build-operation "program-op"
   :build-pathname "tmp/bootstrap"
   :entry-point "bootstrap:main"
-  :depends-on (:trivia :unix-opts)
+  :depends-on (:cl-json :cl-who :trivia :unix-opts)
   :components ((:file "package")
                (:file "utils")
+
                (:file "cst")
                (:file "ast")
                (:file "modules")
                (:file "cst-to-ast")
+
                (:file "names")
+               (:file "tyck")
+               (:file "forth")
+               (:file "codegen")
+
+               (:file "highlight")
                (:file "main")))

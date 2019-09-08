@@ -30,6 +30,7 @@
 
 (defun resolve-names-for-module (module loaded-modules)
   (with-slots (name exports imports decls) module
+    (setf (refers-to name) module)
     (let ((*name-resolution-scope* nil))
       (dolist (clause imports)
         (resolve-names-for-import-clause clause loaded-modules))
@@ -45,6 +46,7 @@
         (error 'no-such-module :name sought-module))
       (dolist (name names)
         (let ((referent (car (member name (exports found-module) :test #'name=))))
+          ; TODO copy-referent
           (setf (refers-to name) referent)
           (push name *name-resolution-scope*))))))
 
@@ -54,17 +56,19 @@
 (defun resolve-name (name)
   (let ((scope-var (car (member name *name-resolution-scope* :test #'name=))))
     (if scope-var
-      (setf (refers-to name) scope-var)
+      (copy-referent name scope-var)
       (error 'unbound-name :name name))))
 
 (defmethod resolve-names-for-decl ((decl decl-builtin) module-name)
   (with-slots (name) decl
     (setf (module-name name) module-name)
+    (setf (refers-to name) decl)
     (push name *name-resolution-scope*)))
 
 (defmethod resolve-names-for-decl ((decl decl-def) module-name)
   (with-slots (name ty expr) decl
     (setf (module-name name) module-name)
+    (setf (refers-to name) decl)
     (resolve-names-for-expr ty)
     (resolve-names-for-expr expr)
     (push name *name-resolution-scope*)))
@@ -72,12 +76,14 @@
 (defmethod resolve-names-for-decl ((decl decl-elim) module-name)
   (with-slots (name ty-name) decl
     (setf (module-name name) module-name)
+    (setf (refers-to name) decl)
     (resolve-name ty-name)
     (push name *name-resolution-scope*)))
 
 (defmethod resolve-names-for-decl ((decl decl-type) module-name)
   (with-slots (name ty-args ctors) decl
     (setf (module-name name) module-name)
+    (setf (refers-to name) decl)
     (push name *name-resolution-scope*)
 
     ; The implicit arguments to the type are in scope for all constructor definitions.
@@ -89,14 +95,15 @@
 
       (dolist (ctor ctors)
         (with-slots (name ctor-args ctor-ty-args) ctor
+          (setf (refers-to name) ctor)
           (setf (module-name name) module-name)
           (let ((*name-resolution-scope* *name-resolution-scope*))
             (dolist (ctor-arg ctor-args)
               (with-slots (name) ctor-arg
                 (setf (local name) t)
                 (push name *name-resolution-scope*))
-              (format t "TODO ctor-arg    = (THE ~a ~a)~%" (type-of ctor-arg) ctor-arg))
-            (format t "scope = ~a~%" *name-resolution-scope*)
+              ; TODO ctor-arg
+              )
             (dolist (ctor-ty-arg ctor-ty-args)
               (resolve-names-for-expr ctor-ty-arg))))))
 

@@ -33,6 +33,12 @@
    (local       :accessor local       :initform nil)
    (module-name :accessor module-name :initform nil)))
 
+(defun copy-referent (to from)
+  (check-type to   name)
+  (check-type from name)
+  (assert (null (refers-to to)))
+  (setf (refers-to to) (refers-to from)))
+
 (defun name= (l r)
   (check-type l name)
   (check-type r name)
