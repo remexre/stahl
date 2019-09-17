@@ -8,8 +8,8 @@ clean:
 proofs:
 	$(MAKE) -C proofs
 watch:
-	watchexec -cre asd,lean,lisp,stahl $(MAKE)
-.PHONY: all build clean proofs watch
+	watchexec -cre asd,asm,lean,lisp,stahl $(MAKE)
+.PHONY: all clean proofs watch
 
 ci:
 	docker build -t remexre/stahl-builder .travis
